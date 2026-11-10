@@ -453,13 +453,45 @@ describe('Settings screen', () => {
 describe('Content filter', () => {
   test('the first-launch chooser renders in both languages', () => {
     expectScreenLocalizes(wrap(ContentFilterChooser, {}),
-      ['filter.chooser_title', 'filter.chooser_message']);
+      ['filter.chooser_title', 'filter.chooser_message', 'filter.off_detail',
+        // every choice, each with what it adds (the groups' short names)
+        'filter.preset_off', 'filter.preset_centrist_mo', 'filter.preset_rwmo', 'filter.preset_yeshivish', 'filter.preset_strict_charedi',
+        'filter.group_reform_short',
+        'filter.group_reconstructionist_short',
+        'filter.group_conservative_short',
+        'filter.group_biblical_criticism_short',
+        'filter.group_christian_translations_short',
+        'filter.group_sefarim_chitzoniim_short',
+        'filter.group_polemics_short',
+        'filter.group_non_orthodox_translations_short',
+        'filter.group_open_orthodox_short',
+        'filter.group_haskalah_secular_short',
+        'filter.group_jps_1917_short',
+        'filter.group_historical_apocrypha_short',
+        'filter.group_academic_orthodox_short',
+        'filter.group_community_sheets_short',
+        'filter.group_religious_zionist_thought_short']);
   });
 
   test('a hand-switched group shows "Custom" in both languages', () => {
     const custom = toggleGroup(configForPreset('rwmo'), 'jps_1917', true);
     expectScreenLocalizes(wrapWithState(ContentFilterSettings, { langStyle: {} }, { contentFilter: custom }),
-      ['filter.section_header', 'filter.custom', 'filter.groups_header']);
+      ['filter.section_header', 'filter.custom', 'filter.groups_header',
+        'filter.group_reform',
+        'filter.group_reconstructionist',
+        'filter.group_conservative',
+        'filter.group_biblical_criticism',
+        'filter.group_christian_translations',
+        'filter.group_sefarim_chitzoniim',
+        'filter.group_polemics',
+        'filter.group_non_orthodox_translations',
+        'filter.group_open_orthodox',
+        'filter.group_haskalah_secular',
+        'filter.group_jps_1917',
+        'filter.group_historical_apocrypha',
+        'filter.group_academic_orthodox',
+        'filter.group_community_sheets',
+        'filter.group_religious_zionist_thought']);
   });
 });
 

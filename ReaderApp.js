@@ -59,6 +59,7 @@ import {
 import {FooterTabBar} from "./FooterTabBar";
 import {getSafeViewStyleAndStatusBarBackground} from "./getSafeViewStyles";
 import ContentFilterChooser from "./shomer/ContentFilterChooser";
+import {correctionEmail, versionOnScreen} from "./reportError";
 
 const ViewPort = Dimensions.get('window');
 
@@ -1654,15 +1655,14 @@ class ReaderApp extends React.PureComponent {
   }
 
   reportError = () => {
-    const body =
-      `${this.state.segmentRef}
-
-      ${this.getDisplayedText(true)}
-
-      Describe the error:`;
-    // Text errors are in the source library, so they go to Sefaria; the subject says where they came from.
-    const subject = `Sefaria Text Correction from SoferBooks Library (${Platform.OS})`
-    Sefaria.util.openComposedEmail("corrections@sefaria.org", subject, body);
+    // Sent to the corrections address of the library the text came from (reportError.js)
+    const { to, subject, body } = correctionEmail({
+      ref: this.state.segmentRef,
+      text: this.getDisplayedText(true),
+      version: versionOnScreen(this.state.currVersionObjects, this.props.textLanguage),
+      platform: Platform.OS,
+    });
+    Sefaria.util.openComposedEmail(to, subject, body);
   };
 
   shareCurrentSegment = (sectionIndex, segmentIndex, segmentRef) => {

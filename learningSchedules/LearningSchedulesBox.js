@@ -94,15 +94,25 @@ const LearningScheduleTable = ({ desiredCalendarTitles, openRef }) => {
     );
 };
 
+// What a row shows for an item: its own summary (Chok LeYisrael: "Toldot, Tuesday"), else its
+// readings joined (Daily Rambam, 3 chapters: "Neighbors 13-14, Agents and Partners 1")
+export const rowSubtitle = calendarItem => {
+    if (calendarItem.summary) { return calendarItem.summary; }
+    const subs = calendarItem.subs || [];
+    return { en: subs.map(s => s.en).join(', '), he: subs.map(s => s.he).join(', ') };
+};
+
 const LearningScheduleRow = ({ calendarItem, openRef }) => {
     const { theme, interfaceLanguage } = useGlobalState();
-    const onPress = () => openRef(calendarItem.refs[0]);
+    const hasRef = !!(calendarItem.refs && calendarItem.refs.length);
+    const onPress = () => { if (hasRef) { openRef(calendarItem.refs[0]); } };
     const displayTitle = calendarItem.title.en === "Parashat Hashavua" ? stringPair('common.torah') : calendarItem.title
+    const { en, he } = rowSubtitle(calendarItem);
     return (
         <SefariaPressable onPress={onPress}>
             <FlexFrame dir={"row"} justifyContent={"space-between"}>
                 <InterfaceText {...displayTitle} extraStyles={[styles.flex1, styles.fontSize16, theme.tertiaryText]} />
-                <ContentTextWithFallback {...calendarItem.subs[0]} extraStyles={[styles.flex1, {marginTop: interfaceLanguage === "english" ? 5 : 0}, theme.text]} />
+                <ContentTextWithFallback en={en} he={he} extraStyles={[styles.flex1, {marginTop: interfaceLanguage === "english" ? 5 : 0}, theme.text]} />
             </FlexFrame>
         </SefariaPressable>
     );
@@ -110,5 +120,6 @@ const LearningScheduleRow = ({ calendarItem, openRef }) => {
 
 const getFilteredCalendarItems = (calendarItems, desiredCalendarTitles) => {
     const desiredCalendarTitlesSet = new Set(desiredCalendarTitles);
-    return calendarItems.filter(item => desiredCalendarTitlesSet.has(item.title.en));
+    // an item with no reference to open (a link to the website only) is left out of the box
+    return calendarItems.filter(item => desiredCalendarTitlesSet.has(item.title.en) && item.refs && item.refs.length);
 };

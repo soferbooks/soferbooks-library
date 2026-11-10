@@ -1,5 +1,5 @@
 import {
-  PRESETS, GROUPS, groupsFor, normalize, presetOf, configForPreset, toggleGroup,
+  PRESETS, CHOICES, GROUPS, groupsFor, normalize, presetOf, configForPreset, toggleGroup,
 } from '../shomer/presets';
 import {
   match, hasWord, filterToc, versionMatch, bookMatch, sheetMatch, filterVersions, RULES,
@@ -259,5 +259,100 @@ describe('library sources', () => {
   test('the others are registered as coming soon', () => {
     expect(SOURCES.filter(s => !s.available).map(s => s.id))
       .toEqual(['dicta', 'otzaria', 'wikisource', 'soferbooks_extras']);
+  });
+});
+
+describe('"Off"', () => {
+  test('is offered beside the four presets, first, and hides nothing', () => {
+    expect(CHOICES.map(p => p.id)).toEqual(['off', 'centrist_mo', 'rwmo', 'yeshivish', 'strict_charedi']);
+    const off = cfg('off');
+    expect(off).toMatchObject({ preset: 'off', active: false });
+    expect(Object.values(off.groups).some(Boolean)).toBe(false);
+    expect(match(off, 'King James Version')).toBeNull();
+    expect(bookMatch(off, { title: 'Book of Judith' })).toBeNull();
+    const toc = [{ title: 'Book of Judith' }];
+    expect(filterToc(off, toc)).toBe(toc);
+  });
+
+  test('is a choice, not "not chosen yet", and survives a save/load', () => {
+    expect(normalize(null)).toBeNull();
+    expect(normalize(JSON.parse(JSON.stringify(cfg('off'))))).toEqual(cfg('off'));
+    expect(normalize({ preset: 'rwmo', active: false }).preset).toBe('off');
+  });
+
+  test('switching a group on from Off turns the filter on; switching it back is Off again', () => {
+    const on = toggleGroup(cfg('off'), 'reform', true);
+    expect(on).toMatchObject({ preset: 'custom', active: true });
+    expect(match(on, 'Gunther Plaut')).not.toBeNull();
+    expect(toggleGroup(on, 'reform', false)).toMatchObject({ preset: 'off', active: false });
+  });
+
+  test('every choice and group has an English and a Hebrew name', () => {
+    const en = require('../i18n/en.json');
+    const he = require('../i18n/he.json');
+    const ids = CHOICES.map(p => `filter.preset_${p.id}`)
+      .concat(GROUPS.map(g => `filter.group_${g.id}`), GROUPS.map(g => `filter.group_${g.id}_short`));
+    const hebrew = s => /[֐-׿]/.test(s) || s === 'JPS 1917';
+    expect(ids.filter(id => !en[id] || !he[id] || !hebrew(he[id]))).toEqual([]);
+  });
+});
+
+describe('rule fixes (checked against Sefaria\'s real toc.json, 2026-11)', () => {
+  const visible = (presetId, entry) => bookMatch(cfg(presetId), entry) === null;
+
+  test('"Jewish Legal Writings by Women" is not Haskalah: visible under every preset', () => {
+    const book = { title: 'Jewish Legal Writings by Women', heTitle: 'נשים בדיון הלכתי' };
+    for (const p of PRESETS) { expect(visible(p.id, book)).toBe(true); }
+  });
+
+  test('the Haskalah rule still hides what it should from RWMO up', () => {
+    const books = ['Words of Peace and Truth', 'Moreh Nevukhei HaZeman', 'Revealment and Concealment in Language',
+      'Talks of Yeshayahu Leibowitz on the Parasha'].map(title => ({ title }));
+    books.push({ title: 'A New Israeli Commentary on Pirkei Avot', collectiveTitle: 'Avigdor Shinan' });
+    books.push({ title: 'x', heTitle: 'פירוש', heCommentator: 'אביגדור שנאן' });  // Sefaria's Hebrew spelling
+    for (const book of books) {
+      expect(visible('centrist_mo', book)).toBe(true);
+      expect(visible('rwmo', book)).toBe(false);
+    }
+  });
+
+  test('"Orot" hides only Rav Kook\'s Orot, not other titles containing the word', () => {
+    for (const title of ['Orot Chaim', 'Orot Elim', 'Sefer Orot HaGra', 'Torot Emet']) {
+      expect(visible('strict_charedi', { title })).toBe(true);
+    }
+    expect(visible('strict_charedi', { title: 'Orot Chaim', heTitle: 'אורות חיים' })).toBe(true);
+    for (const title of ['Orot', 'Orot HaKodesh', 'Orot HaTeshuvah', 'Orot HaTorah', 'Olat Reiyah', 'Ein Ayah', 'Shemonah Kevatzim']) {
+      expect(visible('yeshivish', { title })).toBe(true);
+      expect(visible('strict_charedi', { title })).toBe(false);
+    }
+    expect(visible('strict_charedi', { title: 'Orot', heTitle: 'אורות' })).toBe(false);
+  });
+
+  test('"Orot" as a reference, a link or a Hebrew title', () => {
+    const c = cfg('strict_charedi');
+    expect(match(c, 'Orot 1:2')).not.toBeNull();
+    expect(match(c, 'Orot, Lights from Darkness 3')).not.toBeNull();
+    expect(match(c, '', '/Orot.1.2?lang=bi')).not.toBeNull();
+    expect(match(c, 'אורות')).not.toBeNull();
+    expect(match(c, 'Orot Chaim 1:2')).toBeNull();
+    expect(match(c, '', '/Orot_Chaim.1')).toBeNull();
+  });
+
+  test('books the old list missed are hidden at the intended level', () => {
+    const level1 = ["The Torah; A Women's Commentary", "Rereading the Rabbis; A Woman's Voice",
+      'Standing Again at Sinai; Judaism from a Feminist Perspective', 'The Testaments of the Twelve Patriarchs'];
+    for (const title of level1) { expect(visible('centrist_mo', { title })).toBe(false); }
+    for (const title of ['The Five Books of Moses, by Everett Fox', 'The Early Prophets, by Everett Fox']) {
+      expect(visible('centrist_mo', { title })).toBe(true);
+      expect(visible('rwmo', { title })).toBe(false);
+    }
+    // Fox's translation is still hidden as a version from RWMO up
+    expect(versionMatch(cfg('rwmo'), { versionTitle: 'The Five Books of Moses, by Everett Fox' })).not.toBeNull();
+  });
+
+  test('ordinary Orthodox works stay visible under Strict Charedi', () => {
+    for (const title of ['Mishnah Berurah', 'Kuzari', 'Torah of the Mothers', 'Gray Matter I', "Peninei Halakhah, Women's Prayer"]) {
+      expect(visible('strict_charedi', { title })).toBe(true);
+    }
   });
 });

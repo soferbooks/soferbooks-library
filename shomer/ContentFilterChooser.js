@@ -5,7 +5,7 @@ import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { GlobalStateContext, getTheme } from '../StateManager';
 import strings from '../LocalizedStrings';
 import styles from '../Styles';
-import { PRESETS, configForPreset } from './presets';
+import { CHOICES, configForPreset } from './presets';
 import { PresetButton, presetDetail, useSetContentFilter } from './ContentFilterSettings';
 
 const ContentFilterChooser = () => {
@@ -18,7 +18,7 @@ const ContentFilterChooser = () => {
       <ScrollView contentContainerStyle={local.content}>
         <Text style={[langStyle, theme.text, local.title]}>{strings.filter.chooser_title}</Text>
         <Text style={[langStyle, theme.secondaryText, local.message]}>{strings.filter.chooser_message}</Text>
-        {PRESETS.map(p => (
+        {CHOICES.map(p => (
           <PresetButton key={p.id} preset={p} selected={false} theme={theme} langStyle={langStyle}
             detail={presetDetail(p)} onPress={() => setContentFilter(configForPreset(p.id))} />
         ))}

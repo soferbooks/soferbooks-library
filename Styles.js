@@ -55,6 +55,13 @@ export default StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 6,
   },
+  // Cinzel (SIL OFL 1.1, from github.com/google/fonts ofl/cinzel; android/app/src/main/assets/fonts/
+  // Cinzel.ttf with Cinzel-OFL.txt): home-page headings only, and only in English (no Hebrew glyphs)
+  homeHeadingFont: {
+    fontFamily: 'Cinzel',
+    fontWeight: 'normal',
+    letterSpacing: 0.5,
+  },
   homeContinueRow: {
     flexDirection: 'row',
     alignItems: 'center',

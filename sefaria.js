@@ -27,6 +27,7 @@ import { Topic } from './Topic';
 import {openFileInSources} from "./offline";
 import {trackEvent} from "./analytics/events";
 import * as shomer from './shomer';
+import {withExtraSchedules} from './learningSchedules/extraSchedules';
 
 
 global.Sefaria = {
@@ -662,20 +663,22 @@ global.Sefaria = {
   },
 
 
-  getCalendars: function(custom, diaspora) {
+  getCalendars: function(custom, diaspora, date = new Date()) {
+    // Sefaria's calendar.json for the day, plus the app's own offline schedules
+    // (learningSchedules/extraSchedules.js: Shnayim Mikra, Chok LeYisrael, Mishnah Berurah, Tehillim)
     if (!Sefaria.calendar) { return []; }
-    const dateString = Sefaria._dateString();
+    const dateString = Sefaria._dateString(date);
     const cal_obj = Sefaria.calendar[dateString];
-    if (!cal_obj) { return []; }
+    if (!cal_obj) { return Sefaria._addMetadataToCalendarItems(withExtraSchedules([], date)); }
     const preference_key = `${diaspora ? 1 : 0}|${custom[0]}`;
-    const cal_items = cal_obj[preference_key] || [];
+    const cal_items = [...(cal_obj[preference_key] || [])];
     const existing_items = new Set(cal_items.map(c => c.title.en));
     for (let c of cal_obj.d) {
       if (!existing_items.has(c.title.en)) {
         cal_items.push(c);
       }
     }
-    return Sefaria._addMetadataToCalendarItems(cal_items.sort((a, b) => a.order - b.order));
+    return Sefaria._addMetadataToCalendarItems(withExtraSchedules(cal_items, date));
   },
   _addMetadataToCalendarItems: function(calendarItems) {
     const meta = Sefaria.calendar?.metadata || {};

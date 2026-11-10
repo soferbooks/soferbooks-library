@@ -38,7 +38,11 @@ export const GROUPS = [
   { id: 'religious_zionist_thought', short: 'Rav Kook, Rav Soloveitchik, Nechama Leibowitz', level: 4, name: 'Religious Zionist & Modern Orthodox thought', examples: "Rav Kook's Orot, Rav J. B. Soloveitchik's Halakhic Man, Nechama Leibowitz" },
 ];
 
-export const presetById = id => PRESETS.find(p => p.id === id);
+// "Off": nothing is hidden. Not on the ladder (PRESETS); offered beside it, first.
+export const OFF = { id: 'off', level: 0, name: 'Off' };
+export const CHOICES = [OFF, ...PRESETS];
+
+export const presetById = id => CHOICES.find(p => p.id === id);
 
 // The groups a preset hides: { groupId: true/false }
 export function groupsFor(presetId) {
@@ -53,14 +57,17 @@ export function groupsFor(presetId) {
 export function normalize(stored) {
   if (!stored || typeof stored !== 'object') { return null; }
   const s = stored;
+  const off = s.preset === 'off' || s.active === false;
   const cfg = {
     version: 2,
-    active: s.active !== false,
-    preset: s.preset === 'custom' || presetById(s.preset) ? s.preset : 'rwmo',
+    active: !off,
+    preset: off ? 'off' : s.preset === 'custom' || presetById(s.preset) ? s.preset : 'rwmo',
     customBlacklist: Array.isArray(s.customBlacklist) ? s.customBlacklist : [],
     customWhitelist: Array.isArray(s.customWhitelist) ? s.customWhitelist : [],
   };
-  if (s.preset === 'custom' && s.groups) {
+  if (off) {
+    cfg.groups = groupsFor('off');
+  } else if (s.preset === 'custom' && s.groups) {
     cfg.groups = Object.assign(groupsFor('rwmo'), s.groups);
   } else {
     if (cfg.preset === 'custom') { cfg.preset = 'rwmo'; }
@@ -69,9 +76,9 @@ export function normalize(stored) {
   return cfg;
 }
 
-// The preset whose groups are exactly these, else 'custom'
+// The preset whose groups are exactly these ('off' when none is hidden), else 'custom'
 export function presetOf(groups) {
-  for (const p of PRESETS) {
+  for (const p of CHOICES) {
     const want = groupsFor(p.id);
     if (GROUPS.every(g => !!groups[g.id] === want[g.id])) { return p.id; }
   }
@@ -83,8 +90,9 @@ export function configForPreset(presetId) {
   return normalize({ preset: presetId });
 }
 
-// A config with one group switched by hand
+// A config with one group switched by hand (switching one on while "Off" turns the filter on)
 export function toggleGroup(cfg, groupId, hidden) {
   const groups = { ...(cfg ? cfg.groups : groupsFor('rwmo')), [groupId]: !!hidden };
-  return { ...(cfg || normalize({ preset: 'rwmo' })), groups, preset: presetOf(groups) };
+  const preset = presetOf(groups);
+  return { ...(cfg || normalize({ preset: 'rwmo' })), groups, preset, active: preset !== 'off' };
 }

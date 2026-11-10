@@ -5,7 +5,7 @@ import { View, Text, TouchableOpacity, Switch, StyleSheet } from 'react-native';
 import { GlobalStateContext, DispatchContext, STATE_ACTIONS, getTheme } from '../StateManager';
 import strings from '../LocalizedStrings';
 import styles from '../Styles';
-import { PRESETS, GROUPS, configForPreset, toggleGroup } from './presets';
+import { CHOICES, GROUPS, configForPreset, toggleGroup } from './presets';
 import { SOURCES } from '../sources';
 
 export const useSetContentFilter = () => {
@@ -20,13 +20,42 @@ export const PresetButton = ({ preset, selected, onPress, theme, langStyle, deta
     onPress={onPress}
     style={[local.preset, selected ? local.presetSelected : null]}
   >
-    <Text style={[langStyle, theme.text, local.presetName]}>{selected ? '◉ ' : '○ '}{preset.name}</Text>
+    <Text style={[langStyle, theme.text, local.presetName]}>{selected ? '◉ ' : '○ '}{presetName(preset)}</Text>
     {detail ? <Text style={[langStyle, theme.tertiaryText, local.detail]}>{detail}</Text> : null}
   </TouchableOpacity>
 );
 
-// What each preset adds on top of the one before it
-export const presetDetail = preset => GROUPS.filter(g => g.level === preset.level).map(g => g.short).join(', ');
+// Names in the interface language (i18n/*.json), falling back to the English in presets.js.
+// Spelled out (not built from the id) so the i18n tests can see every id in use.
+const PRESET_NAMES = {
+  off: 'filter.preset_off', centrist_mo: 'filter.preset_centrist_mo', rwmo: 'filter.preset_rwmo',
+  yeshivish: 'filter.preset_yeshivish', strict_charedi: 'filter.preset_strict_charedi',
+};
+const GROUP_NAMES = {
+  reform: ['filter.group_reform', 'filter.group_reform_short'],
+  reconstructionist: ['filter.group_reconstructionist', 'filter.group_reconstructionist_short'],
+  conservative: ['filter.group_conservative', 'filter.group_conservative_short'],
+  biblical_criticism: ['filter.group_biblical_criticism', 'filter.group_biblical_criticism_short'],
+  christian_translations: ['filter.group_christian_translations', 'filter.group_christian_translations_short'],
+  sefarim_chitzoniim: ['filter.group_sefarim_chitzoniim', 'filter.group_sefarim_chitzoniim_short'],
+  polemics: ['filter.group_polemics', 'filter.group_polemics_short'],
+  non_orthodox_translations: ['filter.group_non_orthodox_translations', 'filter.group_non_orthodox_translations_short'],
+  open_orthodox: ['filter.group_open_orthodox', 'filter.group_open_orthodox_short'],
+  haskalah_secular: ['filter.group_haskalah_secular', 'filter.group_haskalah_secular_short'],
+  jps_1917: ['filter.group_jps_1917', 'filter.group_jps_1917_short'],
+  historical_apocrypha: ['filter.group_historical_apocrypha', 'filter.group_historical_apocrypha_short'],
+  academic_orthodox: ['filter.group_academic_orthodox', 'filter.group_academic_orthodox_short'],
+  community_sheets: ['filter.group_community_sheets', 'filter.group_community_sheets_short'],
+  religious_zionist_thought: ['filter.group_religious_zionist_thought', 'filter.group_religious_zionist_thought_short'],
+};
+const localized = (id, fallback) => (id && strings.getString(id)) || fallback;
+export const presetName = p => localized(PRESET_NAMES[p.id], p.name);
+export const groupName = g => localized(GROUP_NAMES[g.id]?.[0], g.name);
+export const groupShort = g => localized(GROUP_NAMES[g.id]?.[1], g.short);
+
+// What each preset adds on top of the one before it ("Off": nothing)
+export const presetDetail = preset => (preset.id === 'off' ? strings.filter.off_detail
+  : GROUPS.filter(g => g.level === preset.level).map(groupShort).join(', '));
 
 export const ContentFilterSettings = ({ langStyle }) => {
   const { themeStr, contentFilter } = useContext(GlobalStateContext);
@@ -37,7 +66,7 @@ export const ContentFilterSettings = ({ langStyle }) => {
     <View style={styles.settingsSection} testID="content-filter-settings">
       <Text style={[langStyle, styles.settingsSectionHeader, theme.tertiaryText]}>{strings.filter.section_header}</Text>
       <Text style={[langStyle, theme.secondaryText, local.detail]}>{strings.filter.description}</Text>
-      {PRESETS.map(p => (
+      {CHOICES.map(p => (
         <PresetButton key={p.id} preset={p} selected={preset === p.id} theme={theme} langStyle={langStyle}
           onPress={() => setContentFilter(configForPreset(p.id))} />
       ))}
@@ -46,11 +75,11 @@ export const ContentFilterSettings = ({ langStyle }) => {
       {GROUPS.map(g => (
         <View key={g.id} style={local.groupRow}>
           <View style={local.groupText}>
-            <Text style={[langStyle, theme.text]}>{g.name}</Text>
+            <Text style={[langStyle, theme.text]}>{groupName(g)}</Text>
             <Text style={[langStyle, theme.tertiaryText, local.detail]}>{g.examples}</Text>
           </View>
           <Switch
-            accessibilityLabel={g.name}
+            accessibilityLabel={groupName(g)}
             value={!!(contentFilter && contentFilter.groups && contentFilter.groups[g.id])}
             onValueChange={hidden => setContentFilter(toggleGroup(contentFilter, g.id, hidden))}
           />

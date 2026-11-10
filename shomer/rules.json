@@ -54,6 +54,23 @@
     "group": "non_orthodox_translations"
   },
   {
+    "id": "everett_fox_books",
+    "name": "Everett Fox's Bible (as a book)",
+    "hebrewName": "התנ\"ך במהדורת אוורט פוקס",
+    "sefariaSlugs": [],
+    "keywords": [
+      "The Five Books of Moses, by Everett Fox",
+      "The Early Prophets, by Everett Fox",
+      "מהדורת אוורט פוקס"
+    ],
+    "reason": "Everett Fox's academic translation with his essays, listed in the library as books of their own; the translation rule only hides it as a translation.",
+    "exampleWorks": [
+      "The Five Books of Moses, by Everett Fox",
+      "The Early Prophets, by Everett Fox"
+    ],
+    "group": "haskalah_secular"
+  },
+  {
     "id": "everett_fox_translation",
     "name": "Everett Fox (Schocken Bible Translation)",
     "hebrewName": "תרגום אוורט פוקס (הוצאת שוקן)",
@@ -184,7 +201,8 @@
       "jubilees",
       "1-enoch",
       "2-enoch",
-      "testament-of-the-twelve-patriarchs"
+      "testament-of-the-twelve-patriarchs",
+      "the-testaments-of-the-twelve-patriarchs"
     ],
     "keywords": [
       "Book of Jubilees",
@@ -196,7 +214,9 @@
       "ספר חנוך",
       "Book of Enoch",
       "Testament of the Twelve Patriarchs",
-      "Assumption of Moses"
+      "Assumption of Moses",
+      "Testaments of the Twelve Patriarchs",
+      "צוואות השבטים"
     ],
     "reason": "Promotes non-Rabbinic sectarian theology and solar calendars conflicting directly with Halakhic lunar calendar; excluded under traditional Sefarim Chitzonim prohibitions (Sanhedrin 100b).",
     "exampleWorks": [
@@ -419,7 +439,12 @@
       "Central Conference of American Rabbis",
       "Reform Responsa",
       "Mishkan T'filah",
-      "Gates of Prayer"
+      "Gates of Prayer",
+      "The Torah; A Women's Commentary",
+      "The Torah: A Women's Commentary",
+      "Women of Reform Judaism",
+      "CCAR Press",
+      "התורה: פירושן של נשים"
     ],
     "reason": "Official responsa and prayer books of the Reform Movement, asserting non-binding Halakha and theological departures.",
     "exampleWorks": [
@@ -603,13 +628,11 @@
     "hebrewName": "מרן הרב אברהם יצחק הכהן קוק זצ\"ל",
     "sefariaSlugs": [
       "rav-kook",
-      "orot",
       "orot-hateshuvah",
       "olat-reiyah"
     ],
     "keywords": [
       "Rav Kook",
-      "Orot",
       "Orot HaTeshuvah",
       "Olat Reiyah",
       "Ein Ayah",
@@ -617,7 +640,18 @@
       "עולת ראיה",
       "עין איה",
       "אורות הקודש",
-      "Orot HaKodesh"
+      "Orot HaKodesh",
+      "Orot HaTorah",
+      "אורות התורה",
+      "Orot HaEmunah",
+      "אורות האמונה",
+      "Shemonah Kevatzim",
+      "שמונה קבצים",
+      "Arpilei Tohar",
+      "ערפלי טוהר",
+      "ערפילי טוהר",
+      "Avraham Yitzchak HaKohen Kook",
+      "Abraham Isaac Kook"
     ],
     "reason": "First Ashkenazi Chief Rabbi of Eretz Yisrael; revered spiritual luminary of Religious Zionism.",
     "exampleWorks": [
@@ -625,7 +659,11 @@
       "Orot HaTeshuvah",
       "Ein Ayah on Ein Yaakov"
     ],
-    "group": "religious_zionist_thought"
+    "group": "religious_zionist_thought",
+    "titles": [
+      "Orot",
+      "אורות"
+    ]
   },
   {
     "id": "nechama_leibowitz",
@@ -717,7 +755,6 @@
       "yeshayahu-leibowitz",
       "avigdor-shinan",
       "shinan",
-      "jewish-legal-writings-by-women",
       "naphtali-herz-wessely",
       "naftali-herz-wessely",
       "wessely",
@@ -742,7 +779,6 @@
       "Avigdor Shinan",
       "Shinan on Pirkei Avot",
       "אביגדור שינאן",
-      "Jewish Legal Writings by Women",
       "Yariv Ben Aharon",
       "יריב בן אהרן",
       "Naphtali Herz Wessely",
@@ -757,7 +793,7 @@
       "עלי באר על גילוי וכיסוי בלשון",
       "בין השיטין על הלכה ואגדה",
       "מורה נבוכי הזמן",
-      "נשים בדיון הלכתי"
+      "אביגדור שנאן"
     ],
     "reason": "Haskalah and secular authors whose works depart from traditional belief; Sofer's not_offered list excludes them on the same RWMO standard.",
     "exampleWorks": [
@@ -875,6 +911,45 @@
       "Notzar haNesher"
     ],
     "group": "non_orthodox_translations"
+  },
+  {
+    "id": "judith_hauptman",
+    "name": "Judith Hauptman (JTS)",
+    "hebrewName": "יהודית האופטמן (בית המדרש לרבנים)",
+    "sefariaSlugs": [
+      "judith-hauptman",
+      "rereading-the-rabbis"
+    ],
+    "keywords": [
+      "Judith Hauptman",
+      "Rereading the Rabbis; A Woman's Voice",
+      "Rereading the Rabbis: A Woman's Voice",
+      "קריאה מחדש של חז\"ל"
+    ],
+    "reason": "Professor of Talmud at the Jewish Theological Seminary (Conservative movement).",
+    "exampleWorks": [
+      "Rereading the Rabbis: A Woman's Voice"
+    ],
+    "group": "conservative"
+  },
+  {
+    "id": "judith_plaskow",
+    "name": "Judith Plaskow (feminist theology)",
+    "hebrewName": "יהודית פלסקו (תאולוגיה פמיניסטית)",
+    "sefariaSlugs": [
+      "judith-plaskow",
+      "standing-again-at-sinai"
+    ],
+    "keywords": [
+      "Judith Plaskow",
+      "Standing Again at Sinai",
+      "עומדות שוב בסיני"
+    ],
+    "reason": "Feminist theology that rethinks revelation and halakha outside the Orthodox framework.",
+    "exampleWorks": [
+      "Standing Again at Sinai: Judaism from a Feminist Perspective"
+    ],
+    "group": "reconstructionist"
   },
   {
     "id": "jps_1917",

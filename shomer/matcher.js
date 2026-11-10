@@ -1,6 +1,7 @@
 // Sefaria Shomer - the matcher. Pure JavaScript (no React Native), so it can be unit-tested and
-// reused. The matching itself is the extension's `match()` from content.js, unchanged in
-// behaviour; the helpers below apply it to the app's own data (TOC, versions, search hits...).
+// reused. The matching itself is the extension's `match()` from content.js, kept in step with it
+// (including the whole-name "titles" rules); the helpers below apply it to the app's own data
+// (TOC, versions, search hits...).
 import RULES_JSON from './rules.json';
 import { GROUPS } from './presets';
 
@@ -15,8 +16,25 @@ export function compileRules(rules) {
     group: r.group,
     translation: TRANSLATION_GROUPS.has(r.group),
     terms: lower([].concat((r.sefariaSlugs || []).map(s => s.replace(/[_-]/g, ' ')), r.keywords || [])),
+    titles: lower(r.titles),
     exceptions: lower(r.exceptions),
   }));
+}
+
+// The names in `text` ("Title | Hebrew title | ...") and the page named by `href` ("/Orot.1.2")
+export function namesOf(text, href) {
+  const names = String(text || '').split('|');
+  const path = String(href || '').split(/[?#]/)[0].split('/').filter(Boolean).pop();
+  if (path) { names.push(decode(path).replace(/_/g, ' ')); }
+  return names.map(n => n.toLowerCase().trim()).filter(Boolean);
+}
+
+// A rule's "titles" match only a whole book name, or a reference into it ("Orot 1:2", "Orot.1",
+// "Orot, Introduction"), never a longer name: "Orot" is not "Orot Chaim".
+export function isTitle(name, title) {
+  if (!name.startsWith(title)) { return false; }
+  const rest = name.slice(title.length);
+  return rest === '' || /^(?:[.,:]|\s+\d)/.test(rest);
 }
 
 export const RULES = compileRules(RULES_JSON);
@@ -54,9 +72,16 @@ export function match(cfg, text, href, rules = RULES) {
       !KNOWN_ORTHODOX_SHEETS.some(k => hasWord(hay, k))) {
     return { reason: 'Community source sheet', translation: false, group: 'community_sheets' };
   }
+  let names = null;
   for (const r of rules) {
     if (!hides(r.group) || r.exceptions.some(x => hay.includes(x))) { continue; }
     if (r.terms.some(t => hasWord(hay, t))) { return { reason: r.name, translation: r.translation, group: r.group }; }
+    if (r.titles && r.titles.length) {
+      names = names || namesOf(decode(text || ''), href);
+      if (r.titles.some(t => names.some(n => isTitle(n, t)))) {
+        return { reason: r.name, translation: r.translation, group: r.group };
+      }
+    }
   }
   return null;
 }

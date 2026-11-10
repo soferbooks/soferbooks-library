@@ -18,14 +18,15 @@ const useCalendarItemsBySection = () => {
         {
             sectionTitleKey: "learning_schedules.weekly_torah_portion",
             calendarTitles: [
-                "Parashat Hashavua", "Haftarah (A)", "Haftarah (S)", "Haftarah"
+                "Parashat Hashavua", "Shnayim Mikra", "Haftarah (A)", "Haftarah (S)", "Haftarah"
             ],
         },
         {
             sectionTitleKey: "learning_schedules.daily_learning",
             calendarTitles: [
-                "Daf Yomi", "929", "Daily Mishnah", "Daily Rambam", "Daily Rambam (3 Chapters)", "Halakhah Yomit",
-                "Arukh HaShulchan Yomi", "Tanakh Yomi", "Zohar for Elul", "Chok LeYisrael", "Tanya Yomi", "Yerushalmi Yomi"
+                "Daf Yomi", "929", "Daily Mishnah", "Daily Rambam", "Daily Rambam (3 Chapters)", "Mishnah Berurah Yomi",
+                "Halakhah Yomit", "Arukh HaShulchan Yomi", "Tanakh Yomi", "Zohar for Elul", "Chok LeYisrael",
+                "Tehillim (Monthly)", "Tehillim (Weekly)", "Tanya Yomi", "Yerushalmi Yomi"
             ],
         },
         {

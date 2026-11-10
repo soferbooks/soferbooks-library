@@ -1,5 +1,5 @@
 import React, {useCallback}  from 'react';
-import {View, FlatList, Image} from "react-native";
+import {View, FlatList, Image, Platform} from "react-native";
 import Sefaria from "./sefaria";
 import {
     CategoryButton,
@@ -9,7 +9,7 @@ import {
     LanguageToggleButton,
     PageHeader,
     InterfaceText,
-    SefariaPressable, Header,
+    SefariaPressable,
 } from "./Misc";
 import styles from "./Styles";
 import {LearningSchedulesBox} from "./learningSchedules/LearningSchedulesBox";
@@ -27,7 +27,12 @@ import strings from "./LocalizedStrings";
  */
 
 const CONTINUE_READING_COUNT = 4;
-const TODAYS_LEARNING_CALENDARS = ['Parashat Hashavua', 'Haftarah', 'Daf Yomi', 'Daily Mishnah', 'Daily Rambam'];
+// Sefaria's calendar.json items, and the app's own (learningSchedules/extraSchedules.js), in calendar order
+const TODAYS_LEARNING_CALENDARS = [
+    'Parashat Hashavua', 'Shnayim Mikra', 'Haftarah', 'Daf Yomi', 'Daily Mishnah',
+    'Daily Rambam', 'Daily Rambam (3 Chapters)', 'Mishnah Berurah Yomi', 'Chok LeYisrael',
+    'Tehillim (Monthly)', 'Tehillim (Weekly)',
+];
 
 const useCategoryButtonProps = (tocItem, setCategories) => {
     const {category, heCategory, enDesc, heDesc, enShortDesc, heShortDesc} = tocItem;
@@ -55,11 +60,19 @@ const useCategoryButtonProps = (tocItem, setCategories) => {
  */
 const OpenTabsSlot = () => null;
 
+// Home-page headings are set in Cinzel in English; Hebrew keeps the interface font (Cinzel is
+// Latin-only). Cinzel is bundled as an Android asset font only, so iOS keeps the interface font.
+const useHeadingFont = () => {
+    const { interfaceLanguage } = useGlobalState();
+    return interfaceLanguage === 'hebrew' || Platform.OS !== 'android' ? null : styles.homeHeadingFont;
+};
+
 const HomeSectionHeader = ({ titleKey, actionKey, onAction }) => {
     const { theme } = useGlobalState();
+    const headingFont = useHeadingFont();
     return (
         <FlexFrame dir={"row"} justifyContent={"space-between"} alignItems={"center"}>
-            <InterfaceText stringKey={titleKey} extraStyles={[styles.homeSectionHeader, theme.brandColorText]}/>
+            <InterfaceText stringKey={titleKey} extraStyles={[styles.homeSectionHeader, theme.brandColorText, headingFont]}/>
             {onAction ? (
                 <SefariaPressable onPress={onAction}>
                     <InterfaceText stringKey={actionKey} extraStyles={[styles.fontSize16, theme.secondaryText]}/>
@@ -94,11 +107,12 @@ const ContinueReading = ({ openRef, openHistory }) => {
 
 const TodaysLearning = ({ openRef, openLearningSchedules }) => {
     const { theme } = useGlobalState();
+    const headingFont = useHeadingFont();
     return (
         <View style={styles.homeSection}>
             <LearningSchedulesBox openRef={openRef} desiredCalendarTitles={TODAYS_LEARNING_CALENDARS}>
                 <FlexFrame dir={"row"} justifyContent={"space-between"}>
-                    <InterfaceText stringKey={"home.todays_learning"} extraStyles={[styles.fontSize16, styles.fontBold, theme.brandColorText]}/>
+                    <InterfaceText stringKey={"home.todays_learning"} extraStyles={[styles.fontSize16, styles.fontBold, theme.brandColorText, headingFont]}/>
                     <SefariaPressable onPress={openLearningSchedules}>
                         <InterfaceText stringKey={"common.see_all"} extraStyles={[styles.fontSize16, theme.secondaryText]}/>
                     </SefariaPressable>
@@ -124,6 +138,13 @@ const HomeLogo = () => {
     return <Image source={source} resizeMode={'contain'} style={styles.homeLogo} accessibilityLabel={strings.a11y.soferbooks_logo} />;
 };
 
+// "Browse the library": Misc's Header, with the home-page heading font
+const LibraryHeader = () => {
+    const { theme } = useGlobalState();
+    const headingFont = useHeadingFont();
+    return <InterfaceText stringKey={"nav.browse_the_library"} extraStyles={[styles.navReHeaderText, theme.tertiaryText, headingFont]} />;
+};
+
 const HomePageHeader = ({ openRef, openHistory, openLearningSchedules }) => (
     <View>
         <OpenTabsSlot />
@@ -133,7 +154,7 @@ const HomePageHeader = ({ openRef, openHistory, openLearningSchedules }) => (
         </FlexFrame>
         <ContinueReading openRef={openRef} openHistory={openHistory} />
         <TodaysLearning openRef={openRef} openLearningSchedules={openLearningSchedules} />
-        <PageHeader><Header titleKey={"nav.browse_the_library"}/></PageHeader>
+        <PageHeader><LibraryHeader /></PageHeader>
     </View>
 );
 
