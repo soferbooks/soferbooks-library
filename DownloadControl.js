@@ -9,6 +9,7 @@ import NetInfo from "@react-native-community/netinfo";
 import {getCrashlytics, recordError, log} from '@react-native-firebase/crashlytics';
 import {SCHEMA_VERSION, serverFor, exportPathFor} from './sources';
 import * as shomer from './shomer';
+import {syncPacks} from './packs';
 
 // Sefaria's own mobile download server, as upstream Sefaria-Mobile uses (see sources.js).
 // For the local export server set SEFARIA_DOWNLOAD_SERVER in .env (see sources.js).
@@ -536,6 +537,10 @@ async function deleteBooks(bookList, shouldCleanTmpDirectory=true) {
         log(getCrashlytics(), `Error deleting file: ${e}`);
       }
     }
+    // the book's offline search text (SoferBooks search pack, packs.js) goes with it
+    try {
+      await FileSystem.deleteAsync(`${FILE_DIRECTORY}/${bookTitle}_search.txt`, {idempotent: true});
+    } catch (e) {}
     return bookTitle
   };
   await throttlePromiseAll(bookList, deleteBook, 50);
@@ -891,6 +896,8 @@ async function downloadBundleArray(bundleArray, downloadData, networkSetting) {
   buffer.push(() => {
     resetCancelMethods();
     Tracker.removeDownload(true);
+    // then the SoferBooks search packs and corrections for what is now on the phone
+    syncSoferBooksPacks(networkSetting).then(() => {});
   });
   if (abortDownload.abort) { return }
   bufferGen.next().value()
@@ -957,6 +964,22 @@ function packageHasHiddenBooks(packageName) {
   return titles.some(t => shomer.isBookHidden(t));
 }
 
+async function syncSoferBooksPacks(networkSetting) {
+  /*
+   * Offline search packs and Sofer's corrections for the chosen packages (packs.js), from
+   * the SoferBooks GitHub Release. Only what changed is downloaded; any failure leaves the
+   * library as it is (search then falls back on Sefaria's online search).
+   */
+  try {
+    const netState = await NetInfo.fetch();
+    if (!isDownloadAllowed(netState, networkSetting)) { return null }
+    return await syncPacks(Object.keys(selectedPackages()), {isHidden: t => shomer.isBookHidden(t)});
+  } catch (e) {
+    log(getCrashlytics(), `SoferBooks packs: ${e}`);
+    return null
+  }
+}
+
 async function downloadUpdate(networkSetting, triggeredByUser=true, booksToDownload=null) {
   // Test with Appium
   const aborter = {abort: false};
@@ -969,7 +992,11 @@ async function downloadUpdate(networkSetting, triggeredByUser=true, booksToDownl
   if (!booksToDownload) {
     booksToDownload = await calculateBooksToDownload(BooksState);
   }
-  if (!booksToDownload.length) { return }
+  if (!booksToDownload.length) {
+    // no books to update, but the SoferBooks release (search, corrections) may be newer
+    if (triggeredByUser) { await syncSoferBooksPacks(networkSetting); }
+    return
+  }
   console.log('requesting new bundle');
   await Tracker.startDownloadSession('Update');
   const bundles = await requestNewBundle(booksToDownload);
@@ -1231,4 +1258,5 @@ export {
   fileExists,
   lastUpdated,
   simpleDelete,
+  syncSoferBooksPacks,
 };

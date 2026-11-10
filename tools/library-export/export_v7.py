@@ -303,8 +303,10 @@ def blocked_titles(root: Path) -> dict[str, str]:
             continue
         title = s["title"]
         if s.get("sofer_split_of"):
-            blocked[title] = "split original (offered in parts)"
-        elif not_offered.book(_book_of(s)):
+            # (this schema is a part; the book it was split from is the one left out, as in
+            #  Sofer's own library.py - before, the parts were left out by mistake)
+            blocked.setdefault(s["sofer_split_of"], "split original (offered in parts)")
+        if not_offered.book(_book_of(s)):
             blocked[title] = "not offered (sofer.not_offered)"
     return blocked
 
