@@ -1,7 +1,8 @@
 // The real module (`@react-native-firebase/crashlytics`) is a "modular" v9-style
 // API: `getCrashlytics()` returns an instance, and the other functions
 // (recordError, log, setAttribute) take that instance as their first argument
-// -- see auth.js/DownloadControl.js/analytics/crashlytics.js for the call shape.
+// -- see DownloadControl.js / sefaria.js for the call shape. The app maps this
+// import to shims/crashlytics.js (no Firebase in SoferBooks).
 // Named exports are what those callers actually import; the default export
 // below is kept only because it predates this and nothing has confirmed it's
 // unused elsewhere.

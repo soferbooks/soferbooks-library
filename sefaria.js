@@ -1839,7 +1839,7 @@ Sefaria.palette = {
     lightgreen: "#97b386",
     red: "#802f3e",
     teal: "#00827f",
-    system: "#142b51",
+    system: "#1F3366",  // SoferBooks navy (was Sefaria #142b51)
     palegreen: "#B8D4D3",
     lightbg:   "#B8D4D3",
     tan:       "#D4896C",

@@ -9,35 +9,10 @@ const isIOS = Platform.OS === 'ios';
 const isAndroid = Platform.OS === 'android';
 const readerSideMargin = 42;
 const readerSideMarginIpad = 60;
+// SoferBooks brand colours (see ThemeWhite.js / ThemeBlack.js for the themed tokens).
+export const BRAND_NAVY = '#1F3366';
+export const BRAND_GOLD = '#C49A3C';
 
-// Design tokens for the SSO (Google/Apple) sign-in UI, sourced from the Figma
-// spec (docs/superpowers/specs/2026-07-21-mobile-sso-design.md, section 2).
-// Every SSO spacing, font size, and dimension below should reference one of
-// these named constants rather than a hardcoded literal in the styles.
-// SSO colors are not here: they live as theme tokens in ThemeWhite.js /
-// ThemeBlack.js and are applied by the caller.
-const SSOSpacing = {
-  buttonGap: 16,      // vertical gap between Google and Apple buttons (Figma --global/dimension-200)
-  sectionGap: 24,     // gap between SSO buttons section and the "or" divider
-  buttonPaddingH: 24, // horizontal padding inside a button (--sds-size-space-600)
-  iconTextGap: 8,     // gap between icon and label (--sds-size-space-200)
-  dividerLabelGap: 16,// horizontal margin around the "or" label
-  titleGap: 24,       // gap between the page title (Log in / Sign up) and the first SSO button
-};
-
-const SSODimensions = {
-  buttonHeight: 51,
-  buttonBorderWidth: 1.5, // --sds-size-stroke-border
-  buttonRadius: 4,        // --space-1
-  iconSize: 24,
-  // No fixed container width: see __tests__/ssoLayout.test.js for why.
-};
-
-const SSOTypography = {
-  buttonTextSize: 16,
-  buttonFontWeight: '600',
-  dividerTextSize: 14,
-};
 // Fraction of a scrolling panel's own height to append as bottom padding. Allows a
 // one-line last segment to scroll up to the top of the panel when pressed, without
 // scrolling it out of view. Applied at runtime against each panel's measured height
@@ -67,6 +42,40 @@ export function makeScrollViewLayoutHandler(component) {
 }
 
 export default StyleSheet.create({
+  homeLogo: {
+    width: 180,
+    height: 50,
+    marginVertical: 10,
+  },
+  homeSection: {
+    marginBottom: 20,
+  },
+  homeSectionHeader: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 6,
+  },
+  homeContinueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+  },
+  homeContinueText: {
+    flex: 1,
+    fontSize: 18,
+    marginHorizontal: 10,
+  },
+  homeFooter: {
+    alignItems: 'center',
+    marginVertical: 30,
+  },
+  aboutLogo: {
+    width: 260,
+    height: 73,
+    alignSelf: 'center',
+    marginVertical: 20,
+  },
   // Sefaria Design System - Content H2 English
   ContentH2En: {
     fontFamily: 'Amiri',
@@ -155,20 +164,6 @@ export default StyleSheet.create({
     display: "flex",
     alignContent: "flex-start",
   },
-  navReAccountMenuButton:{
-    flexDirection: "row",
-    alignItems: "center",
-    borderTopWidth: 1,
-    paddingVertical: 20,
-  },
-  navReAccountMenuButtonText:{
-    fontSize:18,
-    fontWeight:"bold",
-  },
-  navReAccountMenuButtonIcon:{
-    marginEnd: 15,
-    marginStart: 10,
-  },
   navReStatefulHeader:{
     marginEnd: 15,
   },
@@ -177,17 +172,6 @@ export default StyleSheet.create({
   }, 
   navReStatefulHeaderIconHe:{
     marginLeft: 6,
-  },
-  navReAccountMenuButtonSep:{
-    fontSize: 16, 
-    paddingHorizontal: 10,
-    textAlignVertical: "center",
-  },
-  navReSefaria501:{
-    fontSize: 14,
-    lineHeight: 18,
-    textAlign: "center",
-    marginVertical:20,
   },
   navReHistoryItem:{
     paddingBottom:20,
@@ -218,7 +202,7 @@ export default StyleSheet.create({
     justifyContent: 'center',
   },
   systemButtonBlue: {
-    backgroundColor: '#18345D',
+    backgroundColor: BRAND_NAVY,
   },
   systemButtonText: {
     textAlign: "center",
@@ -226,9 +210,6 @@ export default StyleSheet.create({
   },
   systemButtonTextBlue: {
     color: 'white'
-  },
-  authTextInput: {
-    marginVertical: 7,
   },
   pageTitle: {
     color: 'black', // should be removed but not removing right now b/c haven't checked the consequences
@@ -240,14 +221,6 @@ export default StyleSheet.create({
   },
   readerSidePadding: {
     paddingHorizontal: iPad ? readerSideMarginIpad : readerSideMargin,
-  },
-  sheetTopicButton: {
-    paddingHorizontal: 5,
-    paddingVertical: 2,
-    backgroundColor: "#eee",
-    borderRadius: 5,
-    marginVertical: 3,
-    marginHorizontal: 4,
   },
   safeArea: {
     flex: 1,
@@ -372,7 +345,7 @@ export default StyleSheet.create({
     justifyContent: 'center'
   },
   buttonToggleActive: {
-    backgroundColor: '#18345D',
+    backgroundColor: BRAND_NAVY,
     borderRadius: 5,
   },
   buttonToggleActiveText: {
@@ -602,13 +575,6 @@ export default StyleSheet.create({
     flexDirection: 'column',
     borderBottomWidth: 1,
   },
-  searchSheetResult: {
-    margin:0,
-    borderBottomWidth: 1,
-    borderBottomColor: "#ccc",
-    flexDirection: "column",
-    flex:1
-  },
   sefariaProgressBar: {
     height: 50,
     alignItems: "center",
@@ -739,15 +705,6 @@ export default StyleSheet.create({
     paddingHorizontal: iPad ? 20 : 10,
     paddingBottom: 40,
   },
-  menuAllSheetTagContent: {
-    paddingHorizontal: iPad ? 20 : 10,
-    paddingTop: 0,
-    paddingBottom: 40,
-  },
-  menuSheetContentHeader: {
-    paddingTop: 20,
-    paddingBottom: 0,
-  },
   menuScrollViewContent: {
     paddingBottom: 100,
   },
@@ -839,76 +796,6 @@ export default StyleSheet.create({
   },
   dot: {
     marginHorizontal: 7,
-  },
-  logInMotivator: {
-    marginVertical: 15,
-  },
-  ssoSection: {
-    alignItems: 'center',
-    marginBottom: 0,
-    marginTop: SSOSpacing.titleGap,
-    // Stretch to the parent's gutter rather than a fixed width -- see
-    // __tests__/ssoLayout.test.js for why. The email inputs below use the
-    // same implicit stretch, which is why they line up correctly everywhere.
-    alignSelf: 'stretch',
-    gap: SSOSpacing.buttonGap,
-  },
-  // Colors (background/border/text) come from theme.ssoButton* -- see
-  // ThemeWhite.js/ThemeBlack.js -- applied by the caller as [styles.ssoButton, theme.ssoButtonBackground, ...].
-  ssoButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-    height: SSODimensions.buttonHeight,
-    borderWidth: SSODimensions.buttonBorderWidth,
-    borderRadius: SSODimensions.buttonRadius,
-    paddingHorizontal: SSOSpacing.buttonPaddingH,
-    gap: SSOSpacing.iconTextGap,
-  },
-  // Pressed/in-flight visual for SSO buttons. The Figma spec (a wireframe) does
-  // not define a distinct pressed treatment, so this reuses TouchableOpacity's
-  // own default activeOpacity (0.2) as the "pressed" opacity, applied as a
-  // persistent style so finger-down and in-flight look identical. Confirm with
-  // design if a dedicated pressed token should replace this.
-  ssoButtonPressed: {
-    opacity: 0.2,
-  },
-  ssoButtonText: {
-    fontSize: SSOTypography.buttonTextSize,
-    fontFamily: 'OpenSans',
-    fontWeight: SSOTypography.buttonFontWeight,
-  },
-  ssoIcon: {
-    width: SSODimensions.iconSize,
-    height: SSODimensions.iconSize,
-  },
-  orDivider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: SSOSpacing.sectionGap,
-  },
-  orDividerLine: {
-    flex: 1,
-    height: 1,
-  },
-  orDividerText: {
-    marginHorizontal: SSOSpacing.dividerLabelGap,
-    fontSize: SSOTypography.dividerTextSize,
-  },
-  ssoErrorBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'stretch',
-    borderWidth: 1,
-    borderRadius: SSODimensions.buttonRadius,
-    paddingVertical: SSOSpacing.iconTextGap,
-    paddingHorizontal: SSOSpacing.buttonPaddingH,
-    marginBottom: SSOSpacing.buttonGap,
-  },
-  ssoErrorBannerText: {
-    flex: 1,
-    fontSize: SSOTypography.dividerTextSize,
   },
   category: {
     marginBottom: 10
@@ -1077,11 +964,6 @@ export default StyleSheet.create({
     margin:20,
     marginBottom:5,
   },
-  sheetRef: {
-    color: "#999",
-    margin: 10,
-    marginBottom: 0,
-  },
   sheetMediaWebView: {
     flex: 1,
     justifyContent: "center"
@@ -1095,10 +977,6 @@ export default StyleSheet.create({
     height: 50,
     flex: 1,
     marginHorizontal: 40
-  },
-  sheetHorizontalRule: {
-    textDecorationLine: 'line-through',
-    borderTopColor: 'black'
   },
   sheetAuthor: {
     fontSize: 16,
@@ -1272,20 +1150,6 @@ export default StyleSheet.create({
   buttonText: {
     textAlign: "center",
     color: "#666",
-  },
-  dedication: {
-    fontStyle: "italic",
-    fontFamily: "Amiri",
-    fontSize: 18,
-    textAlign: "center",
-  },
-  navReDedicationBox:{
-    width: 344,
-    flexDirection: "row",
-    paddingVertical: 5,
-    alignItems: "center",
-    justifyContent: "center",
-    marginVertical: 20,
   },
   lineEnd: {
     flex: 1,
@@ -1471,7 +1335,7 @@ export default StyleSheet.create({
     height: 50,
     paddingHorizontal: 30,
     borderRadius: 5,
-    backgroundColor: "#18345D",
+    backgroundColor: BRAND_NAVY,
     shadowColor: "#000",
     shadowOffset: {width: 0, height: 1},
     shadowOpacity: 0.2,
@@ -1521,9 +1385,6 @@ export default StyleSheet.create({
   textCenter: {
     textAlign: "center",
   },
-  historyPublisherName: {
-    marginTop: 10,
-  },
   historyItemTitle: {
     marginBottom: 10,
   },
@@ -1560,18 +1421,6 @@ export default StyleSheet.create({
     marginTop: 20,
     paddingHorizontal: 15,
   },
-  historyPromptCloseIcon: {
-   width: 14,
-   height: 14,
-  },
-  historyOpenLoginButton: {
-    backgroundColor: '#18345D',
-    paddingVertical: 20,
-    paddingHorizontal: 15,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
   userAvatarMini: {
     marginHorizontal: 6,
     marginBottom: 2,
@@ -1580,16 +1429,6 @@ export default StyleSheet.create({
     borderRadius: 15,
   },
 
-  sheetListTitle: {
-    fontFamily: "Amiri",
-    fontSize: 20,
-    lineHeight: 22,
-    paddingTop: 11,
-  },
-  mySheetListTitle: {
-    fontSize: 20,
-    flexShrink: 1,
-  },
   heInEn: {
     fontFamily: "Taamey Frank Taamim Fix",
     writingDirection: "rtl",
@@ -1638,25 +1477,6 @@ export default StyleSheet.create({
     fontSize: 13,
     marginVertical: 10,
   },
-  topicLinkSection: {
-    paddingTop: 20,
-  },
-  topicLinkTypeHeader: {
-    paddingBottom: 10,
-    fontWeight: "bold",
-  },
-  topicLinkSideList: {
-    flexWrap: "wrap",
-    marginTop: 10,
-  },
-  topicLinkSideMore: {
-    marginTop: 10,
-    alignContent: 'center',
-  },
-  topicItemMargins: {
-    marginHorizontal: 15,
-    marginBottom: 30,
-  },
   profilePic: {
     borderRadius: 1000,
     justifyContent: 'center',
@@ -1680,13 +1500,6 @@ export default StyleSheet.create({
     paddingLeft: 15,
     paddingRight: 5,
     marginTop: 22,
-  },
-  topicCategoryButtonWrapper: {
-    borderTopWidth: 1,
-    marginHorizontal: 15
-  },
-  topicCategoryButtonWrapperRoot: {
-    borderTopWidth: 0,  // no border top b/c of trending topics
   },
   footerBar: {
     alignSelf: "stretch",

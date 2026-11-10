@@ -30,7 +30,6 @@ const ReaderControls = ({
   heRef,
   categories,
   openTextToc,
-  openSheetMeta,
   goBack,
   toggleReaderDisplayOptionsMenu,
   openUri,
@@ -66,7 +65,7 @@ const ReaderControls = ({
             resizeMode={'contain'}
           />
         </View>
-        <TouchableOpacity style={styles.headerTextTitle} onPress={sheet ? openSheetMeta : openTextToc }>
+        <TouchableOpacity style={styles.headerTextTitle} onPress={openTextToc}>
           <View style={styles.headerTextTitleInner}>
             <Image source={iconData.get('caret', themeStr)}
                      style={[styles.downCaret, isHeb ? null: {opacity: 0}]}

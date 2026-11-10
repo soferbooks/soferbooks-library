@@ -1,18 +1,15 @@
 'use strict';
-import { getCrashlytics, recordError } from '@react-native-firebase/crashlytics';
 import * as FileSystem from 'expo-file-system/legacy';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { STATE_ACTIONS } from './StateManager';
-import { USER_AGENT } from './userAgent';
 
-const MAX_SYNC_HISTORY_LEN = 1000;
+// History lives only on the phone (no account, no server sync). Cap it so the file stays small.
+const MAX_HISTORY_LEN = 1000;
 
 const History = {
   saved: [],
   lastPlace: [],
   lastSync: [],
   _hasSwipeDeleted: false,
-  _hasSyncedOnce: false,
   migrateFromAsyncStorageHistory: async function() {
     const hasMigrated = await AsyncStorage.getItem('hasMigratedToHistoryJSONFiles');
     if (hasMigrated) { return; }
@@ -22,7 +19,7 @@ const History = {
       Sefaria.history.setItem('lastPlace', lastPlace);
       await AsyncStorage.removeItem('lastPlace');
     } catch (e) {
-      recordError(getCrashlytics(), new Error("Failed to migrate lastPlace"));
+      console.warn(new Error("Failed to migrate lastPlace"));
     }
 
     try {
@@ -30,7 +27,7 @@ const History = {
       Sefaria.history.setItem('savedItems', savedItems);
       await AsyncStorage.removeItem('savedItems');
     } catch (e) {
-      recordError(getCrashlytics(), new Error("Failed to migrate savedItems"));
+      console.warn(new Error("Failed to migrate savedItems"));
     }
 
     try {
@@ -38,7 +35,7 @@ const History = {
       Sefaria.history.setItem('lastSyncItems', lastSyncItems);
       await AsyncStorage.removeItem('lastSyncItems');
     } catch (e) {
-      recordError(getCrashlytics(), new Error("Failed to migrate lastSyncItems"));
+      console.warn(new Error("Failed to migrate lastSyncItems"));
     }
 
     try {
@@ -46,7 +43,7 @@ const History = {
       Sefaria.history.setItem('history', history)
       await AsyncStorage.removeItem('history');
     } catch (e) {
-      recordError(getCrashlytics(), new Error("Failed to migrate history"));
+      console.warn(new Error("Failed to migrate history"));
     }
 
     await AsyncStorage.setItem('hasMigratedToHistoryJSONFiles', 'true');
@@ -109,7 +106,6 @@ const History = {
     const lastSync = await Sefaria.history.getItem('lastSyncItems');
     const saved = await Sefaria.history.getItem('savedItems');
     const hasSwipeDeleted = await AsyncStorage.getItem("hasSwipeDeleted");
-    const hasSyncedOnce = await AsyncStorage.getItem('hasSyncedOnce');
     try { Sefaria.history.lastPlace = JSON.parse(lastPlace) || []; }
     catch(e) { Sefaria.history.lastPlace = []; }
     try { Sefaria.history.lastSync = JSON.parse(lastSync) || []; }
@@ -117,121 +113,27 @@ const History = {
     try { Sefaria.history.saved = JSON.parse(saved) || []; }
     catch(e) { Sefaria.history.saved = []; }
     Sefaria.history._hasSwipeDeleted = JSON.parse(hasSwipeDeleted) || false;
-    Sefaria.history._hasSyncedOnce = JSON.parse(hasSyncedOnce) || false;
   },
-  syncProfile: async function(dispatch, settings, max_sync_history_len=MAX_SYNC_HISTORY_LEN) {
+  loadLocalHistory: async function(max_history_len=MAX_HISTORY_LEN) {
     /*
-    settings is of the form
-    {
-      email_notifications: oneOf('daily', 'weekly', 'never'),
-      interface_language: oneOf('english', 'hebrew'),
-      textual_custom: oneOf('sephardi', 'ashkenazi')
-    }
+    Folds the items recorded since the last call (`lastSyncItems`: reads, plus saved/unsaved
+    actions) into the on-device `history` file, newest first, and returns the full history.
+    Saved items are kept separately in `savedItems` by saveSavedItem().
     */
-    const currHistoryStr = await Sefaria.history.getItem('history') || '[]';
-    const lastSyncStr = await Sefaria.history.getItem('lastSyncItems') || '[]';
-    const settingsStr = JSON.stringify(settings);
-    const lastSyncItems = JSON.parse(lastSyncStr);
-    const lastSyncItemsToSend = lastSyncItems.slice(-max_sync_history_len);
-    const nextLastSyncItems = lastSyncItems.slice(0, -max_sync_history_len);
-    let currHistory = JSON.parse(currHistoryStr);
-    currHistory = lastSyncItemsToSend.filter(h => !h.action).concat(currHistory);
-    Sefaria.history.history = nextLastSyncItems.filter(h => !h.action).concat(currHistory); // set this here so its guaranteed to exist for logged outers
-    await Sefaria.api.getAuthToken();
-    if (Sefaria._auth.uid) {
-      try {
-        const lastSyncTime = await AsyncStorage.getItem('lastSyncTime') || '0';
-        const url = Sefaria.api._baseHost + "api/profile/sync";
-        const body = Sefaria.api.urlFormEncode({user_history: JSON.stringify(lastSyncItemsToSend), last_sync: lastSyncTime, settings: settingsStr});
-        const response = await fetch(url, {
-          method: "POST",
-          body,
-          headers: {
-            'User-Agent': USER_AGENT,
-            'Authorization': `Bearer ${Sefaria._auth.token}`,
-            'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
-          },
-        }).then(res => {
-          if (res.status < 200 || res.status >= 300) {
-            console.log('Error text', res.text());
-            throw new Error("Bad Response Code " + res.status);
-          }
-          return res.json();
-        });
-        await AsyncStorage.setItem('lastSyncTime', '' + response.last_sync);
-        await Sefaria.history.setItem('lastSyncItems', JSON.stringify(nextLastSyncItems));
-        const currSaved = JSON.parse(await Sefaria.history.getItem('savedItems') || '[]');
-        const { mergedHistory, mergedSaved } = Sefaria.history.mergeHistory(currHistory, currSaved, response.user_history);
-        Sefaria.history.lastPlace = Sefaria.history.historyToLastPlace(mergedHistory);
-        Sefaria.history.saved = mergedSaved;
-        Sefaria.history.history = nextLastSyncItems.filter(h => !h.action).concat(currHistory);
-        currHistory = mergedHistory;
-        await Sefaria.history.setItem('savedItems', JSON.stringify(Sefaria.history.saved));
-        await Sefaria.history.setItem('lastPlace', JSON.stringify(Sefaria.history.lastPlace));
-        await Sefaria.history.setItem('history', JSON.stringify(mergedHistory));
-        Sefaria.history.updateSettingsAfterSync(dispatch, response.settings);
-        if (!Sefaria.history._hasSyncedOnce) {
-          Sefaria.history._hasSyncedOnce = true;
-          await AsyncStorage.setItem('hasSyncedOnce', 'true');
-        }
-      } catch (e) {
-        // try again later
-        console.log('sync error', e);
-      }
-    }
-    return Sefaria.history.history;
-  },
-  syncProfileGetSaved: async (dispatch, settings) => {
-    await Sefaria.history.syncProfile(dispatch, settings);
-    return Sefaria.history.saved;
+    const currHistory = JSON.parse(await Sefaria.history.getItem('history') || '[]');
+    const pending = JSON.parse(await Sefaria.history.getItem('lastSyncItems') || '[]');
+    const history = pending.filter(h => !h.action).concat(currHistory).slice(0, max_history_len);
+    Sefaria.history.history = history;
+    Sefaria.history.lastSync = [];
+    await Sefaria.history.setItem('history', JSON.stringify(history));
+    await Sefaria.history.setItem('lastSyncItems', '[]');
+    return history;
   },
   getLocalHistoryArray: function(bucket){
     if(Sefaria.history.hasOwnProperty(bucket)){
       return [...Sefaria.history[bucket]];
     }
     return [];
-  },
-  updateSettingsAfterSync: function(dispatch, newSettings) {
-    const fieldToActionMap = {
-      email_notifications: STATE_ACTIONS.setEmailFrequency,
-      interface_language: STATE_ACTIONS.setInterfaceLanguage,
-      textual_custom: STATE_ACTIONS.setPreferredCustom,
-      reading_history: STATE_ACTIONS.setReadingHistory,
-    };
-    Object.entries(newSettings).map(([key, value]) => {
-      if (!fieldToActionMap[key]) { return; }
-      dispatch({
-        type: fieldToActionMap[key],
-        value,
-        time: newSettings.time_stamp,
-      });
-    });
-  },
-  mergeHistory: function(currHistory, currSaved, newHistory) {
-    const delete_saved_set = new Set();
-    let newSaved = [];
-    const currSavedRefs = currSaved.map(x => x.ref);
-    const mergedHistory = newHistory
-    .map(h => {
-      // see https://codeburst.io/use-es2015-object-rest-operator-to-omit-properties-38a3ecffe90
-      const { delete_saved, saved, ...rest } = h;
-      if (delete_saved) { delete_saved_set.add(h.ref); }
-      if (saved && currSavedRefs.indexOf(h.ref) === -1) { newSaved.push(h); }
-       return h;
-    })
-    .concat(currHistory)
-    .sort((a, b) => b.time_stamp - a.time_stamp);
-
-
-    const mergedSaved = newSaved
-    .concat(currSaved)
-    .filter(s => !delete_saved_set.has(s.ref))
-    .sort((a, b) => b.time_stamp - a.time_stamp);
-
-    return {
-      mergedHistory,
-      mergedSaved,
-    };
   },
   saveSavedItem: function(item, action) {
     /* action: can be either 'add_saved' or 'delete_saved'

@@ -21,15 +21,10 @@ let Colors = {
   textListHeader: "#f3f3f2",
   button: "#bfbfbf",
   buttonBackground: "#fff",
-  sefariaBlue: "#18345D",
+  // SoferBooks brand: navy #1F3366, gold #C49A3C
+  brandNavy: "#1F3366",
+  brandGold: "#C49A3C",
   buttonBlue: '#0B71E7',
-  // Surface the SSO (Google/Apple) buttons sit on. Deliberately its own
-  // constant rather than mainForeground/buttonBackground because it must stay
-  // white in the dark theme too -- see ThemeBlack.js for why.
-  ssoButtonSurface: "#FFFFFF",
-  errorBannerBackground: "#FBECEC",
-  errorBannerBorder: "#D91E18",
-  errorBannerText: "#B71C1C",
 }
 
 export default StyleSheet.create({
@@ -231,44 +226,12 @@ export default StyleSheet.create({
   interfaceLangToggleActive: {
     color: Colors.tertiaryText,
   },
-  sefariaColorText:{
-    color: Colors.sefariaBlue,
-  },
-  sefariaColorButton: {
-    backgroundColor: Colors.sefariaBlue,
-  },
-  sefariaColorButtonText: {
-    color: 'white'
+  // Brand-coloured text: navy on the light theme, gold on the dark theme (navy is unreadable there).
+  brandColorText: {
+    color: Colors.brandNavy,
   },
   languageName: {
     color: Colors.tertiaryText,
     borderColor: Colors.lightGrey,
-  },
-  // SSO (Google/Apple) button colors. Background is pinned to white in both
-  // themes -- see ThemeBlack.js for why -- so it only "themes" here for a
-  // single source of truth, not because it varies.
-  ssoButtonBackground: {
-    backgroundColor: Colors.ssoButtonSurface,
-  },
-  ssoButtonBorder: {
-    borderColor: Colors.sefariaBlue,
-  },
-  ssoButtonText: {
-    color: Colors.sefariaBlue,
-  },
-  ssoDividerLine: {
-    backgroundColor: Colors.lightGrey,
-  },
-  ssoDividerText: {
-    color: Colors.secondaryText,
-  },
-  ssoErrorBannerBackground: {
-    backgroundColor: Colors.errorBannerBackground,
-  },
-  ssoErrorBannerBorder: {
-    borderColor: Colors.errorBannerBorder,
-  },
-  ssoErrorBannerText: {
-    color: Colors.errorBannerText,
   },
 });

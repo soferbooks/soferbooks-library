@@ -161,18 +161,6 @@ class IconData {
                 black_selected: require('./img/hashtag-white.png'),
                 white_selected: require('./img/hashtag-black.png'),
             },
-            'heart': {
-                black: require('./img/heart-light.png'),
-                white: require('./img/heart.png'),
-            },
-            'heart-white': {
-                black: require('./img/heart-white.png'),
-                white: require('./img/heart-white.png'),
-            },
-            'help': {
-                black: require('./img/question-thin-light.png'),
-                white: require('./img/question-thin.png'),
-            },
             'info': {
                 black: require('./img/info-light.png'),
                 white: require('./img/info.png'),
@@ -180,14 +168,6 @@ class IconData {
             'layers': {
                 black: require('./img/layers-light.png'),
                 white: require('./img/layers.png'),
-            },
-            'login': {
-                black: require('./img/login-light.png'),
-                white: require('./img/login.png'),
-            },
-            'logout': {
-                black: require('./img/logout-light.png'),
-                white: require('./img/logout.png'),
             },
             'mail': {
                 black: require('./img/mail-light.png'),
@@ -200,16 +180,6 @@ class IconData {
             'more': {
                 black: require('./img/more-light.png'),
                 white: require('./img/more.png'),
-            },
-            'profile': {
-                black: require('./img/profile-light.png'),
-                white: require('./img/profile.png'),
-                black_selected: require('./img/profile-white.png'),
-                white_selected: require('./img/profile-black.png'),
-            },
-            'profile-nav': {
-                black: require('./img/profile-sefaria.png'),
-                white: require('./img/profile-sefaria.png'),
             },
             'quill': {
                 black: require('./img/quill-light.png'),
@@ -224,6 +194,8 @@ class IconData {
             'settings': {
                 black: require('./img/settings-light.png'),
                 white: require('./img/settings.png'),
+                black_selected: require('./img/settings-white.png'),
+                white_selected: require('./img/settings-black.png'),
             },
             'share': {
                 black: require('./img/share-light.png'),

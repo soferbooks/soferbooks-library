@@ -14,7 +14,6 @@ import TextList from './TextList';
 import { LinkFilter } from './Filter';
 import TranslationsBox from './TranslationsBox';
 import AboutBox from './AboutBox';
-import TopicList from './TopicList';
 import LexiconBox from './LexiconBox';
 import {iconData} from "./IconData";
 import {useGlobalState} from "./Hooks";
@@ -84,7 +83,6 @@ class ConnectionsPanel extends React.PureComponent {
     viewOnSite:           PropTypes.func.isRequired,
     reportError:          PropTypes.func.isRequired,
     loadRelated:          PropTypes.func.isRequired,
-    openTopic:            PropTypes.func.isRequired,
     translations:         PropTypes.object,
   };
 
@@ -191,18 +189,6 @@ class ConnectionsPanel extends React.PureComponent {
               openUri={this.props.openUri}
               segmentRef={this.props.segmentRef}
               versions={this.props.versions}
-            />
-          </View>
-        );
-      case 'topicsByRef':
-        return (
-          <View style={[styles.mainTextPanel, styles.textColumn, this.props.theme.textListContentOuter, {maxWidth: null, flex: this.props.textListFlex}]}>
-            {connectionsPanelHeader}
-            <TopicList
-              topics={this.props.relatedData.topics}
-              openTopic={this.props.openTopic}
-              segmentRef={this.props.segmentRef}
-              heSegmentRef={this.props.heSegmentRef}
             />
           </View>
         );
@@ -371,11 +357,6 @@ const MainMenuButtons = ({linkSummary,
       reloadRelated={reloadRelated}
     />
     <ConnectionsPanelSection title={strings.connections.related_texts}>{navButtons}</ConnectionsPanelSection>
-    <ResourcesList
-      themeStr={themeStr}
-      topicsCount={relatedData.topics ? Sefaria.links.topicsCount(relatedData.topics) : 0}
-      setConnectionsMode={setConnectionsMode}
-    />
     <ToolsList
       themeStr={themeStr}
       sheet={sheet}
@@ -477,24 +458,6 @@ TopButtons.propTypes = {
     relatedHasError:    PropTypes.bool,
     reloadRelated:      PropTypes.func.isRequired,
     sheet:              PropTypes.object,
-};
-
-const ResourcesList = ({themeStr, setConnectionsMode, topicsCount}) => {
-  return (
-      <ConnectionsPanelSection title={strings.connections.resources}>
-        {/*here was sheets button that's removed as part of Modularization - the old con can be found in link - https://github.com/Sefaria/Sefaria-Mobile/pull/186/commits/63252a7d20c469b34ba2d3ea6b02e8f5b8dc4bdf  */}
-        {!!topicsCount && <ToolsButton
-            text={strings.common.topics} count={topicsCount}
-            icon={iconData.get('hashtag', themeStr)}
-            onPress={() => setConnectionsMode("topicsByRef")}
-        /> }
-      </ConnectionsPanelSection>
-  )
-};
-ResourcesList.propTypes = {
-  themeStr:           PropTypes.string.isRequired,
-  setConnectionsMode: PropTypes.func.isRequired,
-  topicsCount:        PropTypes.number.isRequired,
 };
 
 const ToolsList = ({themeStr, shareCurrentSegment, sheet, reportError, viewOnSite}) => {
