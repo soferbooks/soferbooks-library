@@ -107,11 +107,35 @@ describe('matcher', () => {
     const orot = { title: 'Orot', heTitle: 'אורות' };
     const benSira = { title: 'Ben Sira', heTitle: 'בן סירא' };
     const judith = { title: 'Book of Judith', heTitle: 'יהודית' };
-    expect(bookMatch(cfg('centrist_mo'), judith)).not.toBeNull();
-    expect(bookMatch(cfg('rwmo'), benSira)).toBeNull();
-    expect(bookMatch(cfg('yeshivish'), benSira)).not.toBeNull();
+    // apocrypha: shown in Centrist MO and RWMO, hidden from Yeshivish up (2026-11)
+    expect(bookMatch(cfg('centrist_mo'), judith)).toBeNull();
+    expect(bookMatch(cfg('rwmo'), judith)).toBeNull();
+    expect(bookMatch(cfg('yeshivish'), judith)).toMatchObject({ group: 'sefarim_chitzoniim' });
+    // Ben Sira: shown at every preset
+    for (const p of CHOICES) { expect(bookMatch(cfg(p.id), benSira)).toBeNull(); }
     expect(bookMatch(cfg('yeshivish'), orot)).toBeNull();
     expect(bookMatch(cfg('strict_charedi'), orot)).not.toBeNull();
+  });
+
+  test('owner\'s ruling 2026-11: Ben Sira and Maccabees everywhere; other apocrypha from Yeshivish up', () => {
+    const shown = ['Ben Sira', 'The Book of Maccabees I', 'The Book of Maccabees I (Kahana Translation)',
+      'The Book of Maccabees II', 'The Book of Maccabees III', 'The Book of Maccabees IV', 'Megillat Antiochus'];
+    for (const p of CHOICES) {
+      for (const title of shown) { expect(bookMatch(cfg(p.id), { title })).toBeNull(); }
+    }
+    const apocrypha = ['Book of Jubilees', 'Book of Judith', 'Book of Tobit', 'Psalm 151', 'Psalm 154',
+      'The Book of Susanna', 'The Testaments of the Twelve Patriarchs', 'The Wisdom of Solomon',
+      'Prayer of Manasseh', 'Letter of Aristeas'];
+    for (const title of apocrypha) {
+      for (const p of ['off', 'centrist_mo', 'rwmo']) { expect(bookMatch(cfg(p), { title })).toBeNull(); }
+      for (const p of ['yeshivish', 'strict_charedi']) {
+        expect(bookMatch(cfg(p), { title })).toMatchObject({ group: 'sefarim_chitzoniim' });
+      }
+    }
+    // the other level-1 exclusions stay hidden everywhere
+    expect(bookMatch(cfg('centrist_mo'), { title: 'Toldot Yeshu' })).toMatchObject({ group: 'polemics' });
+    expect(versionMatch(cfg('centrist_mo'), { versionTitle: 'King James Version' })).toMatchObject({ group: 'christian_translations' });
+    expect(GROUPS.some(g => g.id === 'historical_apocrypha')).toBe(false);
   });
 
   test('exceptions: Abulafia\'s Gan Naul is kept, Wessely\'s is hidden', () => {
@@ -120,7 +144,7 @@ describe('matcher', () => {
   });
 
   test('the reader\'s own lists win', () => {
-    const c = { ...cfg('centrist_mo'), customWhitelist: ['judith'], customBlacklist: ['mishnah berurah'] };
+    const c = { ...cfg('yeshivish'), customWhitelist: ['judith'], customBlacklist: ['mishnah berurah'] };
     expect(match(c, 'Book of Judith')).toBeNull();
     expect(match(c, 'Mishnah Berurah')).toMatchObject({ reason: 'your list: mishnah berurah' });
   });
@@ -149,14 +173,15 @@ describe('filterToc', () => {
     const hidden = {};
     const out = filterToc(cfg('yeshivish'), toc, hidden);
     expect(JSON.stringify(toc)).toBe(before);
-    expect(Object.keys(hidden).sort()).toEqual(['Ben Sira', 'Book of Judith']);
-    expect(out[0].contents.map(n => n.title || n.category)).toEqual(['Genesis']);
+    expect(Object.keys(hidden).sort()).toEqual(['Book of Judith']);
+    expect(out[0].contents.map(n => n.title || n.category)).toEqual(['Genesis', 'Apocrypha']);
+    expect(out[0].contents[1].contents.map(n => n.title)).toEqual(['Ben Sira']);
     expect(out[1].contents.map(n => n.title)).toEqual(['Orot', 'Kuzari']);
   });
 
   test('more hidden at each step of the ladder', () => {
     const sizes = PRESETS.map(p => { const h = {}; filterToc(cfg(p.id), toc, h); return Object.keys(h).length; });
-    expect(sizes).toEqual([1, 1, 2, 3]);
+    expect(sizes).toEqual([0, 0, 1, 2]);
   });
 
   test('no filter returns the same array', () => {
@@ -185,9 +210,11 @@ describe('runtime helpers (shomer/index.js)', () => {
   test('changing the setting re-filters the TOC', () => {
     expect(Sefaria.booksDict.Orot).toBeUndefined();
     expect(Sefaria.booksDict['Gan Naul (Abulafia)']).toBe(1);
-    shomer.setConfig(cfg('centrist_mo'));
-    expect(Sefaria.booksDict.Orot).toBe(1);
     expect(shomer.isBookHidden('Book of Judith')).toBe(true);
+    shomer.setConfig(cfg('rwmo'));
+    expect(Sefaria.booksDict.Orot).toBe(1);
+    expect(shomer.isBookHidden('Book of Judith')).toBe(false);   // apocrypha: from Yeshivish up
+    expect(shomer.isBookHidden('Gan Naul')).toBe(true);
     expect(shomer.allBookTitles().sort()).toEqual(['Book of Judith', 'Gan Naul', 'Gan Naul (Abulafia)', 'Genesis', 'Orot']);
   });
 
@@ -281,8 +308,8 @@ describe('library sources', () => {
 });
 
 describe('"Off"', () => {
-  test('is offered beside the four presets, first, and hides nothing', () => {
-    expect(CHOICES.map(p => p.id)).toEqual(['off', 'centrist_mo', 'rwmo', 'yeshivish', 'strict_charedi']);
+  test('is offered beside the four presets, last, and hides nothing', () => {
+    expect(CHOICES.map(p => p.id)).toEqual(['centrist_mo', 'rwmo', 'yeshivish', 'strict_charedi', 'off']);
     const off = cfg('off');
     expect(off).toMatchObject({ preset: 'off', active: false });
     expect(Object.values(off.groups).some(Boolean)).toBe(false);
@@ -360,8 +387,11 @@ describe('rule fixes (checked against Sefaria\'s real toc.json, 2026-11)', () =>
 
   test('books the old list missed are hidden at the intended level', () => {
     const level1 = ["The Torah; A Women's Commentary", "Rereading the Rabbis; A Woman's Voice",
-      'Standing Again at Sinai; Judaism from a Feminist Perspective', 'The Testaments of the Twelve Patriarchs'];
+      'Standing Again at Sinai; Judaism from a Feminist Perspective'];
     for (const title of level1) { expect(visible('centrist_mo', { title })).toBe(false); }
+    // apocrypha moved to Yeshivish (2026-11)
+    expect(visible('rwmo', { title: 'The Testaments of the Twelve Patriarchs' })).toBe(true);
+    expect(visible('yeshivish', { title: 'The Testaments of the Twelve Patriarchs' })).toBe(false);
     for (const title of ['The Five Books of Moses, by Everett Fox', 'The Early Prophets, by Everett Fox']) {
       expect(visible('centrist_mo', { title })).toBe(true);
       expect(visible('rwmo', { title })).toBe(false);
@@ -426,20 +456,21 @@ describe('works by women authors (owner, 2026-11: hidden from Yeshivish up; bord
     for (const p of CHOICES) {
       for (const v of versions) { expect(versionMatch(cfg(p.id), v)).toBeNull(); }
     }
-    // the book itself is a sefer chitzoni (its own rule, every preset); with that group switched off it shows at every level
-    expect(bookMatch(cfg('centrist_mo'), { title: 'Psalm 154' })).toMatchObject({ group: 'sefarim_chitzoniim' });
+    // the book itself is a sefer chitzoni (its own rule, from Yeshivish up); with that group switched off it shows at every level
+    expect(bookMatch(cfg('rwmo'), { title: 'Psalm 154' })).toBeNull();
+    expect(bookMatch(cfg('yeshivish'), { title: 'Psalm 154' })).toMatchObject({ group: 'sefarim_chitzoniim' });
     const lenient = toggleGroup(cfg('strict_charedi'), 'sefarim_chitzoniim', false);
     expect(bookMatch(lenient, { title: 'Psalm 154', heTitle: 'תהלים קנ"ד' })).toBeNull();
     expect(filterVersions(lenient, versions)).toEqual(versions);
   });
 
-  test('women\'s / feminist translations are hidden from RWMO up; the book itself stays', () => {
-    expect(GROUPS.find(g => g.id === 'feminist_translations')).toMatchObject({ level: 2, translation: true });
+  test('women\'s / feminist translations are hidden at every preset; the book itself stays', () => {
+    expect(GROUPS.find(g => g.id === 'feminist_translations')).toMatchObject({ level: 1, translation: true });
     const feminist = ['Dena Weiss translation', 'debra robbins adapted vayikra rabba 2;7 first paragraph',
-      'Keset HaSofer, trans. Jen Taylor Friedman'];
+      'Debra J. Robbins', 'Keset HaSofer, trans. Jen Taylor Friedman'];
     for (const versionTitle of feminist) {
-      for (const p of ['off', 'centrist_mo']) { expect(versionMatch(cfg(p), { versionTitle })).toBeNull(); }
-      for (const p of ['rwmo', 'yeshivish', 'strict_charedi']) {
+      expect(versionMatch(cfg('off'), { versionTitle })).toBeNull();
+      for (const p of ['centrist_mo', 'rwmo', 'yeshivish', 'strict_charedi']) {
         expect(versionMatch(cfg(p), { versionTitle })).toMatchObject({ group: 'feminist_translations', translation: true });
       }
     }

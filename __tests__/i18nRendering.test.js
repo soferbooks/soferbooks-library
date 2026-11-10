@@ -474,7 +474,6 @@ describe('Content filter', () => {
         'filter.group_haskalah_secular_short',
         'filter.group_feminist_translations_short',
         'filter.group_jps_1917_short',
-        'filter.group_historical_apocrypha_short',
         'filter.group_academic_orthodox_short',
         'filter.group_community_sheets_short',
         'filter.group_women_authors_short',
@@ -497,7 +496,6 @@ describe('Content filter', () => {
         'filter.group_haskalah_secular',
         'filter.group_feminist_translations',
         'filter.group_jps_1917',
-        'filter.group_historical_apocrypha',
         'filter.group_academic_orthodox',
         'filter.group_community_sheets',
         'filter.group_women_authors',
@@ -969,13 +967,10 @@ describe('Alerts', () => {
           app._libraryPromptStarted = false;  // shown once per app run; each language asks again
           app.promptLibraryDownload();
           await flushPromises();
-          // "Not now" opens the second alert explaining how to download later.
-          pressAlertButton('common.not_now');
         },
+        // one alert: it says how to download later itself ("Not now" opens nothing more)
         ['common.welcome', 'download.download_library_recommended_message',
-         'download.open_settings', 'common.not_now',
-         'download.using_online_library', 'download.how_to_download_library_message',
-         'common.ok']
+         'download.open_settings', 'common.not_now', 'download.how_to_download_library_message']
       );
     });
   });

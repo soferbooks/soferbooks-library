@@ -14,6 +14,7 @@ import * as shomer from '../shomer';
 import { configForPreset } from '../shomer/presets';
 import { loadText } from '../offlineOnline';
 import ReaderApp from '../ReaderApp';
+import strings from '../LocalizedStrings';
 
 const JPS_1985 = 'Tanakh: The Holy Scriptures, published by JPS';
 
@@ -115,6 +116,16 @@ describe('first launch: the library prompt waits for the content-filter choice',
     await app.promptLibraryDownload();
     expect(Alert.alert).toHaveBeenCalledTimes(1);
     await makeApp(configForPreset('rwmo')).promptLibraryDownload();
+    expect(Alert.alert).toHaveBeenCalledTimes(1);
+  });
+
+  test('"Not now" closes the welcome prompt without a second alert', async () => {
+    await makeApp(configForPreset('rwmo')).promptLibraryDownload();
+    expect(Alert.alert).toHaveBeenCalledTimes(1);
+    const [, message, buttons] = Alert.alert.mock.calls[0];
+    expect(message).toContain(strings.download.how_to_download_library_message);
+    const notNow = buttons.find(b => b.text === strings.common.not_now);
+    if (notNow.onPress) { notNow.onPress(); }
     expect(Alert.alert).toHaveBeenCalledTimes(1);
   });
 });

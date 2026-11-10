@@ -20,6 +20,9 @@ import {
 import styles from '../Styles';
 import strings from '../LocalizedStrings';
 import {iconData} from "../IconData";
+import {
+  localNameResults, shouldCallNameApi, noteNameApiFailure, noteNameApiSuccess, NAME_DEBOUNCE_MS,
+} from './localAutocomplete';
 
 const EXCLUDED_COMPLETION_TYPES = new Set(['topic', 'persontopic', 'authortopic', 'user', 'collection', 'group']);
 
@@ -54,6 +57,7 @@ class AutocompleteList extends React.Component {
 
   componentWillUnmount() {
     this._isMounted = false;
+    clearTimeout(this._nameTimer);
   }
 
   componentDidUpdate(prevProps, prevState) {
@@ -67,13 +71,32 @@ class AutocompleteList extends React.Component {
   }
 
   onQueryChange = q => {
+    clearTimeout(this._nameTimer);
     if (q.length >= 3) {
-      Sefaria.api.name(q, true)
+      // the library on the phone answers at once (and is all there is offline) ...
+      this.showResults(q, localNameResults(q));
+      // ... the Name API only after a pause in typing, and only when it can be reached
+      this._nameTimer = setTimeout(() => this.askNameApi(q), NAME_DEBOUNCE_MS);
+    } else {
+      this.setState({completions: []});
+    }
+  };
+
+  askNameApi = async q => {
+    if (!this._isMounted || this.props.query !== q) { return; }
+    if (!(await shouldCallNameApi())) { return; }
+    if (!this._isMounted || this.props.query !== q) { return; }
+    Sefaria.api.name(q, true)
+      .then(results => { noteNameApiSuccess(); return results; })
       .then(results => Sefaria.shomer?.filterNameResponse(results) ?? results)  // content filter
-      .then(results => {
+      .then(results => this.showResults(q, results))
+      .catch(() => noteNameApiFailure());  // keep the local results; no retry per keystroke
+  };
+
+  showResults = (q, results) => {
         // only if the box still holds this query: a late answer for an older one (or for a
         // query since cleared) must not fill the list
-        if (this._isMounted && this.props.query === q) {
+        if (results && this._isMounted && this.props.query === q) {
           const typeToValue = { "ref": 1, "toc": 3 };
           let completions = results.completion_objects.map((c,i) =>
           {
@@ -105,13 +128,6 @@ class AutocompleteList extends React.Component {
           }
           this.setState({completions, completionsLang: results.lang})
         }
-      })
-      .catch(error => {
-
-      })
-    } else {
-      this.setState({completions: []});
-    }
   };
   close = () => {
     this.setState({completions: []});

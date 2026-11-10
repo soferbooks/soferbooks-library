@@ -22,7 +22,8 @@ export const loadTextOffline = async function(ref, versions, fallbackOnDefaultVe
 export const getAllTranslationsOffline = async function (ref) {
     // versions are list of all versions
     const versions = getOfflineVersionObjectsAvailable(ref);
-    if (!versions) {
+    if (!versions || !versions.length) {
+        // nothing known yet (or the book's index could not be read): not "0 translations"
         return;
     }
 
@@ -509,8 +510,22 @@ const loadOfflineSectionMetadata = async function(ref) {
     }
 };
 
+const _unzipsInFlight = {};
 const _unzip = function(zipSourcePath) {
-    return unzip(zipSourcePath, FileSystem.documentDirectory);
+    /**
+     * One unzip of a book at a time: opening a section unzips the book for its metadata while
+     * textToc unzips it for its _index.json; two concurrent unzips into the same folder can
+     * leave a half-written file for the other reader to parse. Also waits for the startup
+     * cleanup of the last session's files (sefaria.js deleteUnzippedFiles), which could
+     * otherwise delete what was just unpacked.
+     */
+    if (!_unzipsInFlight[zipSourcePath]) {
+        const cleanup = (typeof Sefaria !== 'undefined' && Sefaria.util && Sefaria.util.unzippedCleanup) || Promise.resolve();
+        _unzipsInFlight[zipSourcePath] = Promise.resolve(cleanup).catch(() => {})
+            .then(() => unzip(zipSourcePath, FileSystem.documentDirectory))
+            .finally(() => { delete _unzipsInFlight[zipSourcePath]; });
+    }
+    return _unzipsInFlight[zipSourcePath];
 };
 
 const _loadJSON = function(JSONSourcePath) {
@@ -577,6 +592,11 @@ async function ensureTitleUnzipped(title) {
     const titleIsOffline = await offlineTitleExists(title);
     if (!titleIsOffline) {
         return false; // Title Doesn't exist offline
+    }
+
+    // Already unpacked: do not unpack it again over a file another load may be reading
+    if (await fileExists(_indexJSONPath(title))) {
+        return true;
     }
 
     // Check for the zip file

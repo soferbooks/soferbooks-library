@@ -5,6 +5,7 @@ import { getCrashlytics, recordError } from '@react-native-firebase/crashlytics'
 import VersionNumber from 'react-native-version-number';
 import { Search } from '@sefaria/search';
 import { executeOfflineQuery } from './offlineSearch';
+import { watchContentFilter } from './localSearch';
 import sanitizeHtml from 'sanitize-html';
 import { decodeHTML } from 'entities';
 import Api from './api';
@@ -42,6 +43,8 @@ global.Sefaria = {
     AsyncStorage.setItem("numTimesOpenedApp", JSON.stringify(Sefaria.numTimesOpenedApp + 1));
     Sefaria.lastAppUpdateTime = await Sefaria.getLastAppUpdateTime();
     await shomer.loadConfig();  // content filter settings, before the TOC is filtered by them
+    // offline search lines for the translations the filter shows in place of hidden ones
+    if (!Sefaria._unwatchLocalSearch) { Sefaria._unwatchLocalSearch = watchContentFilter(); }
     await Sefaria._loadTOC();
     await Sefaria.history._loadHistoryItems();
     await initAsyncStorage(dispatch);
@@ -1063,18 +1066,24 @@ Sefaria.util = {
    * @returns {string} string representation of date in `interfaceLanguage`
    */
   deleteUnzippedFiles: () => {
+    // Resolves at once (startup does not wait for thousands of deletes), but the deletes are
+    // kept as Sefaria.util.unzippedCleanup: offline.js waits for it before unzipping a book,
+    // or a delete still queued from the last session's file list could remove the
+    // _index.json / metadata just unpacked (QA: "Translations (0)" and no related texts).
     return new Promise((resolve, reject) => {
       FileSystem.readDirectoryAsync(FileSystem.documentDirectory).then(fileList => {
+        const deletes = [];
         for (let f of fileList) {
           if (f.endsWith(".json")) {
-            //console.log('deleting', f.path);
-            simpleDelete(`${FileSystem.documentDirectory}/${f}`).then(() => {});
+            deletes.push(simpleDelete(`${FileSystem.documentDirectory}/${f}`).catch(() => {}));
           }
         }
+        Sefaria.util.unzippedCleanup = Promise.all(deletes).then(() => {});
         resolve();
-      });
+      }).catch(() => resolve());
     });
   },
+  unzippedCleanup: Promise.resolve(),
   localeDate: (dateStringOrObject, interfaceLanguage) => {
     const locale = interfaceLanguage === 'english' ? 'en-US' : 'iw-IL';
     const dateOptions = {year: 'numeric', month: 'short', day: 'numeric'};
