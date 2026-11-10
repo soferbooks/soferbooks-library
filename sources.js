@@ -1,9 +1,9 @@
 // Library sources: where the app downloads its libraries from.
 //
-// Each source is a separate download the reader turns on in Settings. Only Sefaria works today;
-// the others are registered so the Settings list can show them as "coming soon", and so adding
-// one later means filling in its entry (and, if its layout differs, a loader) rather than
-// threading new hosts through DownloadControl.
+// Sefaria is always on (read online, downloaded for offline use in Settings). The extra sources
+// (`extra: true`, extras/index.js) are turned on one by one in Settings; their books come from
+// the source's own server, one book at a time. The rest are registered so the Settings list can
+// show them as "coming soon".
 //
 // Sefaria's layout (the one upstream Sefaria-Mobile's DownloadControl.js uses, schema 7):
 //   {baseUrl}/static/ios-export/{schema}/{toc,search_toc,topic_toc,hebrew_categories,people,
@@ -28,7 +28,14 @@ export const SOURCES = [
     available: true,
   },
   { id: 'dicta', name: 'Dicta', heName: 'דיקטה', baseUrl: null, layout: null, enabled: false, available: false },
-  { id: 'otzaria', name: 'Otzaria', heName: 'אוצריא', baseUrl: null, layout: null, enabled: false, available: false },
+  // Extra sources (extras/): the reader turns each on in Settings; its books are listed in the
+  // library and each is downloaded from the source's own server when opened, then converted on
+  // the phone (layout 'extra': the source's module in extras/ does the work)
+  {
+    id: 'otzaria', name: 'Otzaria', heName: 'אוצריא',
+    baseUrl: 'https://raw.githubusercontent.com/Otzaria/otzaria-library/main', layout: 'extra',
+    enabled: false, available: true, extra: true,
+  },
   { id: 'wikisource', name: 'Wikisource', heName: 'ויקיטקסט', baseUrl: null, layout: null, enabled: false, available: false },
   // planned: GitHub Releases of the SoferBooks project (SOFERBOOKS_RELEASES below)
   { id: 'soferbooks_extras', name: 'SoferBooks extras', heName: 'תוספות SoferBooks', baseUrl: null, layout: null, enabled: false, available: false },

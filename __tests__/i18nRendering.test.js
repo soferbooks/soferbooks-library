@@ -450,7 +450,7 @@ describe('Settings screen', () => {
         'settings.app_version',
         'filter.section_header', 'filter.description', 'filter.groups_header',
         'library_sources.header', 'library_sources.description', 'library_sources.coming_soon',
-        'library_sources.always_on',
+        'library_sources.always_on', 'extras.source_detail',
       ]
     );
   });
@@ -956,6 +956,40 @@ describe('Alerts', () => {
       }
     });
 
+    test('a book of an extra source that is not downloaded offers the download, in both languages', async () => {
+      const app = readerAppInstance();
+      const extras = require('../extras');
+      const entries = [{source: 'otzaria', id: 'B/ספרים/אוצריא/הלכה/א/ספר.txt', hash: 'h', heTitle: 'ספר בדיקה',
+        categories: ['Halakhah', 'Otzaria', 'א'], heCategories: ['הלכה', 'אוצריא', 'א'], collection: 'Ben-Yehuda', license: 'PD'}];
+      extras._reset({enabled: {otzaria: true}, catalogs: {otzaria: {entries}}});
+      extras.applyToToc([]);
+      app.showToast = noop;
+      await expectAlertLocalizes(
+        () => { app.extraBookAlert('ספר בדיקה'); },
+        ['extras.not_downloaded_title', 'extras.not_downloaded_message', 'common.cancel', 'download.download']
+      );
+      // Download, and the source does not answer
+      global.fetch = jest.fn(() => Promise.resolve({ok: false, status: 503, text: async () => ''}));
+      await expectAlertLocalizes(
+        async () => { const done = app.extraBookAlert('ספר בדיקה'); pressAlertButton('download.download'); await done; },
+        ['download.download_error', 'extras.download_failed_message', 'common.ok']
+      );
+      // Download, and the book's own notice forbids it
+      await expectAlertLocalizes(
+        async () => {
+          extras._reset({enabled: {otzaria: true}, catalogs: {otzaria: {entries}}});
+          extras.applyToToc([]);
+          global.fetch = jest.fn(() => Promise.resolve({ok: true, status: 200, text: async () => 'כל הזכויות שמורות'}));
+          const done = app.extraBookAlert('ספר בדיקה');
+          pressAlertButton('download.download');
+          await done;
+        },
+        ['extras.not_offered_title', 'extras.not_offered_message', 'common.ok']
+      );
+      global.fetch = jest.fn(REFUSE_NETWORK);
+      extras._reset();
+    });
+
     test('the first-run download prompt renders in both languages', async () => {
       // the prompt waits until the content filter has been chosen
       const app = readerAppInstance({ contentFilter: configForPreset('rwmo') });
@@ -1106,6 +1140,12 @@ describe('Strings with placeholders', () => {
     'versions.merged_from': { sources: 'two editions' },
     'tabs.archived_tabs_count': { count: 4 },
     'learning_schedules.reading_n_of_m': { n: 2, m: 7 },
+    'extras.downloaded_count': { count: 12 },
+    'extras.downloading': { title: 'זמרת הארץ' },
+    'extras.license_line': { license: 'Public Domain' },
+    'extras.not_downloaded_message': { title: 'זמרת הארץ', source: 'Otzaria' },
+    'extras.turn_off_message': { count: 5 },
+    'extras.updates_message': { count: 3 },
   };
 
   test('the list below is every string in the table that has a placeholder', () => {
@@ -1836,12 +1876,21 @@ const NOT_YET_COVERED = [
   // DownloadControl.js: raised from inside downloadBundle's catch, which needs a download
   // that starts and then fails partway through. Reaching it from a test would mean driving
   // the whole bundle-download state machine.
-  'download.download_error', 'download.download_error_message',
+  'download.download_error_message',
 
   // search/SearchFilterPage.js: used only as a key into ButtonToggleSetData's lookup table
   // (`buttonToggleSetData.get(strings.search.exact_search)`). The user sees
   // `search.exact_matches_only` next to that toggle, never this string.
   'search.exact_search',
+
+  // ---------------------------------------------------------------------------------------
+  // Extra sources (extras/, Otzaria): shown by screens that need a downloaded book of an extra
+  // source (the reader's table of contents: delete / licence line; the library list's badge),
+  // a source turned on in Settings with books on the phone (count, turn off, updates), or a
+  // toast while a book downloads. Their placeholders are checked in "Strings with placeholders";
+  // the flows themselves are tested in __tests__/extras.test.js.
+  'extras.delete_book', 'extras.delete_book_message', 'extras.download_to_read_badge',
+  'extras.up_to_date',
 ];
 
 describe('coverage of the whole string table', () => {

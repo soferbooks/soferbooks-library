@@ -222,7 +222,46 @@ The newest release must stay "latest" (the app reads `releases/latest/download/m
 and then fetches the other files from that tag). Rebuild after Sefaria's weekly export
 (the manifest's `sefaria.last_updated` tells which export a release matches).
 
-## SoferBooks extras (Dicta, Otzaria, Wikitext, Sofer's own books)
+## Extra sources (Otzaria now; Dicta, Wikitext later)
+
+**Owner's decision (2026-11-10): every book comes from its own source's server.** SoferBooks
+hosts no book files (only Sefaria's search files above). So the phone downloads each extra
+book from the source itself and converts ("rewraps") it into the schema-7 layout, the way
+Sofer's importer (`C:\Users\morde\Sofer\src\sofer\importers.py`) converts it. The plan
+further below (`build_extras.py`, hosting converted packs) is superseded and not used.
+
+The app side is `extras/` (the source interface is described in `extras/index.js`):
+`tree.js` (Sofer's `_Node`, `norm_title`, `safe`, headings inside the text, `restricted`),
+`schema7.js` (a book's `_index.json` + section files, as `export_v7.py` writes them),
+`catalog.js` (one copy of each sefer: Sefaria > Dicta > Otzaria > Wikitext; Sofer's category
+placement), `otzaria.js` (the source). Each source is turned on in Settings; its books are
+listed in the library, and opening one that is not downloaded offers the download.
+
+**Otzaria** serves each book on its own:
+`raw.githubusercontent.com/Otzaria/otzaria-library/main/<path>`; the catalogue is the
+repository's `files_manifest.json` (every file with its sha256, used for the update check).
+Licences per collection follow the library's README (2026-11): `extras/otzaria.js`
+`COLLECTIONS`. Two files are made on the PC with Sofer's own code:
+
+```powershell
+# books whose own notice forbids them, Rav Yosef Peretz's permitted ones, and Otzaria copies of
+# Sefaria books under another Hebrew name -> extras/otzariaRules.json (names only)
+python tools\library-export\otzaria_rules.py
+# expected results of the conversion fixtures (__tests__/fixtures/otzaria/*.sofer.json)
+python tools\library-export\otzaria_fixtures.py
+```
+
+Checking the phone's converter against Sofer's converted books (`Sofer\data`, read only):
+
+```powershell
+python tools\library-export\otzaria_fidelity.py C:\tmp\fid --random 300
+node -r @babel/register tools\library-export\compare_otzaria.js C:\tmp\fid --quiet
+```
+
+2026-11-10: all 1,172 Otzaria books Sofer imported came out the same (sections, headings,
+paragraphs, author line), and the book-notice rule agreed on all 1,172.
+
+### Superseded: hosted extras packs
 
 **Can the phone use the sources' own releases?** No, not sensibly:
 

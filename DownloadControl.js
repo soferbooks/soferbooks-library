@@ -9,6 +9,7 @@ import NetInfo from "@react-native-community/netinfo";
 import {getCrashlytics, recordError, log} from '@react-native-firebase/crashlytics';
 import {SCHEMA_VERSION, serverFor, exportPathFor} from './sources';
 import * as shomer from './shomer';
+import * as extras from './extras';
 import {syncPacks} from './packs';
 import {localSearchPath} from './localSearch';
 
@@ -410,8 +411,10 @@ async function lastUpdated() {
 
 function getFullBookList() { // todo: Use Sefaria.cacheIndexFromToc to initialize?
   // Test with Jest
-  // includes books hidden by the content filter, so that copies already on disk get deleted
-  return shomer.allBookTitles();
+  // includes books hidden by the content filter, so that copies already on disk get deleted;
+  // not the extra sources' books (Otzaria ...): Sefaria's packages and updates know nothing of
+  // them, and extras/index.js keeps them
+  return shomer.allBookTitles().filter(t => !extras.isExtraTitle(t));
 }
 
 async function packageSetupProtocol() {

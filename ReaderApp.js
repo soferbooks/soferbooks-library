@@ -60,6 +60,8 @@ import {FooterTabBar} from "./FooterTabBar";
 import {getSafeViewStyleAndStatusBarBackground} from "./getSafeViewStyles";
 import ContentFilterChooser from "./shomer/ContentFilterChooser";
 import {correctionEmail, versionOnScreen} from "./reportError";
+import * as extras from "./extras";
+import {SOURCES} from "./sources";
 import ReaderTabBar, { READER_TAB_BAR_HEIGHT } from "./tabs/ReaderTabBar";
 import {
   emptyTabsState,
@@ -309,6 +311,8 @@ class ReaderApp extends React.PureComponent {
         };
         // One prompt only (QA): it already says how to download later, so "Not now" just
         // closes it instead of opening a second "Using Online Library" alert.
+        // (A reader who stays online reads Sefaria's books online; a book of an extra source -
+        //  Otzaria ... - offers its own download when opened: extraBookAlert.)
         const showWelcomeAlert = () => {
           Alert.alert(
             strings.common.welcome,
@@ -1038,7 +1042,51 @@ class ReaderApp extends React.PureComponent {
     return this.openRefInNewTab(ref, versions);
   };
 
+  /**
+   * A book of an extra source (Otzaria ...) that is not downloaded: it has no online reader,
+   * so say so and offer to download it (from the source's own server; it is converted on the
+   * phone), then open it. Returns the alert's promise: true when the book was opened.
+   */
+  extraBookAlert = (title, open) => {
+    const book = extras.extraBook(title);
+    const sourceName = (SOURCES.find(s => s.id === book?.source) || {}).name || book?.source || '';
+    const heSourceName = (SOURCES.find(s => s.id === book?.source) || {}).heName || sourceName;
+    const isHe = this.props.interfaceLanguage === 'hebrew';
+    return new Promise(resolve => {
+      const download = async () => {
+        this.showToast(strings.formatString(strings.extras.downloading, {title: book?.heTitle || title}), Toast.durations.SHORT);
+        try {
+          const firstSection = await extras.downloadBook(title);
+          if (open) { await open(firstSection); }
+          resolve(true);
+        } catch (e) {
+          const restricted = e instanceof extras.RestrictedBookError;
+          Alert.alert(
+            restricted ? strings.extras.not_offered_title : strings.download.download_error,
+            restricted ? strings.extras.not_offered_message : strings.extras.download_failed_message,
+            [{text: strings.common.ok}]);
+          resolve(false);
+        }
+      };
+      Alert.alert(
+        strings.extras.not_downloaded_title,
+        strings.formatString(strings.extras.not_downloaded_message,
+          {title: book?.heTitle || title, source: isHe ? heSourceName : sourceName}),
+        [
+          {text: strings.common.cancel, style: 'cancel', onPress: () => resolve(false)},
+          {text: strings.download.download, onPress: download},
+        ],
+        {cancelable: true, onDismiss: () => resolve(false)},
+      );
+    });
+  };
+
   textUnavailableAlert = ref => {
+    const extraTitle = Sefaria.textTitleForRef(ref);
+    if (extras.needsDownload(extraTitle)) {
+      this.extraBookAlert(extraTitle, first => this.openRef(ref === extraTitle ? first : ref, 'navigation'));
+      return;
+    }
     const hidden = Sefaria.shomer?.hiddenBookForRef(ref);  // content filter
     if (hidden) {
       Alert.alert(strings.filter.hidden_title,
@@ -1064,6 +1112,17 @@ class ReaderApp extends React.PureComponent {
   enableAliyot - true when you click on an aliya form ReaderTextTableOfContents
   */
   openRef = (ref, calledFrom, versions, addToBackStack=true, enableAliyot=false, loadNewVersions=false) => {
+    // a book of an extra source (Otzaria ...): read only once downloaded
+    const extraTitle = Sefaria.textTitleForRef(ref);
+    if (extras.isExtraTitle(extraTitle)) {
+      if (extras.needsDownload(extraTitle)) {
+        return this.extraBookAlert(extraTitle, first => this.openRef(ref === extraTitle ? first : ref,
+          calledFrom, versions, addToBackStack, enableAliyot, loadNewVersions)).then(() => {});
+      }
+      if (ref === extraTitle && extras.firstSectionOf(extraTitle)) {
+        ref = extras.firstSectionOf(extraTitle);  // (the toc names such a book by its title)
+      }
+    }
     if (calledFrom === 'deep link' && Date.now() < this._newTabRouteUntil) {
       this._newTabRouteUntil = 0;
       return this.openRefInNewTab(ref, versions);
@@ -1235,6 +1294,10 @@ class ReaderApp extends React.PureComponent {
   openTextTocDirectly = (title) => {
 
     // used to open text toc witout going throught the reader
+    if (extras.needsDownload(title)) {
+      this.extraBookAlert(title, () => this.openTextTocDirectly(title));
+      return;
+    }
     if (!Sefaria.booksDict[title]) {
       this.textUnavailableAlert(title);
       return;

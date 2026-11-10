@@ -1,12 +1,13 @@
 // Settings: the content filter (choose a preset, then switch single groups) and the list of
 // library sources. Deliberately plain; styling is left to the app's theme work.
-import React, { useContext } from 'react';
-import { View, Text, TouchableOpacity, Switch, StyleSheet } from 'react-native';
+import React, { useContext, useEffect, useState } from 'react';
+import { View, Text, TouchableOpacity, Switch, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { GlobalStateContext, DispatchContext, STATE_ACTIONS, getTheme } from '../StateManager';
 import strings from '../LocalizedStrings';
 import styles from '../Styles';
 import { CHOICES, GROUPS, configForPreset, toggleGroup } from './presets';
 import { SOURCES } from '../sources';
+import * as extras from '../extras';
 
 export const useSetContentFilter = () => {
   const dispatch = useContext(DispatchContext);
@@ -90,6 +91,63 @@ export const ContentFilterSettings = ({ langStyle }) => {
   );
 };
 
+/** An extra source (Otzaria ...): on/off, how many of its books are on the phone, updates. */
+export const ExtraSourceRow = ({ source, langStyle, theme, interfaceLanguage }) => {
+  const [, setTick] = useState(0);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => extras.subscribe(() => setTick(t => t + 1)), []);
+  const on = extras.isEnabled(source.id);
+  const name = interfaceLanguage === 'hebrew' ? source.heName : source.name;
+  const downloaded = extras.installedTitles(source.id).length;
+  const run = async (job) => {
+    setBusy(true);
+    try { await job(); } catch (e) {
+      Alert.alert(strings.download.download_error, strings.extras.download_failed_message, [{text: strings.common.ok}]);
+    } finally { setBusy(false); }
+  };
+  const toggle = value => {
+    if (value) { run(() => extras.setSourceEnabled(source.id, true)); return; }
+    if (!downloaded) { run(() => extras.setSourceEnabled(source.id, false)); return; }
+    Alert.alert(name, strings.formatString(strings.extras.turn_off_message, {count: downloaded}), [
+      {text: strings.common.cancel, style: 'cancel'},
+      {text: strings.common.yes, onPress: () => run(() => extras.setSourceEnabled(source.id, false))},
+    ]);
+  };
+  const checkUpdates = () => run(async () => {
+    const changed = await extras.checkUpdates(source.id);
+    if (!changed.length) {
+      Alert.alert(name, strings.extras.up_to_date, [{text: strings.common.ok}]);
+      return;
+    }
+    Alert.alert(name, strings.formatString(strings.extras.updates_message, {count: changed.length}), [
+      {text: strings.common.not_now, style: 'cancel'},
+      {text: strings.download.download, onPress: () => run(async () => {
+        for (const title of changed) { await extras.downloadBook(title); }
+      })},
+    ]);
+  });
+  return (
+    <View>
+      <View style={local.groupRow}>
+        <View style={local.groupText}>
+          <Text style={[langStyle, theme.text]}>{name}</Text>
+          <Text style={[langStyle, theme.secondaryText, local.detail]}>{strings.extras.source_detail}</Text>
+          {on ? <Text style={[langStyle, theme.secondaryText, local.detail]}>
+            {strings.formatString(strings.extras.downloaded_count, {count: downloaded})}
+          </Text> : null}
+        </View>
+        {busy ? <ActivityIndicator /> : null}
+        <Switch value={on} disabled={busy} onValueChange={toggle} accessibilityLabel={name} />
+      </View>
+      {on && downloaded ? (
+        <TouchableOpacity onPress={checkUpdates} disabled={busy} accessibilityRole="button" style={local.link}>
+          <Text style={[langStyle, theme.text, local.linkText]}>{strings.download.check_for_updates}</Text>
+        </TouchableOpacity>
+      ) : null}
+    </View>
+  );
+};
+
 export const LibrarySourcesSettings = ({ langStyle }) => {
   const { themeStr, interfaceLanguage } = useContext(GlobalStateContext);
   const theme = getTheme(themeStr);
@@ -97,7 +155,9 @@ export const LibrarySourcesSettings = ({ langStyle }) => {
     <View style={styles.settingsSection} testID="library-sources-settings">
       <Text style={[langStyle, styles.settingsSectionHeader, theme.tertiaryText]}>{strings.library_sources.header}</Text>
       <Text style={[langStyle, theme.secondaryText, local.detail]}>{strings.library_sources.description}</Text>
-      {SOURCES.map(s => (
+      {SOURCES.map(s => (s.extra
+        ? <ExtraSourceRow key={s.id} source={s} langStyle={langStyle} theme={theme} interfaceLanguage={interfaceLanguage} />
+        : (
         <View key={s.id} style={local.groupRow}>
           <View style={local.groupText}>
             <Text style={[langStyle, theme.text]}>
@@ -106,13 +166,13 @@ export const LibrarySourcesSettings = ({ langStyle }) => {
             </Text>
             {s.enabled ? <Text style={[langStyle, theme.secondaryText, local.detail]}>{strings.library_sources.always_on}</Text> : null}
           </View>
-          {/* only Sefaria can be downloaded today and it is always on: shown as on (not greyed
-              out as disabled); switching it off does nothing */}
+          {/* Sefaria is always on: shown as on (not greyed out as disabled); switching it off
+              does nothing */}
           {s.enabled
             ? <Switch value onValueChange={() => {}} accessibilityLabel={s.name} accessibilityHint={strings.library_sources.always_on} />
             : <Switch value={false} disabled accessibilityLabel={s.name} />}
         </View>
-      ))}
+      )))}
     </View>
   );
 };
@@ -125,6 +185,8 @@ const local = StyleSheet.create({
   groupsHeader: { marginTop: 16 },
   groupRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6 },
   groupText: { flex: 1, paddingRight: 8 },
+  link: { paddingVertical: 4 },
+  linkText: { fontSize: 14, textDecorationLine: 'underline' },
 });
 
 export default ContentFilterSettings;

@@ -14,6 +14,13 @@ import {
 } from "./offline";
 import api from "./api";
 import * as shomer from "./shomer";
+import * as extras from "./extras";
+
+// A ref in a book of an extra source (Otzaria ...): Sefaria's API does not know it, so it is
+// never asked (its text, links, translations and index are on the phone or nowhere)
+const isExtraRef = ref => {
+    try { return extras.isExtraTitle(Sefaria.textTitleForRef(ref)); } catch (e) { return false; }
+};
 
 
 export const loadText = function(ref, context, versions, fallbackOnDefaultVersions=true, failSilently=false) {
@@ -39,6 +46,10 @@ export const loadText = function(ref, context, versions, fallbackOnDefaultVersio
             return {textContent, links};
         })
         .catch(error => {
+            if (error === ERRORS.MISSING_OFFLINE_DATA && isExtraRef(ref)) {
+                // a book of an extra source (Otzaria ...): no online reader, it must be downloaded
+                return Promise.reject(ERRORS.EXTRA_NOT_DOWNLOADED);
+            }
             if (error === ERRORS.MISSING_OFFLINE_DATA) {
                 // Expected case: the text isn't downloaded offline, so fall back to the API.
                 return api.textApi(ref, context, versions, failSilently)
@@ -60,6 +71,7 @@ export const loadText = function(ref, context, versions, fallbackOnDefaultVersio
 
 export const loadVersions = async (ref) => {
     let versions = getOfflineVersionObjectsAvailable(ref);
+    if (!versions && isExtraRef(ref)) { return []; }
     if (!versions) {
         versions = await api.versions(ref, true);
     }
@@ -107,7 +119,7 @@ export const loadTranslations = async (ref, online=true) => {
     let translations = offlineTranslations?.translations || [];
     // Translations are secondary/optional data. Only hit the API when online, so a device
     // that's known to be offline never pops a blocking no-internet alert.
-    if (online && (!offlineTranslations || offlineTranslations.missingVersions.length)) {
+    if (online && !isExtraRef(ref) && (!offlineTranslations || offlineTranslations.missingVersions.length)) {
         translations = await api.translations(ref);
     }
     return shomer.filterTranslations(translations);  // content filter
@@ -116,7 +128,7 @@ export const loadTranslations = async (ref, online=true) => {
 export const loadRelated = async function(ref, online) {
     const cached = api._related[ref];
     if (!!cached) { return shomer.filterRelated(cached); }
-    const loader = online ? api.related : loadLinksOffline;
+    const loader = online && !isExtraRef(ref) ? api.related : loadLinksOffline;
     const response = await loader(ref);
     api._related[ref] = response;
     return shomer.filterRelated(response);  // content filter (links to hidden books drop out with the TOC)
@@ -146,7 +158,8 @@ export const textToc = function(title) {
             offlineIndex()
                 .catch(() => new Promise(r => setTimeout(r, 300)).then(offlineIndex))
                 .then(resolver)
-                .catch(() => api._request(title, 'index', true, {}, true).then(resolver))
+                .catch(error => (extras.isExtraTitle(title) ? Promise.reject(error)
+                    : api._request(title, 'index', true, {}, true).then(resolver)))
                 .catch(reject);
         }
     });

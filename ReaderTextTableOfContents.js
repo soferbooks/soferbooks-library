@@ -6,8 +6,10 @@ import {
   TouchableOpacity,
   View,
   ScrollView,
-  Dimensions
+  Dimensions,
+  Alert,
 } from 'react-native';
+import * as extras from './extras';
 
 import {ErrorBoundaryFallbackComponent} from "./ErrorBoundaryFallbackComponent";
 import {
@@ -109,6 +111,8 @@ const ReaderTextTableOfContents = ({
               openUri={openUri}
             />
 
+            { extras.isDownloaded(title) ? <ExtraBookInfo title={title} textToc={textToc} close={close} /> : null }
+
             { textToc && "dedication" in textToc ?
             (<View>
               { isHeb ?
@@ -150,6 +154,37 @@ ReaderTextTableOfContents.propTypes = {
   close:          PropTypes.func.isRequired,
   openUri:        PropTypes.func.isRequired,
   textUnavailableAlert: PropTypes.func.isRequired,
+};
+
+/**
+ * A downloaded book of an extra source (Otzaria ...): where it comes from, its licence, and
+ * deleting the downloaded copy (the book stays in the library, to be downloaded again).
+ */
+const ExtraBookInfo = ({ title, textToc, close }) => {
+  const { theme, interfaceLanguage } = useGlobalState();
+  const langStyle = interfaceLanguage === "hebrew" ? styles.heInt : styles.enInt;
+  const version = (textToc?.versions || [])[0] || {};
+  const remove = () => Alert.alert(
+    strings.extras.delete_book,
+    strings.extras.delete_book_message,
+    [
+      {text: strings.common.cancel, style: 'cancel'},
+      {text: strings.common.yes, onPress: () => { extras.deleteBook(title).then(close).catch(() => {}); }},
+    ],
+  );
+  return (
+    <View style={{marginTop: 10}}>
+      {version.versionSource ?
+        <Text style={[langStyle, theme.tertiaryText, {fontSize: 13}]}>{version.versionSource}</Text> : null}
+      {version.license ?
+        <Text style={[langStyle, theme.tertiaryText, {fontSize: 13}]}>{strings.formatString(strings.extras.license_line, {license: version.license})}</Text> : null}
+      {version.versionNotesInHebrew ?
+        <Text style={[styles.he, theme.tertiaryText, {fontSize: 13}]}>{version.versionNotesInHebrew}</Text> : null}
+      <TouchableOpacity onPress={remove} accessibilityRole="button" style={{paddingVertical: 6}}>
+        <Text style={[langStyle, theme.text, {fontSize: 14, textDecorationLine: 'underline'}]}>{strings.extras.delete_book}</Text>
+      </TouchableOpacity>
+    </View>
+  );
 };
 
 const TextTableOfContentsNavigation = ({ schema, commentatorList, alts, defaultStruct, title, exclude_structs, openRef }) => {

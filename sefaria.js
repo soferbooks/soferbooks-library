@@ -28,6 +28,7 @@ import { Topic } from './Topic';
 import {openFileInSources} from "./offline";
 import {trackEvent} from "./analytics/events";
 import * as shomer from './shomer';
+import * as extras from './extras';
 import {withExtraSchedules} from './learningSchedules/extraSchedules';
 
 
@@ -70,6 +71,8 @@ global.Sefaria = {
           console.log('postInit download error');
           console.log(e);
         }
+        // the extra sources' catalogues (Otzaria ...), once a week; books are only downloaded when opened
+        extras.refreshStaleCatalogs().catch(e => console.log('extras: catalogue refresh', e));
       })
   },
   getLastAppUpdateTime: async function() {
@@ -308,8 +311,12 @@ global.Sefaria = {
     }
   },
   _loadTOC: function() {
-    return openFileInSources("toc.json").then(data => {
-      Sefaria.toc = shomer.applyToToc(data);  // content filter: hidden books are left out
+    return Promise.all([openFileInSources("toc.json"), extras.loadExtras().catch(() => {})]).then(([data]) => {
+      // the extra sources' books (Otzaria ...) join Sefaria's toc first, so the content filter
+      // covers them too
+      let toc = data;
+      try { toc = extras.applyToToc(data); } catch (e) { console.log('extras: could not add books', e); }
+      Sefaria.toc = shomer.applyToToc(toc);  // content filter: hidden books are left out
       Sefaria._cacheIndexFromToc(Sefaria.toc, true);
     });
   },
@@ -321,7 +328,7 @@ global.Sefaria = {
   },
   _loadHebrewCategories: function() {
     return openFileInSources("hebrew_categories.json").then(data => {
-      Sefaria.hebrewCategories = data;
+      Sefaria.hebrewCategories = {...data, ...extras.extraCategoryNames()};
       Sefaria.englishCategories = {}; // used for classifying cats in autocomplete
       Object.entries(data).forEach(([key, value]) => {
         Sefaria.englishCategories[value] = 1;
