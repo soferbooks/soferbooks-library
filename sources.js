@@ -36,7 +36,7 @@ export const SOURCES = [
     baseUrl: 'https://raw.githubusercontent.com/Otzaria/otzaria-library/main', layout: 'extra',
     enabled: false, available: true, extra: true,
   },
-  { id: 'wikisource', name: 'Wikisource', heName: 'ויקיטקסט', baseUrl: null, layout: null, enabled: false, available: false },
+  { id: 'wikisource', name: 'Wikisource', heName: 'ויקיטקסט', baseUrl: 'https://he.wikisource.org', layout: 'extra', enabled: false, available: true, extra: true },
   // planned: GitHub Releases of the SoferBooks project (SOFERBOOKS_RELEASES below)
   { id: 'soferbooks_extras', name: 'SoferBooks extras', heName: 'תוספות SoferBooks', baseUrl: null, layout: null, enabled: false, available: false },
 ];

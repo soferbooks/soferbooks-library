@@ -10,7 +10,8 @@
 import {normTitle, safe} from './tree';
 import {tocItem} from './schema7';
 
-// Sofer's order: who wins when two sources have the same sefer
+// Sofer's order: who wins when two sources have the same sefer (but a book a source marks
+// `preferred` is used instead of the copies it `replaces`: wikisource.PREFERRED)
 export const PRECEDENCE = ['sefaria', 'dicta', 'otzaria', 'wikisource'];
 
 // Hebrew names of the categories Sefaria's toc has (export_v7.HEBREW_CATEGORIES)
@@ -54,13 +55,18 @@ export function chooseBooks(toc, catalogs, {installed = {}, blocked = {}} = {}) 
     const ib = PRECEDENCE.indexOf(b);
     return (ia < 0 ? PRECEDENCE.length : ia) - (ib < 0 ? PRECEDENCE.length : ib);
   });
-  for (const source of order) {
-    for (const entry of catalogs[source] || []) {
+  // (a book chosen over another source's copy - entry.preferred, entry.replaces: the copies' names -
+  //  is taken before the other sources' books; entry.names: its other names, as Sofer compares them)
+  const passes = [true, false].map(pref => order.map(source => [source, (catalogs[source] || [])
+    .filter(e => !!e.preferred === pref)]));
+  for (const [source, entries] of [].concat(...passes)) {
+    for (const entry of entries) {
       const key = `${entry.source || source}|${entry.id}`;
       if (blocked[key]) { skipped.blocked += 1; continue; }
       const name = normTitle(entry.heTitle);
-      if (!name || names.has(name)) { skipped.duplicate += 1; continue; }
-      names.add(name);
+      const all = [name, ...(entry.names || []).map(normTitle)];
+      if (!name || all.some(n => names.has(n))) { skipped.duplicate += 1; continue; }
+      all.concat((entry.replaces || []).map(normTitle)).forEach(n => names.add(n));
       let title = keepTitle[key];
       if (!title) {
         const base = safe(entry.title || entry.heTitle);

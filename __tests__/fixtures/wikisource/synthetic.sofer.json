@@ -1,0 +1,170 @@
+{
+ "author": "יעקב חאגיז",
+ "text": {
+  "S1": [
+   "דברי פתיחה",
+   "בשתי שורות"
+  ],
+  "S2": [
+   "<b>אמר</b> החכם<i data-commentator=\"הערות\" data-order=\"1\"></i> דברים נאים..",
+   "<b>ענין שני</b>",
+   "ועוד<i data-commentator=\"הערות\" data-order=\"1\"></i> אמר & הוסיף<i data-commentator=\"הערות\" data-order=\"2\"></i>:"
+  ],
+  "S3": [
+   "תחילת הדברים<i data-commentator=\"הערות\" data-order=\"1\"></i> כאן",
+   "וסוף"
+  ]
+ },
+ "nodes": [
+  {
+   "key": "S1",
+   "title": "S1",
+   "enTitle": "S1",
+   "heTitle": "הקדמה",
+   "titles": [
+    {
+     "text": "הקדמה",
+     "lang": "he",
+     "primary": true
+    }
+   ],
+   "nodeType": "JaggedArrayNode",
+   "depth": 1,
+   "sectionNames": [
+    "Paragraph"
+   ],
+   "addressTypes": [
+    "Integer"
+   ]
+  },
+  {
+   "key": "S2",
+   "title": "S2",
+   "enTitle": "S2",
+   "heTitle": "פרק א",
+   "titles": [
+    {
+     "text": "פרק א",
+     "lang": "he",
+     "primary": true
+    }
+   ],
+   "nodeType": "JaggedArrayNode",
+   "depth": 1,
+   "sectionNames": [
+    "Paragraph"
+   ],
+   "addressTypes": [
+    "Integer"
+   ]
+  },
+  {
+   "key": "S3",
+   "title": "S3",
+   "enTitle": "S3",
+   "heTitle": "פרק ב",
+   "titles": [
+    {
+     "text": "פרק ב",
+     "lang": "he",
+     "primary": true
+    }
+   ],
+   "nodeType": "JaggedArrayNode",
+   "depth": 1,
+   "sectionNames": [
+    "Paragraph"
+   ],
+   "addressTypes": [
+    "Integer"
+   ]
+  }
+ ],
+ "notes": {
+  "S1": [
+   [],
+   []
+  ],
+  "S2": [
+   [
+    "הערה ראשונה"
+   ],
+   [],
+   [
+    "הערה שניה",
+    "הערה שלישית"
+   ]
+  ],
+  "S3": [
+   [
+    "הערת המעתיק"
+   ],
+   []
+  ]
+ },
+ "notesNodes": [
+  {
+   "key": "S1",
+   "title": "S1",
+   "enTitle": "S1",
+   "heTitle": "הקדמה",
+   "titles": [
+    {
+     "text": "הקדמה",
+     "lang": "he",
+     "primary": true
+    }
+   ],
+   "nodeType": "JaggedArrayNode",
+   "depth": 1,
+   "sectionNames": [
+    "Paragraph"
+   ],
+   "addressTypes": [
+    "Integer"
+   ]
+  },
+  {
+   "key": "S2",
+   "title": "S2",
+   "enTitle": "S2",
+   "heTitle": "פרק א",
+   "titles": [
+    {
+     "text": "פרק א",
+     "lang": "he",
+     "primary": true
+    }
+   ],
+   "nodeType": "JaggedArrayNode",
+   "depth": 1,
+   "sectionNames": [
+    "Paragraph"
+   ],
+   "addressTypes": [
+    "Integer"
+   ]
+  },
+  {
+   "key": "S3",
+   "title": "S3",
+   "enTitle": "S3",
+   "heTitle": "פרק ב",
+   "titles": [
+    {
+     "text": "פרק ב",
+     "lang": "he",
+     "primary": true
+    }
+   ],
+   "nodeType": "JaggedArrayNode",
+   "depth": 1,
+   "sectionNames": [
+    "Paragraph"
+   ],
+   "addressTypes": [
+    "Integer"
+   ]
+  }
+ ]
+}

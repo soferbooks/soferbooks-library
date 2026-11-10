@@ -1,0 +1,51 @@
+{
+ "title": "ספר בדיקה",
+ "categories": [
+  "ספרים מושלמים"
+ ],
+ "fetched": "2026-11-10",
+ "pages": [
+  {
+   "page": "ספר בדיקה",
+   "name": "ספר בדיקה",
+   "depth": 0,
+   "revid": 100,
+   "html": "<div class=\"mw-content-rtl mw-parser-output\" lang=\"he\" dir=\"rtl\"><div style=\"text-align:center;\"><b>ספר בדיקה</b><br />חיבור נאה</div><p>מאת <a href=\"/wiki/%D7%9E%D7%97%D7%91%D7%A8:%D7%99%D7%A2%D7%A7%D7%91_%D7%97%D7%90%D7%92%D7%99%D7%96\" title=\"מחבר:יעקב חאגיז\">יעקב חאגיז</a></p><div class=\"noprint navbox\">ניווט <a href=\"/wiki/%D7%A1%D7%A4%D7%A8_%D7%91%D7%93%D7%99%D7%A7%D7%94/%D7%90\">לא</a></div><ul><li><a href=\"/wiki/%D7%A1%D7%A4%D7%A8_%D7%91%D7%93%D7%99%D7%A7%D7%94/%D7%AA%D7%95%D7%9B%D7%9F\">תוכן</a></li><li><a href=\"/wiki/%D7%A1%D7%A4%D7%A8_%D7%91%D7%93%D7%99%D7%A7%D7%94/%D7%90\">פרק א</a></li><li><a href=\"/wiki/%D7%A1%D7%A4%D7%A8_%D7%91%D7%93%D7%99%D7%A7%D7%94/%D7%91\">פרק ב</a></li><li><a href=\"/wiki/%D7%A1%D7%A4%D7%A8_%D7%91%D7%93%D7%99%D7%A7%D7%94/%D7%94%D7%A7%D7%93%D7%9E%D7%94\">הקדמה</a></li><li><a href=\"/wiki/%D7%A1%D7%A4%D7%A8_%D7%91%D7%93%D7%99%D7%A7%D7%94/%D7%90%D7%95%D7%93%D7%95%D7%AA\">אודות המהדורה</a></li><li><a href=\"/wiki/%D7%A7%D7%98%D7%92%D7%95%D7%A8%D7%99%D7%94:%D7%A1%D7%A4%D7%A8%D7%99%D7%9D\">קטגוריה</a></li></ul></div>"
+  },
+  {
+   "page": "ספר בדיקה/תוכן",
+   "name": "תוכן",
+   "depth": 1,
+   "revid": 101,
+   "html": "<div class=\"mw-parser-output\"><p>פרק א<br />פרק ב<br />הקדמה</p></div>"
+  },
+  {
+   "page": "ספר בדיקה/א",
+   "name": "פרק א",
+   "depth": 1,
+   "revid": 102,
+   "html": "<div class=\"mw-parser-output\"><p>&lt;&lt; · ספר בדיקה · פרק א · &gt;&gt;</p><div class=\"mw-heading mw-heading2\"><h2 id=\"א\">פרק א</h2></div><p><b>אמר</b> החכם<sup id=\"cite_ref-1\" class=\"reference\"><a href=\"#cite_note-1\">[1]</a></sup> דברים <span class=\"TooltipSpan\">ממנ״פ<span class=\"tip\">ממה נפשך</span></span>נאים.</p><p>.</p><div class=\"mw-heading mw-heading3\"><h3 id=\"x\">ענין שני</h3></div><p>ועוד<sup class=\"reference\"><a href=\"#cite_note-2\">[2]</a></sup> אמר &amp; הוסיף<sup class=\"reference\"><a href=\"#cite_note-3\">[3]</a></sup>:</p><p>הטקסט בספר זה הושלם</p><div class=\"mw-references-wrap\"><ol class=\"references\"><li id=\"cite_note-1\"><span class=\"mw-cite-backlink\"><a href=\"#cite_ref-1\">↑</a></span> <span class=\"reference-text\">הערה <i>ראשונה</i></span></li><li id=\"cite&#95;note-2\"><span class=\"mw-cite-backlink\">↑</span> <span class=\"reference-text\">הערה שניה</span></li><li id=\"cite_note-3\"><span class=\"mw-cite-backlink\">↑</span> <span class=\"reference-text\">הערה  שלישית</span></li></ol></div><div class=\"mw-heading mw-heading2\"><h2 id=\"ראו_גם\">ראו גם</h2></div><p>קישור אחר</p></div>"
+  },
+  {
+   "page": "ספר בדיקה/ב",
+   "name": "פרק ב",
+   "depth": 1,
+   "revid": 103,
+   "html": "<div class=\"mw-parser-output\"><p>פרק ב תחילת הדברים<a href=\"#_ftn1\" name=\"_ftnref1\">[1]</a> כאן</p><p>וסוף</p><div style=\"border:1px solid #aaa;\">פרק זה לוקה בחסר. אנא תרמו</div><hr /><div><p><a href=\"#_ftnref1\" name=\"_ftn1\">[1]</a> הערת המעתיק</p></div></div>"
+  },
+  {
+   "page": "ספר בדיקה/הקדמה",
+   "name": "הקדמה",
+   "depth": 1,
+   "revid": 104,
+   "html": "<div class=\"mw-parser-output\"><p>דברי פתיחה<br />בשתי שורות</p></div>"
+  },
+  {
+   "page": "ספר בדיקה/אודות",
+   "name": "אודות המהדורה",
+   "depth": 1,
+   "revid": 105,
+   "html": "<div class=\"mw-parser-output\"><p>על המהדורה הזאת</p></div>"
+  }
+ ]
+}

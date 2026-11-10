@@ -11,6 +11,13 @@
  *   toTree(text, entry) -> [Node, author]        extras/tree.js
  *   isRestricted(text, entry) -> bool            the book's own notice forbids it
  *   versionOf(entry, text) -> {versionTitle, versionSource, license, librarySource, ...}
+ * and, for a source whose book is not one file (extras/wikisource.js):
+ *   loadCatalog(installedRecords) -> [entry]     in place of catalogUrl + parseCatalog
+ *   fetchBook(entry) -> text                     in place of fetching bookUrl (any value toTree takes)
+ *   installRecord(entry, text) -> {hash, ...}    kept with the downloaded book (its update check)
+ *   companions(tree, entry, {files, sections}, text) -> [{entry, files, firstSection}]
+ *                                                books made with it (the editors' notes), kept and
+ *                                                deleted with it (state.installed[t].companionOf)
  *
  * What the phone keeps (library/_extras/):
  *   <source>.catalog.json   the source's catalogue (refreshed weekly and on "Check for updates")
@@ -29,13 +36,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {zip} from 'react-native-zip-archive';
 import md5 from 'md5';
 import otzaria from './otzaria';
+import wikisource from './wikisource';
 import {bookFiles} from './schema7';
 import {chooseBooks, addToToc, categoryNames} from './catalog';
 import {bookLines} from '../localSearch';
 import {clearOfflineSearchCache} from '../offlineSearch';
 import * as shomer from '../shomer';
 
-export const EXTRA_SOURCES = {[otzaria.id]: otzaria};
+export const EXTRA_SOURCES = {[otzaria.id]: otzaria, [wikisource.id]: wikisource};
 export const ENABLED_KEY = 'extraSources';
 export const CATALOG_MAX_AGE = 7 * 24 * 3600 * 1000;   // a week, as Sefaria's own update check
 const LIBRARY_DIR = `${FileSystem.documentDirectory}library/`;
@@ -103,6 +111,9 @@ export function applyToToc(toc) {
     if (enabled[id] && cat && Array.isArray(cat.entries)) { lists[id] = cat.entries; }
   }
   books = chooseBooks(toc, lists, state).books;
+  for (const [title, rec] of Object.entries(state.installed)) {    // (books made with another: its notes)
+    if (rec.companionOf && books[rec.companionOf] && rec.entry) { books[title] = {...rec.entry, source: rec.source, title}; }
+  }
   const first = {};
   for (const [title, rec] of Object.entries(state.installed)) { first[title] = rec.firstSection; }
   if (typeof Sefaria !== 'undefined' && Sefaria.hebrewCategories) {
@@ -127,9 +138,14 @@ async function reloadToc() {
 
 export async function refreshCatalog(id) {
   const source = EXTRA_SOURCES[id];
-  const response = await fetch(source.catalogUrl);
-  if (!response.ok) { throw new Error(`${id} catalogue: HTTP ${response.status}`); }
-  const entries = source.parseCatalog(await response.text());
+  let entries;
+  if (source.loadCatalog) {
+    entries = await source.loadCatalog(Object.values(state.installed).filter(r => r.source === id && !r.companionOf));
+  } else {
+    const response = await fetch(source.catalogUrl);
+    if (!response.ok) { throw new Error(`${id} catalogue: HTTP ${response.status}`); }
+    entries = source.parseCatalog(await response.text());
+  }
   catalogs[id] = {fetchedAt: Date.now(), entries};
   await writeJSON(catalogFile(id), catalogs[id]);
   return entries;
@@ -174,7 +190,7 @@ export function booksToUpdate(source = null) {
     const rec = state.installed[title];
     const entry = books[title];
     const src = EXTRA_SOURCES[rec.source];
-    if (!entry || !src) { return false; }
+    if (!entry || !src || rec.companionOf) { return false; }
     return (entry.hash && entry.hash !== rec.hash) || rec.converter !== src.converterVersion;
   });
 }
@@ -205,7 +221,7 @@ function forgetCaches() {
 export function convertBook(entry, text) {
   const source = EXTRA_SOURCES[entry.source];
   const [tree, author] = source.toTree(text, entry);
-  const {files, firstSection} = bookFiles(tree, {
+  const {files, firstSection, sections} = bookFiles(tree, {
     title: entry.title,
     heTitle: entry.heTitle,
     categories: entry.categories,
@@ -213,8 +229,34 @@ export function convertBook(entry, text) {
     authors: author ? [{he: author, en: ''}] : null,
     version: source.versionOf(entry, text),
   });
-  return {files, firstSection};
+  const companions = source.companions ? source.companions(tree, entry, {files, sections}, text) : [];
+  return {files, firstSection, companions};
 }
+
+/** A converted book's files as library/<title>.zip and its offline search lines */
+async function writeBook(title, files) {
+  const dir = `${TMP_DIR}${md5(title)}/`;
+  const zipPath = `${LIBRARY_DIR}${title}.zip`;
+  await FileSystem.deleteAsync(dir, {idempotent: true}).catch(() => {});
+  try {
+    await FileSystem.makeDirectoryAsync(dir, {intermediates: true});
+    for (const [name, data] of Object.entries(files)) {
+      await FileSystem.writeAsStringAsync(`${dir}${name}`, JSON.stringify(data));
+    }
+    await FileSystem.makeDirectoryAsync(LIBRARY_DIR, {intermediates: true}).catch(() => {});
+    await removeFiles(title);                    // (zip adds to a file that is there)
+    await zip(dir, zipPath);
+  } finally {
+    await FileSystem.deleteAsync(dir, {idempotent: true}).catch(() => {});
+  }
+  const lines = await searchLines(files);
+  if (lines.length) {
+    await FileSystem.writeAsStringAsync(`${LIBRARY_DIR}${title}_search.txt`, `${lines.join('\n')}\n`);
+  }
+}
+
+/** The books made with `title` (its editors' notes) */
+const companionsOf = title => Object.keys(state.installed).filter(t => state.installed[t].companionOf === title);
 
 /** The offline search lines of a converted book (localSearch.js's format) */
 export async function searchLines(files) {
@@ -235,40 +277,39 @@ export async function downloadBook(title) {
   const entry = books[title];
   if (!entry) { throw new Error(`not an extra book: ${title}`); }
   const source = EXTRA_SOURCES[entry.source];
-  const response = await fetch(source.bookUrl(entry));
-  if (!response.ok) { throw new Error(`${entry.source}: HTTP ${response.status} for ${title}`); }
-  const text = await response.text();
+  let text;
+  if (source.fetchBook) {
+    text = await source.fetchBook(entry);
+  } else {
+    const response = await fetch(source.bookUrl(entry));
+    if (!response.ok) { throw new Error(`${entry.source}: HTTP ${response.status} for ${title}`); }
+    text = await response.text();
+  }
   if (source.isRestricted(text, entry)) {
     state.blocked[`${entry.source}|${entry.id}`] = 'the book\'s own notice';
     await saveState();
     await reloadToc();
     throw new RestrictedBookError(title);
   }
-  const {files, firstSection} = convertBook(entry, text);
-  const dir = `${TMP_DIR}${md5(title)}/`;
-  const zipPath = `${LIBRARY_DIR}${title}.zip`;
-  await FileSystem.deleteAsync(dir, {idempotent: true}).catch(() => {});
-  try {
-    await FileSystem.makeDirectoryAsync(dir, {intermediates: true});
-    for (const [name, data] of Object.entries(files)) {
-      await FileSystem.writeAsStringAsync(`${dir}${name}`, JSON.stringify(data));
-    }
-    await FileSystem.makeDirectoryAsync(LIBRARY_DIR, {intermediates: true}).catch(() => {});
-    await removeFiles(title);                    // (zip adds to a file that is there)
-    await zip(dir, zipPath);
-  } finally {
-    await FileSystem.deleteAsync(dir, {idempotent: true}).catch(() => {});
-  }
-  const lines = await searchLines(files);
-  if (lines.length) {
-    await FileSystem.writeAsStringAsync(`${LIBRARY_DIR}${title}_search.txt`, `${lines.join('\n')}\n`);
-  }
+  const {files, firstSection, companions} = convertBook(entry, text);
+  await writeBook(title, files);
+  const at = new Date().toISOString();
   state.installed[title] = {
     source: entry.source, id: entry.id, hash: entry.hash || null, converter: source.converterVersion,
-    firstSection, at: new Date().toISOString(),
+    firstSection, at, ...(source.installRecord ? source.installRecord(entry, text) : {}),
   };
+  for (const old of companionsOf(title)) { await removeFiles(old); delete state.installed[old]; }
+  for (const c of companions || []) {
+    await writeBook(c.entry.title, c.files);
+    state.installed[c.entry.title] = {
+      source: entry.source, id: `${entry.id}#${c.entry.title}`, companionOf: title, entry: c.entry,
+      converter: source.converterVersion, firstSection: c.firstSection, at,
+    };
+    books[c.entry.title] = {...c.entry, source: entry.source};
+  }
   await saveState();
   forgetCaches();
+  if (companions && companions.length) { await reloadToc(); }     // (the notes book joins the library)
   const index = typeof Sefaria !== 'undefined' && Sefaria.index && Sefaria.index(title);
   if (index) { index.firstSection = firstSection; }
   notify();
@@ -278,9 +319,14 @@ export async function downloadBook(title) {
 /** Delete one downloaded book (it stays in the library, to be downloaded again). */
 export async function deleteBook(title) {
   await loadExtras();
-  await removeFiles(title);
-  delete state.installed[title];
+  const companions = companionsOf(title);
+  for (const t of [title, ...companions]) {
+    await removeFiles(t);
+    delete state.installed[t];
+  }
+  companions.forEach(t => { delete books[t]; });
   await saveState();
+  if (companions.length) { await reloadToc(); }   // (its notes book leaves the library with it)
   forgetCaches();
   const index = typeof Sefaria !== 'undefined' && Sefaria.index && Sefaria.index(title);
   if (index) { index.firstSection = title; }

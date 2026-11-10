@@ -261,6 +261,27 @@ node -r @babel/register tools\library-export\compare_otzaria.js C:\tmp\fid --qui
 2026-11-10: all 1,172 Otzaria books Sofer imported came out the same (sections, headings,
 paragraphs, author line), and the book-notice rule agreed on all 1,172.
 
+**Wikitext (Hebrew Wikisource)** is read through the site's API, as Sofer reads it: each page as
+the site renders it (`action=parse`, one request a page), the title page first, then its parts in
+the order it links to them; the update check asks the revisions of a downloaded book's pages
+(`prop=info`, 50 pages a request). Converted by `extras/wikisourceParse.js` (htmlparser2), with the
+editors' notes as a book of their own, "הערות המהדיר על ...". The list of books is Sofer's:
+
+```powershell
+# Sofer's whole sefarim the library lacks -> extras/wikisourceBooks.json
+python tools\library-export\wikisource_books.py
+# expected results of the conversion fixtures (__tests__/fixtures/wikisource/*.sofer.json)
+python tools\library-export\wikisource_fixtures.py
+# every book Sofer imported, converted from the pages Sofer downloaded, compared with Sofer's
+node -r @babel/register tools\library-export\compare_wikisource.js --quiet
+# the same with the pages fetched now by the phone's own download code
+node -r @babel/register tools\library-export\fetch_wikisource_live.js C:\tmp\wslive
+node -r @babel/register tools\library-export\compare_wikisource.js --live C:\tmp\wslive --quiet
+# and those pages converted by Sofer's own code and by the phone's
+python tools\library-export\wikisource_fixtures.py C:\tmp\wslive
+node -r @babel/register tools\library-export\compare_wikisource.js --sofer-on C:\tmp\wslive
+```
+
 ### Superseded: hosted extras packs
 
 **Can the phone use the sources' own releases?** No, not sensibly:
