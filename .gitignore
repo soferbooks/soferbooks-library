@@ -116,3 +116,4 @@ emu*.png
 device-screen*.png
 tools/library-export/__pycache__/
 qa-screens/
+sefaria-packs/
