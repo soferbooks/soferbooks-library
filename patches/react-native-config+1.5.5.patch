@@ -1,0 +1,24 @@
+diff --git a/node_modules/react-native-config/android/build.gradle b/node_modules/react-native-config/android/build.gradle
+index d3bdb07..ec6b8c0 100644
+--- a/node_modules/react-native-config/android/build.gradle
++++ b/node_modules/react-native-config/android/build.gradle
+@@ -1,11 +1,13 @@
+ buildscript {
+-    repositories {
+-        mavenCentral()
+-        google()
+-    }
++    if (project == rootProject) {
++        repositories {
++            mavenCentral()
++            google()
++        }
+ 
+-    dependencies {
+-        classpath 'com.android.tools.build:gradle:4.1.0'
++        dependencies {
++            classpath 'com.android.tools.build:gradle:8.3.1'
++        }
+     }
+ }
+ 

@@ -1,0 +1,26 @@
+diff --git a/node_modules/react-native-haptic-feedback/android/build.gradle b/node_modules/react-native-haptic-feedback/android/build.gradle
+index da8d1dd..8660927 100644
+--- a/node_modules/react-native-haptic-feedback/android/build.gradle
++++ b/node_modules/react-native-haptic-feedback/android/build.gradle
+@@ -4,13 +4,15 @@ def DEFAULT_TARGET_SDK_VERSION              = 27
+ def DEFAULT_MIN_SDK_VERSION                 = 16
+ 
+ buildscript {
+-    repositories {
+-        mavenCentral()
+-        google()
+-    }
++    if (project == rootProject) {
++        repositories {
++            mavenCentral()
++            google()
++        }
+ 
+-    dependencies {
+-        classpath 'com.android.tools.build:gradle:3.0.0'
++        dependencies {
++            classpath 'com.android.tools.build:gradle:8.3.1'
++        }
+     }
+ }
+ 

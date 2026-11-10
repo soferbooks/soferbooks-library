@@ -1,0 +1,24 @@
+diff --git a/node_modules/@react-native-clipboard/clipboard/android/build.gradle b/node_modules/@react-native-clipboard/clipboard/android/build.gradle
+index 29168a4..65c0494 100644
+--- a/node_modules/@react-native-clipboard/clipboard/android/build.gradle
++++ b/node_modules/@react-native-clipboard/clipboard/android/build.gradle
+@@ -1,11 +1,13 @@
+ buildscript {
+-    repositories {
+-        google()
+-	mavenCentral()
+-    }
++    if (project == rootProject) {
++        repositories {
++            google()
++            mavenCentral()
++        }
+ 
+-    dependencies {
+-        classpath 'com.android.tools.build:gradle:3.2.1'
++        dependencies {
++            classpath 'com.android.tools.build:gradle:8.3.1'
++        }
+     }
+ }
+ 

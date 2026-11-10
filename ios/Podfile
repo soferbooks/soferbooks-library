@@ -1,0 +1,75 @@
+ENV['RCT_NEW_ARCH_ENABLED'] = '1'
+require File.join(File.dirname(`node --print "require.resolve('expo/package.json')"`), "scripts/autolinking")
+# Resolve react_native_pods.rb with node to allow for hoisting
+require Pod::Executable.execute_command('node', ['-p',
+  'require.resolve(
+    "react-native/scripts/react_native_pods.rb",
+    {paths: [process.argv[1]]},
+  )', __dir__]).strip
+
+MIN_IOS_OVERRIDE = '15.5'
+if Gem::Version.new(MIN_IOS_OVERRIDE) > Gem::Version.new(min_ios_version_supported)
+  min_ios_version_supported = MIN_IOS_OVERRIDE
+end
+platform :ios, min_ios_version_supported
+prepare_react_native_project!
+$RNFirebaseAnalyticsWithoutAdIdSupport=true
+production = ENV["PRODUCTION"] == "1"
+linkage = ENV['USE_FRAMEWORKS']
+if linkage != nil
+  Pod::UI.puts "Configuring Pod with #{linkage}ally linked Frameworks".green
+  use_frameworks! :linkage => linkage.to_sym
+end
+
+target 'ReaderApp' do
+  pod 'Firebase', :modular_headers => true
+  pod 'FirebaseCoreInternal', :modular_headers => true
+  pod 'GoogleUtilities', :modular_headers => true
+  pod 'FirebaseCrashlytics', :modular_headers => true
+  pod 'FirebaseCore', :modular_headers => true
+  pod 'FirebaseInstallations', :modular_headers => true
+  pod 'GoogleDataTransport', :modular_headers => true
+  pod 'nanopb', :modular_headers => true
+  pod 'FirebaseRemoteConfig', :modular_headers => true
+  pod 'FirebaseABTesting', :modular_headers => true
+  pod 'FirebaseSessions', :modular_headers => true
+  pod 'FirebaseCoreExtension', :modular_headers => true
+  pod 'RecaptchaInterop', :modular_headers => true
+  pod 'AppCheckCore', :modular_headers => true
+  use_expo_modules!
+	post_integrate do |installer|
+	  begin
+      expo_patch_react_imports!(installer)
+    rescue => e
+      Pod::UI.warn e
+    end
+  end
+  $config = use_native_modules!
+  use_react_native!(
+    :path => $config[:reactNativePath],
+    :production => production,
+    # An absolute path to your application root.
+    :app_path => "#{Pod::Config.instance.installation_root}/.."
+  )
+
+  # Pods for ReaderApp
+  # <THIS LINE LEFT EMPTY ON PURPOSE>
+
+end
+
+post_install do |installer|
+  react_native_post_install(
+    installer,
+    $config[:reactNativePath],
+    :mac_catalyst_enabled => false,
+    # :ccache_enabled => true
+  )
+end
+
+# post_install do |installer|
+#   installer.pods_project.targets.each do |target|
+#     if target.name == "React"
+#       target.remove_from_project
+#     end
+#   end
+# end

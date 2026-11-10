@@ -1,0 +1,185 @@
+import React from 'react';
+import PropTypes from 'prop-types';
+import {
+  View,
+  ScrollView,
+  Text,
+} from 'react-native';
+
+import { GlobalStateContext, getTheme } from './StateManager';
+import strings from './LocalizedStrings';
+import styles from './Styles';
+import VersionBlock from './VersionBlock';
+import {SimpleMarkdown} from "./Misc";
+var moment = require("moment");
+
+
+const AboutBox = ({ textToc, currVersionObjects, openFilter, sheet, openUri, segmentRef, versions }) => {
+  const { themeStr, interfaceLanguage, textLanguage } = React.useContext(GlobalStateContext);
+  const theme = getTheme(themeStr);
+  const d = textToc;
+  const vh = currVersionObjects.he;
+  const ve = currVersionObjects.en;
+  const hei = interfaceLanguage === "hebrew";
+
+
+  if (sheet) {
+        return (
+    <ScrollView contentContainerStyle={[styles.aboutBoxScrollView, styles.readerSideMargin]}>
+      <View>
+        <View style={[styles.aboutHeaderWrapper, theme.bordered]}>
+          <Text style={[styles.aboutHeader, theme.secondaryText, hei ? styles.heInt : null]}>{strings.versions.about_this_text}</Text>
+        </View>
+        <Text style={[styles.aboutTitle, hei ? styles.he : styles.en, theme.text]}>
+          { Sefaria.util.stripHtml(sheet.title) }
+        </Text>
+          <Text style={[styles.aboutSubtitle, hei ? styles.heInt : styles.enInt, theme.secondaryText]}>
+            {sheet.ownerName}
+          </Text>
+
+
+          <Text style={[styles.aboutSubtitle, hei ? styles.heInt : styles.enInt, theme.secondaryText]}>
+            Created {moment(sheet.dateCreated, "YYYY-MM-DDTHH:mm:ss.SSS").fromNow()}
+          </Text>
+        <Text style={[styles.aboutDescription, styles.enInt, theme.text]}>{sheet.summary}</Text>
+
+      </View>
+    </ScrollView>
+  );
+
+  }
+
+  let detailSection = null;
+  if (d) {
+    let authorsEn, authorsHe;
+    if (d.authors && d.authors.length) {
+      const authorArrayEn = d.authors.filter((elem) => !!elem.en);
+      const authorArrayHe = d.authors.filter((elem) => !!elem.he);
+      const authorLabel = <Text key="authorText">{`${strings.versions.author} `}</Text>;
+      authorsEn = [authorLabel];
+      authorsHe = [authorLabel];
+      authorsEn = authorsEn.concat(authorArrayEn.map(author => <Text key={author.en}>{author.en}</Text> ));
+      authorsHe = authorsHe.concat(authorArrayHe.map(author => <Text key={author.en}>{author.he}</Text> ));
+    }
+    // use compPlaceString and compDateString if available. then use compPlace o/w use pubPlace o/w nothing
+    let placeTextEn, placeTextHe;
+    if (d.compPlaceString) {
+      placeTextEn = d.compPlaceString.en;
+      placeTextHe = d.compPlaceString.he;
+    } else if (d.compPlace){
+      placeTextEn = d.compPlace;
+      placeTextHe = d.compPlace;
+    } else if (d.pubPlace) {
+      placeTextEn = d.pubPlace;
+      placeTextHe = d.pubPlace;
+    }
+
+    let dateTextEn, dateTextHe;
+    if (d.compDateString) {
+      dateTextEn = d.compDateString.en;
+      dateTextHe = d.compDateString.he
+    } else if (d.compDate) {
+      if (d.errorMargin !== 0) {
+        //I don't think there are any texts which are mixed BCE/CE
+        const lowerDate = Math.abs(d.compDate - d.errorMargin);
+        const upperDate = Math.abs(d.compDate - d.errorMargin);
+        const era = d.compDate < 0 ? 'versions.bce' : 'versions.ce';
+        dateTextEn = `(c.${lowerDate} - c.${upperDate} ${strings.getString(era, 'en')})`;
+        dateTextHe = `(${lowerDate} - ${upperDate} ${strings.getString(era, 'he')})`;
+      } else {
+        const era = d.compDate < 0 ? 'versions.bce' : 'versions.ce';
+        dateTextEn = `(${Math.abs(d.compDate)} ${strings.getString(era, 'en')})`;
+        dateTextHe = `(${Math.abs(d.compDate)} ${strings.getString(era, 'he')})`;
+      }
+    } else if (d.pubDate) {
+      const era = d.pubDate < 0 ? 'versions.bce' : 'versions.ce';
+      dateTextEn = `(${Math.abs(d.pubDate)} ${strings.getString(era, 'en')})`;
+      dateTextHe = `(${Math.abs(d.pubDate)} ${strings.getString(era, 'he')})`;
+    }
+    detailSection = (
+      <View>
+        <View style={[styles.aboutHeaderWrapper, theme.bordered]}>
+          <Text style={[styles.aboutHeader, theme.secondaryText, hei ? styles.heInt : null]}>{strings.versions.about_this_text}</Text>
+        </View>
+        <Text style={[styles.aboutTitle, hei ? styles.he : styles.en, theme.text]}>
+          { hei ? d.heTitle : d.title }
+        </Text>
+        { authorsEn && authorsEn.length ?
+          <Text style={[styles.aboutSubtitle, hei ? styles.heInt : styles.enInt, theme.secondaryText]}>
+            { hei ? authorsHe : authorsEn}
+          </Text> : null
+        }
+        { !!placeTextEn || !!dateTextEn ?
+          <Text style={[styles.aboutSubtitle, hei ? styles.heInt : styles.enInt, theme.secondaryText]}>
+            { hei ? `${strings.versions.composed} ${!!placeTextHe ? placeTextHe : ""} ${!!dateTextHe ? dateTextHe : ""}` : `${strings.versions.composed} ${!!placeTextEn ? placeTextEn : ""} ${!!dateTextEn ? dateTextEn : ""}`}
+          </Text> : null
+        }
+        { hei ? (!!d.heDesc ? <SimpleMarkdown style={[styles.aboutDescription, styles.heInt, theme.text]}>{d.heDesc}</SimpleMarkdown> : null) :
+                (!!d.enDesc ? <SimpleMarkdown style={[styles.aboutDescription, styles.enInt, theme.text]}>{d.enDesc}</SimpleMarkdown> : null)
+        }
+      </View>
+    );
+  }
+  const showSourceVersionDetails = textLanguage !== 'english';
+  const showTranslationVersionDetails = textLanguage !== 'hebrew';
+  const versionSectionHe =
+    (!!vh && showSourceVersionDetails ? <View style={styles.currVersionSection}>
+      <View style={[styles.aboutHeaderWrapper, theme.bordered]}>
+        <Text style={[styles.aboutHeader, theme.secondaryText, hei ? styles.heInt : null]}>{ strings.versions.current_hebrew_version }</Text>
+      </View>
+      <VersionBlock
+        version={vh}
+        openUri={openUri}
+        segmentRef={segmentRef}
+      />
+    </View> : null );
+  const versionSectionEn =
+    (!!ve && showTranslationVersionDetails ? <View style={styles.currVersionSection}>
+      <View style={[styles.aboutHeaderWrapper, theme.bordered]}>
+        <Text style={[styles.aboutHeader, theme.secondaryText, hei ? styles.heInt : null]}>{ strings.versions.current_english_version }</Text>
+      </View>
+      <VersionBlock
+        version={ve}
+        openUri={openUri}
+        segmentRef={segmentRef}
+      />
+    </View> : null );
+  const otherPrimaryVersions = versions.filter((v) => v.isPrimary && v.versionTitle !== vh.versionTitle);
+  const versionBlocks = (
+    otherPrimaryVersions.length > 0 && <View style={styles.currVersionSection}>
+      <View style={[styles.aboutHeaderWrapper, theme.bordered]}>
+        <Text style={[styles.aboutHeader, theme.secondaryText, hei ? styles.heInt : null]}>{ strings.versions.other_primary_versions }</Text>
+      </View>
+      {otherPrimaryVersions.map((v) =>
+        (<VersionBlock
+            openUri={openUri}
+            openFilter={openFilter}
+            segmentRef={segmentRef}
+            version={v}
+            key={v.versionTitle}
+          />)
+      )}
+    </View>
+  );
+  return (
+    <ScrollView contentContainerStyle={[styles.aboutBoxScrollView, styles.readerSideMargin]}>
+      { detailSection }
+      { textLanguage === "english" ?
+        (<View>{versionSectionEn}{versionSectionHe}</View>) :
+        (<View>{versionSectionHe}{versionSectionEn}</View>)
+      }
+      { versionBlocks }
+    </ScrollView>
+  );
+};
+AboutBox.propTypes = {
+  textToc:             PropTypes.object,
+  sheet:               PropTypes.object,
+  currVersionObjects:  PropTypes.object.isRequired,
+  openFilter:          PropTypes.func.isRequired,
+  openUri:             PropTypes.func.isRequired,
+  segmentRef:          PropTypes.string.isRequired,
+  versions:            PropTypes.array.isRequired,
+};
+
+export default AboutBox;

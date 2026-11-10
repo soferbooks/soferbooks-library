@@ -1,0 +1,27 @@
+diff --git a/node_modules/react-native-action-sheet/android/build.gradle b/node_modules/react-native-action-sheet/android/build.gradle
+index 23a172b..35eb95b 100644
+--- a/node_modules/react-native-action-sheet/android/build.gradle
++++ b/node_modules/react-native-action-sheet/android/build.gradle
+@@ -8,13 +8,15 @@ def computeVersionName() {
+ }
+ 
+ buildscript {
+-    repositories {
+-        google()
+-        jcenter()
+-    }
+-
+-    dependencies {
+-        classpath 'com.android.tools.build:gradle:3.2.1'
++    if (project == rootProject) {
++        repositories {
++            google()
++            jcenter()
++        }
++
++        dependencies {
++            classpath 'com.android.tools.build:gradle:8.3.1'
++        }
+     }
+ }
+ 
