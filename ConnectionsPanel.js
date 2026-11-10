@@ -112,7 +112,13 @@ class ConnectionsPanel extends React.PureComponent {
       <View
         onStartShouldSetResponder={this.props.onDragStart}
         onResponderMove={this.props.onDragMove}
-        onResponderRelease={this.props.onDragEnd}>
+        onResponderRelease={this.props.onDragEnd}
+        onResponderTerminate={this.props.onDragEnd}
+        onResponderTerminationRequest={() => false}>
+        {/* the header is the divider: drag it to resize the panel. The grip makes that discoverable. */}
+        <View pointerEvents="none" style={{position: 'absolute', top: 3, left: 0, right: 0, alignItems: 'center', zIndex: 1}}>
+          <View style={[{width: 36, height: 4, borderRadius: 2, opacity: 0.6}, this.props.theme.lightGreyBackground]} />
+        </View>
         <ConnectionsPanelHeader
           theme={this.props.theme}
           themeStr={this.props.themeStr}

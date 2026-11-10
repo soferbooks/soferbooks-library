@@ -58,6 +58,10 @@ import * as shomer from '../shomer';
 import { configForPreset, toggleGroup } from '../shomer/presets';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ActionSheet from 'react-native-action-sheet';
+import ReaderTabBar, { ArchivedTabsModal } from '../tabs/ReaderTabBar';
+import OpenTabsStrip from '../tabs/OpenTabsStrip';
+import SplitTabPane from '../reader/SplitTabPane';
+import ReaderAppContext from '../context';
 import NetInfo from '@react-native-community/netinfo';
 
 const TABLES = { en, he };
@@ -1065,6 +1069,7 @@ describe('Strings with placeholders', () => {
     'filter.hidden_message': { title: 'Orot', reason: 'Rav Kook' },
     'topics.this_source_is_connected_to': { title: 'Passover', sources: '4 sources' },
     'versions.merged_from': { sources: 'two editions' },
+    'tabs.archived_tabs_count': { count: 4 },
   };
 
   test('the list below is every string in the table that has a placeholder', () => {
@@ -1495,6 +1500,116 @@ describe('Download progress bar', () => {
       download: DownloadTracker, identity: 'i18n-test', downloadSize: 1e8,
       downloadNotification: { downloadActive: false },
     }), ['common.connecting']);
+  });
+});
+
+describe('Reader tabs', () => {
+  const tabs = [
+    { id: 'a', title: 'Genesis', ref: 'Genesis 1', heRef: 'בראשית א', lastUsed: 2 },
+    { id: 'b', title: 'Berakhot', ref: 'Berakhot 2a', heRef: 'ברכות ב א', lastUsed: 1 },
+  ];
+  const archived = [{ id: 'z', title: 'Exodus', ref: 'Exodus 3:2', heRef: 'שמות ג:ב', archivedAt: 1 }];
+  const tabBarProps = {
+    tabs, activeTabId: 'a', archived,
+    onSelect: noop, onClose: noop, onCloseOthers: noop, onNewTab: noop,
+    onRestoreArchived: noop, onRemoveArchived: noop, onClearArchived: noop,
+  };
+
+  test('the tab bar labels its buttons in both languages', () => {
+    expectScreenLocalizes(wrap(ReaderTabBar, tabBarProps), ['tabs.close_tab', 'tabs.tab_options']);
+  });
+
+  test('the archived tabs list renders in both languages', () => {
+    const modalProps = { visible: true, archived, isHeb: false, theme: {}, onClose: noop, onRestore: noop, onRemove: noop, onClear: noop };
+    expectScreenLocalizes(wrap(ArchivedTabsModal, modalProps),
+      ['tabs.archived_tabs', 'tabs.clear_archived', 'tabs.close_tab', 'common.cancel']);
+    expectScreenLocalizes(wrap(ArchivedTabsModal, { ...modalProps, archived: [] }), ['tabs.no_archived_tabs']);
+  });
+
+  test('the home page strip of open tabs renders in both languages', () => {
+    const strip = () => (
+      <ReaderAppContext.Provider value={{ readerTabs: { tabs, activeTabId: 'a', archived: [] }, openReaderTab: noop }}>
+        {wrap(OpenTabsStrip, {})()}
+      </ReaderAppContext.Provider>
+    );
+    expectScreenLocalizes(strip, ['tabs.open_tabs']);
+  });
+
+  test('the split view pane renders in both languages', () => {
+    const loadText = jest.spyOn(Sefaria.offlineOnline, 'loadText').mockReturnValue(new Promise(() => {}));
+    const paneProps = {
+      tab: null, otherTabs: [], theme: {}, themeStr: 'white', fontSize: 20, textLanguage: 'bilingual',
+      interfaceLanguage: 'english', biLayout: 'stacked', showAliyot: false, hasInternet: true,
+      onPickTab: noop, onFocusTab: noop, onPlaceChange: noop, showToast: noop, handleOpenURL: noop, textUnavailableAlert: noop,
+    };
+    try {
+      expectScreenLocalizes(wrap(SplitTabPane, paneProps), ['tabs.split_empty']);
+      expectScreenLocalizes(wrap(SplitTabPane, { ...paneProps, tab: tabs[1], otherTabs: tabs }),
+        ['tabs.make_main', 'tabs.split_next_tab']);
+    } finally {
+      loadText.mockRestore();
+    }
+  });
+
+  test('the display menu offers "under each passage" and split view in both languages', () => {
+    expectScreenLocalizes(wrap(ReaderDisplayOptionsMenu, {
+      theme: {}, themeStr: 'white', interfaceLanguage: 'english', textLanguage: 'hebrew',
+      textFlow: 'segmented', biLayout: 'stacked', canBeContinuous: false, canHaveAliyot: false, showAliyot: false,
+      vowelToggleAvailable: VOCALIZATION.NONE, vocalization: VOCALIZATION.NONE,
+      setTextFlow: noop, setTextLanguage: noop, setAliyot: noop, setBiLayout: noop,
+      incrementFont: noop, setTheme: noop, setVocalization: noop,
+      inlineSources: [{ key: 'Onkelos Genesis', en: 'Onkelos Genesis', he: 'אונקלוס בראשית' }],
+      inlineCommentary: null, setInlineCommentary: noop,
+      splitViewAvailable: true, splitView: false, setSplitView: noop,
+    }), ['reader.under_each_passage', 'reader.inline_none', 'tabs.split_view']);
+  });
+
+  describe('menus and messages', () => {
+    beforeEach(() => { jest.spyOn(ActionSheet, 'showActionSheetWithOptions').mockImplementation(noop); });
+    afterEach(() => { ActionSheet.showActionSheetWithOptions.mockRestore(); });
+
+    const expectMessagesLocalize = (collect, expectedIds) => {
+      markCovered(expectedIds);
+      for (const lang of ['en', 'he']) {
+        strings.setLanguage(lang);
+        ActionSheet.showActionSheetWithOptions.mockClear();
+        const normalized = collect().map(normalize);
+        const notShown = expectedIds.filter(id => !shows(normalized, lang, id));
+        expect({ lang, notShown }).toEqual({ lang, notShown: [] });
+        expect({ lang, unfilled: collect().filter(t => UNFILLED_PLACEHOLDER_RE.test(t)) }).toEqual({ lang, unfilled: [] });
+      }
+    };
+    const sheetText = () => ActionSheet.showActionSheetWithOptions.mock.calls.flatMap(([opts]) => opts.options || []);
+
+    test('the tab menus are offered in both languages', () => {
+      expectMessagesLocalize(() => {
+        let inst;
+        act(() => { inst = renderer.create(wrap(ReaderTabBar, tabBarProps)()); });
+        act(() => {
+          inst.root.findAll(n => n.props?.accessibilityLabel === strings.tabs.tab_options && n.props.onPress)[0].props.onPress();
+          inst.root.findAll(n => n.props?.accessibilityRole === 'tab' && n.props.onLongPress)[0].props.onLongPress();
+        });
+        act(() => { inst.unmount(); });
+        return sheetText();
+      }, ['tabs.new_tab', 'tabs.close_other_tabs', 'tabs.archived_tabs_count', 'tabs.close_tab']);
+    });
+
+    test('opening a source in a new tab says so in both languages', () => {
+      const realTitleForRef = Sefaria.textTitleForRef;
+      Sefaria.textTitleForRef = () => 'Genesis';
+      try {
+        expectMessagesLocalize(() => {
+          const messages = [];
+          const app = new ReaderApp({ dispatch: noop, showErrorBoundary: noop, theme: {}, themeStr: 'white', biLayout: 'stacked', textLanguage: 'hebrew' });
+          app.setState = noop;
+          app.showToast = m => messages.push(m);
+          app.openRefInNewTab('Genesis 2:3');
+          return messages;
+        }, ['tabs.opened_in_new_tab']);
+      } finally {
+        Sefaria.textTitleForRef = realTitleForRef;
+      }
+    });
   });
 });
 

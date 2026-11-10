@@ -16,6 +16,7 @@ import {LearningSchedulesBox} from "./learningSchedules/LearningSchedulesBox";
 import {useGlobalState} from "./Hooks";
 import {TextCategoryPage} from "./TextCategoryPage";
 import strings from "./LocalizedStrings";
+import OpenTabsStrip from "./tabs/OpenTabsStrip";
 
 /**
  * SoferBooks Library home page (replaces Sefaria's texts page / feed). Top to bottom:
@@ -48,12 +49,10 @@ const useCategoryButtonProps = (tocItem, setCategories) => {
 }
 
 /**
- * ===== PLACEHOLDER: "Open tabs" strip =====
- * Reserved slot at the very top of the home page for a horizontal strip of the reader's open
- * tabs (to be built by a later change). Render the strip here; it should return null when
- * there are no open tabs so the home page looks the same as today.
+ * "Open tabs" strip: a horizontal strip of the reader's open tabs at the very top of the home
+ * page (tabs/OpenTabsStrip.js). It renders nothing when no tabs are open.
  */
-const OpenTabsSlot = () => null;
+const OpenTabsSlot = () => <OpenTabsStrip />;
 
 const HomeSectionHeader = ({ titleKey, actionKey, onAction }) => {
     const { theme } = useGlobalState();
