@@ -45,7 +45,6 @@ import {
 } from './DownloadControl';
 import Sefaria from "./sefaria";
 import * as FileSystem from 'expo-file-system/legacy';
-import { trackEvent } from './analytics/events';
 const DEBUG_MODE = false;
 
 /**
@@ -59,9 +58,6 @@ const SETTINGS_OPTION_STRING_IDS = {
   english:       'languages.english',
   hebrew:        'languages.hebrew',
   bilingual:     'settings.bilingual',
-  daily:         'settings.daily',
-  weekly:        'settings.weekly',
-  never:         'settings.never',
   sephardi:      'settings.sephardi',
   ashkenazi:     'settings.ashkenazi',
   wifiOnly:      'settings.wifi_only',
@@ -76,7 +72,6 @@ const SETTINGS_OPTION_STRING_IDS = {
 const SETTINGS_HEADER_STRING_IDS = {
   textLanguage:           'settings.text_language',
   interfaceLanguage:      'settings.interface_language',
-  emailFrequency:         'settings.email_frequency',
   readingHistory:         'settings.reading_history',
   preferredCustom:        'settings.preferred_custom',
   downloadNetworkSetting: 'settings.download_network_setting',
@@ -265,15 +260,14 @@ const AppVersionSection = ({ versionNumber, langStyle, headerStyle }) => {
   );
 }
 
-const SettingsPage = ({ close, logout, openUri, syncProfile }) => {
+const SettingsPage = ({ close, openUri }) => {
   const [numPressesDebug, setNumPressesDebug] = useState(0);
   const globalState = useContext(GlobalStateContext);
-  const { themeStr, interfaceLanguage, isLoggedIn, downloadNetworkSetting } = globalState;
+  const { themeStr, interfaceLanguage, downloadNetworkSetting } = globalState;
   const { isDisabledObj, setIsDisabledObj, onPackagePress } = usePkgState();
   const theme = getTheme(themeStr);
   const [updatesDisabled, setUpdatesDisabled] = useState(false);
   const checkUpdatesForSettings = abstractUpdateChecker(setUpdatesDisabled, downloadNetworkSetting);
-  const [isProcessing, setIsProcessing] = useState(false);
   const scrollRef = useRef(null);
 
   useEffect(() => {
@@ -283,60 +277,11 @@ const SettingsPage = ({ close, logout, openUri, syncProfile }) => {
     return () => sub.remove();
   }, []);
 
-  useEffect(() => {
-    !!syncProfile && syncProfile();  // this calls syncProfileBound in ReaderApp.js whenver a setting is changed
-  }, [
-    globalState.interfaceLanguage,
-    globalState.textLanguage,
-    globalState.emailFrequency,
-    globalState.preferredCustom,
-    globalState.readingHistory,
-  ]);
-
-  const onLogOut = async () => {
-    await logout();
-    close();
-  }
-
   const deleteLibrary = async () => {
     DownloadTracker.cancelDownload(true);
     const booksToDelete = await markLibraryForDeletion();
     setIsDisabledObj(getIsDisabledObj);
     await deleteBooks(booksToDelete);
-  };
-  const deleteAccount = () => {
-    Alert.alert( //ask for confirmation
-      strings.account.delete_account,
-      strings.account.delete_account_message,
-      [
-        {
-          text: strings.common.cancel, onPress: () => {console.log("cancel delete")}, style: "cancel"
-        },
-        { text: strings.common.ok, onPress: () => {
-            setIsProcessing(true);
-            trackEvent("DeleteUser", {platform: "app"});
-            console.log("Deleting account");
-            Sefaria.api.deleteUserAccount()
-                .then(()=> { //Inform user account has been deleted
-                   Alert.alert("", strings.account.delete_account_ok, [{
-                    text: strings.common.ok, onPress: () => {
-                      setIsProcessing(false); //do it here so the delete account link doesnt re appear for a moment after deleting account
-                      logout();
-                    }
-                  }]);
-                })
-                .catch(e => {// If an error occurred, inform user and open an email window to allow sending us an email
-                  setIsProcessing(false);
-                  Alert.alert("", strings.account.delete_account_error, [{
-                    text: strings.common.ok, onPress: () => {
-                      Sefaria.util.openComposedEmail("hello@sefaria.org", `Delete Account Error`, "");
-                    }
-                  }]);
-            });
-          }
-        }
-      ], {cancelable: true }
-    );
   };
   const langStyle = interfaceLanguage === "hebrew" ? styles.heInt : styles.enInt;
   return (
@@ -418,23 +363,11 @@ const SettingsPage = ({ close, logout, openUri, syncProfile }) => {
           }}>
             <Text style={[langStyle, styles.settingsSectionHeader, theme.tertiaryText]}>{strings.settings.system}</Text>
           </TouchableWithoutFeedback>
-          { isLoggedIn ?
-            <SystemButton onPress={onLogOut} text={strings.account.logout} isHeb={interfaceLanguage === "hebrew"} />
-            : null
-          }
-          <SystemButton onPress={()=>{ openUri('https://www.sefaria.org/terms'); }} text={strings.settings.terms_and_privacy} isHeb={interfaceLanguage === "hebrew"} />
           <AppVersionSection
             versionNumber={VersionNumber.appVersion}
             langStyle={langStyle}
             headerStyle={[styles.settingsSectionHeader, theme.tertiaryText]}
           />
-          { isLoggedIn ?
-              (isProcessing ? <LoadingView/> :
-              <Text style={[{marginTop:30, marginBottom:30}, langStyle, styles.settingsSectionHeader, theme.tertiaryText]} onPress={deleteAccount}>
-                    { strings.account.delete_account }
-              </Text>)
-            : null
-          }
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
@@ -442,9 +375,7 @@ const SettingsPage = ({ close, logout, openUri, syncProfile }) => {
 };
 SettingsPage.propTypes = {
   close:   PropTypes.func.isRequired,
-  logout:  PropTypes.func.isRequired,
   openUri: PropTypes.func.isRequired,
-  syncProfile: PropTypes.func,
 };
 
 const ButtonToggleSection = ({ langStyle }) => {
@@ -464,13 +395,6 @@ const ButtonToggleSection = ({ langStyle }) => {
       type: STATE_ACTIONS.setTextLanguage,
       value: language,
     })
-  };
-  const setEmailFrequency = freq => {
-    dispatch({
-      type: STATE_ACTIONS.setEmailFrequency,
-      value: freq,
-      time: Sefaria.util.epoch_time(),
-    });
   };
   const setPreferredCustom = custom => {
     dispatch({
@@ -523,14 +447,13 @@ const ButtonToggleSection = ({ langStyle }) => {
   const options = {
     interfaceLanguageOptions: generateOptions(['english', 'hebrew'], setInterfaceLanguage),
     textLanguageOptions: generateOptions(['english', 'bilingual', 'hebrew'], setTextLanguage),
-    emailFrequencyOptions: generateOptions(['daily', 'weekly', 'never'], setEmailFrequency),
     preferredCustomOptions: generateOptions(['sephardi', 'ashkenazi'], setPreferredCustom),
     downloadNetworkSettingOptions: generateOptions(['wifiOnly', 'mobileNetwork'], setDownloadNetworkSetting),
     readingHistoryOptions: generateOptions(['onFem', 'offFem'], setReadingHistory, [true, false]),
     groggerActiveOptions: generateOptions(['on', 'off'], setGroggerActive),
   };
   /* stateKey prop is used for testing */
-  const toggleButtons = ['textLanguage', 'interfaceLanguage', 'emailFrequency', 'readingHistory', 'preferredCustom', 'downloadNetworkSetting'];
+  const toggleButtons = ['textLanguage', 'interfaceLanguage', 'readingHistory', 'preferredCustom', 'downloadNetworkSetting'];
   if (Sefaria.isGettinToBePurimTime()) { toggleButtons.push('groggerActive'); }
   return (
     <View>

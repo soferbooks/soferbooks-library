@@ -1,9 +1,10 @@
 import React, {useCallback}  from 'react';
-import {View, FlatList} from "react-native";
+import {View, FlatList, Image} from "react-native";
 import Sefaria from "./sefaria";
 import {
     CategoryButton,
     CategoryColorLine,
+    ContentTextWithFallback,
     FlexFrame,
     LanguageToggleButton,
     PageHeader,
@@ -14,7 +15,19 @@ import styles from "./Styles";
 import {LearningSchedulesBox} from "./learningSchedules/LearningSchedulesBox";
 import {useGlobalState} from "./Hooks";
 import {TextCategoryPage} from "./TextCategoryPage";
-import {ShortDedication} from "./Dedication";
+import strings from "./LocalizedStrings";
+
+/**
+ * SoferBooks Library home page (replaces Sefaria's texts page / feed). Top to bottom:
+ *   1. Open tabs strip  - placeholder slot, see OpenTabsSlot below
+ *   2. Continue reading - the most recent place in each book, from on-device history
+ *   3. Today's learning - the existing learning-schedule (calendar) items
+ *   4. Library          - the top-level category shelves
+ * Choosing a category replaces the page with that category (TextCategoryPage), as before.
+ */
+
+const CONTINUE_READING_COUNT = 4;
+const TODAYS_LEARNING_CALENDARS = ['Parashat Hashavua', 'Haftarah', 'Daf Yomi', 'Daily Mishnah', 'Daily Rambam'];
 
 const useCategoryButtonProps = (tocItem, setCategories) => {
     const {category, heCategory, enDesc, heDesc, enShortDesc, heShortDesc} = tocItem;
@@ -34,13 +47,58 @@ const useCategoryButtonProps = (tocItem, setCategories) => {
     }
 }
 
-const TextsPageLearningSchedulesBox = ({ openRef, openLearningSchedules }) => {
+/**
+ * ===== PLACEHOLDER: "Open tabs" strip =====
+ * Reserved slot at the very top of the home page for a horizontal strip of the reader's open
+ * tabs (to be built by a later change). Render the strip here; it should return null when
+ * there are no open tabs so the home page looks the same as today.
+ */
+const OpenTabsSlot = () => null;
+
+const HomeSectionHeader = ({ titleKey, actionKey, onAction }) => {
     const { theme } = useGlobalState();
     return (
-        <View style={{marginBottom: 20}}>
-            <LearningSchedulesBox openRef={openRef} desiredCalendarTitles={['Parashat Hashavua', 'Haftarah', 'Daf Yomi']}>
+        <FlexFrame dir={"row"} justifyContent={"space-between"} alignItems={"center"}>
+            <InterfaceText stringKey={titleKey} extraStyles={[styles.homeSectionHeader, theme.brandColorText]}/>
+            {onAction ? (
+                <SefariaPressable onPress={onAction}>
+                    <InterfaceText stringKey={actionKey} extraStyles={[styles.fontSize16, theme.secondaryText]}/>
+                </SefariaPressable>
+            ) : null}
+        </FlexFrame>
+    );
+};
+
+const ContinueReading = ({ openRef, openHistory }) => {
+    const { theme, readingHistory } = useGlobalState();
+    const items = readingHistory ? (Sefaria.history.lastPlace || []).slice(0, CONTINUE_READING_COUNT) : [];
+    if (!items.length) { return null; }
+    return (
+        <View style={styles.homeSection}>
+            <HomeSectionHeader titleKey={"home.continue_reading"} actionKey={"common.see_all"} onAction={openHistory} />
+            {items.map(item => (
+                <SefariaPressable key={item.ref} onPress={() => openRef(item.ref, item.versions)}>
+                    <View style={[styles.homeContinueRow, theme.lighterGreyBorder]}>
+                        <CategoryColorLine category={Sefaria.primaryCategoryForTitle(item.book || Sefaria.textTitleForRef(item.ref))} thickness={4}/>
+                        <ContentTextWithFallback
+                            en={item.ref}
+                            he={(item.he_ref || item.heRef) ? Sefaria.normHebrewRef(item.he_ref || item.heRef) : item.ref}
+                            extraStyles={[styles.homeContinueText, theme.text]}
+                        />
+                    </View>
+                </SefariaPressable>
+            ))}
+        </View>
+    );
+};
+
+const TodaysLearning = ({ openRef, openLearningSchedules }) => {
+    const { theme } = useGlobalState();
+    return (
+        <View style={styles.homeSection}>
+            <LearningSchedulesBox openRef={openRef} desiredCalendarTitles={TODAYS_LEARNING_CALENDARS}>
                 <FlexFrame dir={"row"} justifyContent={"space-between"}>
-                    <InterfaceText stringKey={"learning_schedules.learning_schedules"} extraStyles={[styles.fontSize16, styles.fontBold, theme.tertiaryText]}/>
+                    <InterfaceText stringKey={"home.todays_learning"} extraStyles={[styles.fontSize16, styles.fontBold, theme.brandColorText]}/>
                     <SefariaPressable onPress={openLearningSchedules}>
                         <InterfaceText stringKey={"common.see_all"} extraStyles={[styles.fontSize16, theme.secondaryText]}/>
                     </SefariaPressable>
@@ -49,12 +107,6 @@ const TextsPageLearningSchedulesBox = ({ openRef, openLearningSchedules }) => {
         </View>
     );
 };
-
-const TopLevelCategoryOrLearningSchedulesBox = ({item, setCategories, openRef, openLearningSchedules}) => (
-    item.isSplice ?
-        (<TextsPageLearningSchedulesBox openRef={openRef} openLearningSchedules={openLearningSchedules}/>) :
-        (<TopLevelCategory item={item} setCategories={setCategories}/>)
-);
 
 const TopLevelCategory = ({item: tocItem, setCategories}) => {
     const categoryButtonProps = useCategoryButtonProps(tocItem, setCategories);
@@ -66,16 +118,37 @@ const TopLevelCategory = ({item: tocItem, setCategories}) => {
     );
 };
 
-const TextsPageHeader = () => {
-    return (
+const HomeLogo = () => {
+    const { themeStr } = useGlobalState();
+    const source = themeStr === 'white' ? require('./img/soferbooks-logo.png') : require('./img/soferbooks-logo-light.png');
+    return <Image source={source} resizeMode={'contain'} style={styles.homeLogo} accessibilityLabel={strings.a11y.soferbooks_logo} />;
+};
+
+const HomePageHeader = ({ openRef, openHistory, openLearningSchedules }) => (
+    <View>
+        <OpenTabsSlot />
         <FlexFrame dir={"row"} justifyContent={"space-between"} alignItems={"center"}>
-            <PageHeader><Header titleKey={"nav.browse_the_library"}/></PageHeader>
+            <HomeLogo />
             <LanguageToggleButton />
         </FlexFrame>
+        <ContinueReading openRef={openRef} openHistory={openHistory} />
+        <TodaysLearning openRef={openRef} openLearningSchedules={openLearningSchedules} />
+        <PageHeader><Header titleKey={"nav.browse_the_library"}/></PageHeader>
+    </View>
+);
+
+const HomePageFooter = ({ openAbout }) => {
+    const { theme } = useGlobalState();
+    return (
+        <View style={styles.homeFooter}>
+            <SefariaPressable onPress={openAbout}>
+                <InterfaceText stringKey={"about.about_soferbooks"} extraStyles={[styles.fontSize16, theme.secondaryText]}/>
+            </SefariaPressable>
+        </View>
     );
 };
 
-export const TextsPage = ({categories, setCategories, openRef, openLearningSchedules, onBack, openDedication}) => {
+export const TextsPage = ({categories, setCategories, openRef, openLearningSchedules, onBack, openAbout, openHistory}) => {
     const { theme } = useGlobalState();
 
     if (categories.length) {
@@ -90,26 +163,25 @@ export const TextsPage = ({categories, setCategories, openRef, openLearningSched
     }
 
     const data = Sefaria.getRootTocItems();
-    data.splice(3, 0, {isSplice: true});
     return (
         // outer view with flexDirection row properly bounds the FlatList so it doesn't overflow horizontally on some displays.
         <View style={{flex: 1, flexDirection: "row"}}>
             <FlatList
                 data={data}
                 contentContainerStyle={[{paddingHorizontal: 15, alignSelf: "stretch"}, theme.mainTextPanel]}
-                ListHeaderComponent={TextsPageHeader}
-                ListFooterComponent={
-                    <ShortDedication
-                        openDedication={openDedication}
+                ListHeaderComponent={
+                    <HomePageHeader
+                        openRef={openRef}
+                        openHistory={openHistory}
+                        openLearningSchedules={openLearningSchedules}
                     />
                 }
-                keyExtractor={item => item.isSplice ? 'splice' : item.category}
+                ListFooterComponent={<HomePageFooter openAbout={openAbout} />}
+                keyExtractor={item => item.category}
                 renderItem={({ item }) => (
-                    <TopLevelCategoryOrLearningSchedulesBox
+                    <TopLevelCategory
                         item={item}
                         setCategories={setCategories}
-                        openRef={openRef}
-                        openLearningSchedules={openLearningSchedules}
                     />
                 )}
             />

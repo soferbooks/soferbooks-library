@@ -24,13 +24,9 @@ import TestContextWrapper from '../TestContextWrapper';
 import { GlobalStateContext, DispatchContext, DEFAULT_STATE } from '../StateManager';
 import { iconData } from '../IconData';
 import SettingsPage from '../SettingsPage';
-import { AuthPage } from '../AuthPage';
-import { ForgotPasswordScreen } from '../ForgotPasswordScreen';
-import { AccountNavigationMenu } from '../AccountNavigationMenu';
 import ConnectionsPanel from '../ConnectionsPanel';
 import TextList from '../TextList';
 import LexiconBox from '../LexiconBox';
-import { TopicPage, TopicCategory } from '../TopicPage';
 import ReaderDisplayOptionsMenu from '../ReaderDisplayOptionsMenu';
 import { VOCALIZATION } from '../VocalizationEnum';
 import { FooterTabBar } from '../FooterTabBar';
@@ -38,16 +34,12 @@ import { SearchFilterPage } from '../search/SearchFilterPage';
 import { LearningSchedulesPage } from '../learningSchedules/LearningSchedules';
 import { LearningSchedulesBoxFactory } from '../learningSchedules/LearningSchedulesBox';
 import { TextsPage } from '../TextsPage';
-import { Dedication, ShortDedication } from '../Dedication';
-import TopicList from '../TopicList';
-import SheetMeta from '../SheetMeta';
+import { AboutPage } from '../AboutPage';
 import { HistorySavedPage } from '../HistorySavedPage';
-import SwipeableCategoryList from '../SwipeableCategoryList';
 import VersionBlock, { VersionBlockWithPreview } from '../VersionBlock';
 import ReaderTextTableOfContents from '../ReaderTextTableOfContents';
 import { TextCategoryPage } from '../TextCategoryPage';
 import ReaderControls from '../ReaderControls';
-import InterruptingMessage from '../InterruptingMessage';
 import { SearchResultPage } from '../search/SearchResultPage';
 import AutocompleteList from '../search/AutocompleteList';
 import {
@@ -59,8 +51,6 @@ import {
   Tracker as DownloadTracker,
 } from '../DownloadControl';
 import { generalAppErrorAlert } from '../errors';
-import { ssoCollisionMessage, ssoOnlyAccountMessage, ssoErrorWithCode } from '../authErrorMessages';
-import { AUTH_ERROR_CODE, SSO_ERROR_CODE } from '../AuthConstants';
 import ReaderApp from '../ReaderApp';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ActionSheet from 'react-native-action-sheet';
@@ -439,113 +429,16 @@ describe('Settings screen', () => {
   test('renders its labels in both languages', () => {
     Sefaria.isGettinToBePurimTime = jest.fn(() => false);
     expectScreenLocalizes(
-      wrap(SettingsPage, { close: noop, logout: noop, openUri: noop }),
+      wrap(SettingsPage, { close: noop, openUri: noop }),
       [
         'common.settings',
         'settings.text_language', 'languages.english', 'languages.hebrew', 'settings.bilingual',
         'settings.interface_language',
-        'settings.email_frequency', 'settings.daily', 'settings.weekly', 'settings.never',
         'settings.reading_history', 'common.on_fem', 'common.off_fem',
         'settings.preferred_custom', 'settings.sephardi', 'settings.ashkenazi',
         'settings.download_network_setting', 'settings.wifi_only', 'settings.mobile_network',
-        'settings.offline_access', 'settings.system', 'settings.terms_and_privacy',
+        'settings.offline_access', 'settings.system',
         'settings.app_version',
-      ]
-    );
-  });
-});
-
-describe('Auth screens', () => {
-  const authProps = (authMode) => ({
-    close: noop, authMode, showToast: noop, openLogin: noop, openRegister: noop, openUri: noop,
-  });
-
-  test('login renders its labels in both languages', () => {
-    expectScreenLocalizes(wrap(AuthPage, authProps('login')), [
-      'account.login',
-      // The two form fields label themselves with a placeholder rather than a caption.
-      'account.email', 'account.password',
-      // Sign in with Google/Apple, either side of an "or" divider.
-      'account.continue_with_google', 'account.continue_with_apple', 'common.or',
-      'account.dont_have_an_account', 'account.create_an_account', 'account.forgot_password',
-    ]);
-  });
-
-  test('register renders its labels in both languages', () => {
-    expectScreenLocalizes(wrap(AuthPage, authProps('register')), [
-      'account.signup',
-      // Registering asks for a name as well, so it has two more fields than logging in.
-      'account.first_name', 'account.last_name', 'account.email', 'account.password',
-      'account.continue_with_google', 'account.continue_with_apple', 'common.or',
-      'account.already_have_an_account', 'account.login',
-      'account.by_clicking_sign_up', 'account.terms_of_use_and_privacy_policy',
-    ]);
-  });
-});
-
-describe('Forgot password screen', () => {
-  const forgotProps = {
-    theme: {}, themeStr: 'white', isHeb: false,
-    close: noop, openLogin: noop,
-    fireMethodChosen: noop, fireProcessStarted: noop, fireProcessEnded: noop,
-    handleSSOTokenReceived: noop, handleSSOError: noop,
-    ssoError: null, setSsoError: noop,
-  };
-
-  test('the form renders its labels in both languages', () => {
-    expectScreenLocalizes(wrap(ForgotPasswordScreen, forgotProps), [
-      'account.forgot_password_title', 'account.forgot_password_email_placeholder',
-      'account.send_reset_link', 'account.back_to_login',
-    ]);
-  });
-
-  // After a successful submit the same screen swaps to a confirmation, so the two views
-  // never appear together.
-  //
-  // Driven by hand rather than through `expectSettledScreenLocalizes`: the submit handler
-  // closes over the email from the last render and returns early on an empty one, so typing
-  // has to be committed in its own act() before the button is pressed — and act() blocks
-  // cannot be nested inside the helper's own.
-  test('the confirmation renders its labels in both languages', async () => {
-    // Not `account.back_to_login`: that link sits in the form branch, which the
-    // confirmation replaces. The form test above covers it.
-    const expectedIds = ['account.reset_link_sent_title', 'account.reset_link_sent_body'];
-    markCovered(expectedIds);
-    Sefaria.api.requestPasswordReset = jest.fn(async () => ({ success: true }));
-
-    const byLang = {};
-    for (const lang of ['en', 'he']) {
-      strings.setLanguage(lang);
-      let inst;
-      await act(async () => {
-        inst = renderer.create(wrap(ForgotPasswordScreen, forgotProps)());
-      });
-      await act(async () => {
-        inst.root.findAllByType(TextInput)[0].props.onChangeText('someone@example.com');
-      });
-      await act(async () => {
-        inst.root.findAllByType(SystemButton)
-          .find(b => normalize(b.props.text) === normalize(strings.account.send_reset_link))
-          .props.onPress();
-      });
-      byLang[lang] = renderedText(inst);
-      await act(async () => { inst.unmount(); });
-    }
-    assertLocalized(byLang, expectedIds);
-  });
-});
-
-describe('Account navigation menu', () => {
-  // Logged-out menu: the component reads the logged-in flag from global state, and
-  // TestContextWrapper always starts from DEFAULT_STATE, where it is false.
-  test('renders its labels in both languages', () => {
-    expectScreenLocalizes(
-      wrap(AccountNavigationMenu, { menuOpen: 'account', openMenu: noop, openUri: noop, logout: noop }),
-      [
-        // `account.account`, not `nav.account`: both are "Account" in English but they have
-        // different Hebrew ("חשבון משתמש" vs "חשבון"), so only a Hebrew render tells them apart.
-        'account.account', 'account.signup', 'account.login', 'common.settings',
-        'account.help', 'about.about_sefaria', 'about.donate', 'about.sefaria_501',
       ]
     );
   });
@@ -745,41 +638,17 @@ describe('Reader header', () => {
   test('labels its icon buttons in both languages', () => {
     expectScreenLocalizes(wrap(ReaderControls, {
       enRef: 'Genesis 1:1', heRef: 'בראשית א׳:א׳', categories: ['Tanakh', 'Torah'],
-      openTextToc: noop, openSheetMeta: noop, goBack: noop,
+      openTextToc: noop, goBack: noop,
       toggleReaderDisplayOptionsMenu: noop, openUri: noop, sheet: null,
       getHistoryObject: () => ({ ref: 'Genesis 1:1', versions: {} }), showToast: noop,
     }), ['a11y.open_display_settings']);
   });
 });
 
-describe('Interrupting message', () => {
-  // The modal renders nothing until its remote JSON arrives, and then only after a 20-second
-  // timer. Rather than drive the fetch and the timer, the message is put straight into state:
-  // the close button under test is in the render, not in the loading path.
-  const showMessage = (inst) => {
-    inst.root.findByType(InterruptingMessage).instance.setState({
-      modalVisible: true,
-      data: {
-        title: 'Support Sefaria', text: ['A paragraph of appeal.'],
-        buttonLink: 'https://sefaria.org', buttonText: 'Make a Donation',
-        name: 'test-message', schemaVersion: 1,
-      },
-    });
-  };
-
-  test('labels its close button in both languages', () => {
-    expectScreenLocalizes(
-      wrap(InterruptingMessage, { interfaceLanguage: 'english', debugInterruptingMessage: false }),
-      ['a11y.close_pop_up'],
-      { interact: showMessage }
-    );
-  });
-});
-
 describe('Footer tab bar', () => {
   test('renders every tab label in both languages', () => {
     expectScreenLocalizes(wrap(FooterTabBar, { selectedTabName: 'Texts', setTab: noop }), [
-      'nav.texts', 'common.topics', 'common.search', 'history.saved', 'nav.account',
+      'nav.home', 'common.search', 'history.saved', 'common.settings',
     ]);
   });
 });
@@ -840,57 +709,48 @@ describe('Learning schedules page', () => {
   });
 });
 
-describe('Texts page', () => {
+describe('Home page', () => {
+  const homeProps = {
+    categories: [], setCategories: noop, openRef: noop,
+    openLearningSchedules: noop, onBack: noop, openAbout: noop, openHistory: noop,
+  };
+  afterEach(() => { Sefaria.history.lastPlace = []; });
+
   test('renders its labels in both languages', () => {
-    expectScreenLocalizes(wrap(TextsPage, {
-      categories: [], setCategories: noop, openRef: noop,
-      openLearningSchedules: noop, onBack: noop, openDedication: noop,
-    }), [
-      'nav.browse_the_library', 'learning_schedules.learning_schedules', 'common.see_all',
-      'about.dedicated_ios',
+    Sefaria.history.lastPlace = [];
+    expectScreenLocalizes(wrap(TextsPage, homeProps), [
+      'home.todays_learning', 'common.see_all', 'nav.browse_the_library',
+      'about.about_soferbooks', 'a11y.soferbooks_logo',
     ]);
   });
-});
 
-describe('Dedication footer', () => {
-  // The footer line is per-platform: `about.dedicated_ios` on iOS, `about.dedicated_android`
-  // on Android. Jest reports Platform.OS as 'ios', so only the iOS line can be rendered
-  // here; the Android one is asserted on directly below.
-  test('renders its label in both languages', () => {
-    expectScreenLocalizes(wrap(ShortDedication, { openDedication: noop }),
-      ['about.dedicated_ios']);
+  test('shows "Continue reading" and the weekly portion once there is data, in both languages', () => {
+    Sefaria.history.lastPlace = [
+      { ref: 'Genesis 1:5', he_ref: 'בראשית א:ה', versions: {}, book: 'Genesis' },
+    ];
+    Sefaria.primaryCategoryForTitle = jest.fn(() => 'Tanakh');
+    // The weekly portion row labels itself "Torah" rather than with the calendar's own title.
+    const getCalendars = jest.spyOn(Sefaria, 'getCalendars').mockReturnValue([{
+      title: { en: 'Parashat Hashavua', he: 'פרשת השבוע' },
+      subs: [{ en: 'Vayera', he: 'וירא' }], refs: ['Genesis 18:1-22:24'],
+    }]);
+    try {
+      // The row picks its label's language from `interfaceLanguage`, not the string table.
+      expectScreenLocalizes(wrapInRenderLanguage(TextsPage, homeProps), [
+        'home.continue_reading', 'home.todays_learning', 'common.torah',
+      ]);
+    } finally {
+      getCalendars.mockRestore();
+    }
   });
 });
 
-describe('Dedication page', () => {
-  // The page the footer opens. Its five paragraphs of prose used to be written inline in
-  // both languages; they are string ids now, so they can be checked like anything else.
-  //
-  // The closing psalm line is deliberately not here: it is a Hebrew scripture quote shown
-  // to every reader in Hebrew, the same as the text of a source, so it is content rather
-  // than an interface string and has no id.
-  test('renders its prose in both languages', () => {
-    expectScreenLocalizes(wrap(Dedication, { close: noop }), [
-      'about.app_for_ios_and_android', 'about.dedication_honor', 'about.dedication_inspired',
-      'about.dedication_apps', 'about.dedication_grateful',
-      'a11y.close',
+describe('About page', () => {
+  test('renders its text in both languages', () => {
+    expectScreenLocalizes(wrap(AboutPage, { close: noop, openUri: noop }), [
+      'about.soferbooks_intro', 'about.texts_courtesy', 'about.licences', 'about.built_on',
+      'about.source_code', 'a11y.close', 'a11y.soferbooks_logo',
     ]);
-  });
-});
-
-describe('Account navigation menu when logged in', () => {
-  test('renders its labels in both languages', () => {
-    expectScreenLocalizes(
-      wrapWithState(AccountNavigationMenu,
-        { menuOpen: 'account', openMenu: noop, openUri: noop, logout: noop },
-        { isLoggedIn: true }),
-      [
-        'account.account', 'common.settings', 'account.help', 'about.about_sefaria',
-        // The one button the logged-out menu does not have.
-        'account.logout',
-        'about.donate', 'about.dedicated_ios', 'about.sefaria_501',
-      ]
-    );
   });
 });
 
@@ -899,7 +759,7 @@ describe('History and Saved page', () => {
 
   test('the saved tab renders its labels in both languages', () => {
     expectScreenLocalizes(wrap(HistorySavedPage, historyProps), [
-      'history.saved', 'history.history', 'history.want_to_sync', 'account.login',
+      'history.saved', 'history.history',
     ]);
   });
 
@@ -909,35 +769,11 @@ describe('History and Saved page', () => {
     expectScreenLocalizes(
       wrapWithState(HistorySavedPage, historyProps, { readingHistory: false }),
       [
-        'history.saved', 'history.history', 'history.want_to_sync', 'account.login',
+        'history.saved', 'history.history',
         'history.reading_history_is_currently_disabled', 'common.settings',
       ],
       { interact: (inst) => pressTitled(inst, 'history.history') }
     );
-  });
-});
-
-describe('Swipeable history list', () => {
-  const swipeProps = {
-    close: noop, theme: {}, themeStr: 'white', openRef: noop,
-    textLanguage: 'english', interfaceLanguage: 'english',
-    onRemove: noop, openSettings: noop, openLogin: noop,
-    title: 'History', menuOpen: 'history',
-    icon: iconData.get('clock', 'white'),
-    isLoggedIn: false, hasDismissedSyncModal: false, readingHistory: false,
-    dispatch: noop,
-    loadData: () => Promise.resolve([
-      { ref: 'Genesis 1:1', he_ref: 'בראשית א:א', versions: {}, book: 'Genesis' },
-    ]),
-  };
-
-  test('renders its labels in both languages', () => {
-    Sefaria.primaryCategoryForTitle = jest.fn(() => 'Tanakh');
-    expectScreenLocalizes(
-      wrapWithState(SwipeableCategoryList, swipeProps, { readingHistory: false }), [
-        'history.want_to_sync', 'account.login',
-        'history.reading_history_is_currently_disabled', 'common.settings',
-      ]);
   });
 });
 
@@ -1106,7 +942,7 @@ describe('Alerts', () => {
       act(() => {
         inst = renderer.create(
           <TestContextWrapper child={SettingsPage}
-            childProps={{ close: noop, logout: noop, openUri: noop }} />);
+            childProps={{ close: noop, openUri: noop }} />);
       });
       // `stateKey` is set on the section <View> purely so tests can find each toggle;
       // see the comment above `toggleButtons` in SettingsPage.js.
@@ -1119,39 +955,6 @@ describe('Alerts', () => {
       await expectAlertLocalizes(pressReadingHistoryOff,
         ['common.delete', 'settings.turning_this_feature_off', 'common.cancel']);
     });
-  });
-});
-
-/**
- * The sign-in failure messages.
- *
- * These never reach a screen through a render this file can drive — they come back from
- * `authErrorMessages.js` as strings, which the banner then displays — so they are checked
- * the same way the dynamic namespaces below are: call the mapping function once per
- * language and compare against the table.
- *
- * Each is reached by a distinct backend answer, and picking the wrong branch shows the user
- * the wrong provider, so the branches are exercised individually rather than in bulk.
- */
-describe('Sign-in error messages', () => {
-  const CASES = [
-    ['a Google-only account',     () => ssoOnlyAccountMessage({ code: AUTH_ERROR_CODE.SSO_ONLY_ACCOUNT, providers: ['google'] }),           'errors.sso_email_exists_google'],
-    ['an Apple-only account',     () => ssoOnlyAccountMessage({ code: AUTH_ERROR_CODE.SSO_ONLY_ACCOUNT, providers: ['apple'] }),            'errors.sso_email_exists_apple'],
-    ['an account with both',      () => ssoOnlyAccountMessage({ code: AUTH_ERROR_CODE.SSO_ONLY_ACCOUNT, providers: ['google', 'apple'] }),  'errors.sso_email_exists_apple_and_google'],
-    ['an unrecognised answer',    () => ssoOnlyAccountMessage({ code: AUTH_ERROR_CODE.SSO_ONLY_ACCOUNT, providers: [] }),                   'errors.sso_generic'],
-    ['a dropped connection',      () => ssoErrorWithCode(SSO_ERROR_CODE.NETWORK_ERROR),                                                     'errors.auth_network'],
-    ['any other failure',         () => ssoErrorWithCode('some_other_code'),                                                                'errors.sso_generic'],
-    // This one is matched from the backend's English sentence, so it also proves the
-    // dotted-id lookup in SSO_COLLISION_MESSAGE_KEYS still resolves.
-    ['a duplicate-email reply',   () => ssoCollisionMessage('An account with this email address already exists.'), 'errors.sso_email_exists_generic'],
-  ];
-
-  test.each(CASES)('%s is reported in both languages', (_label, produce, id) => {
-    markCovered([id]);
-    for (const lang of ['en', 'he']) {
-      strings.setLanguage(lang);
-      expect({ lang, message: produce() }).toEqual({ lang, message: value(lang, id) });
-    }
   });
 });
 
@@ -1225,10 +1028,7 @@ describe('Strings with placeholders', () => {
     'reader.category_commentary': { category: 'Talmud' },
     'search.more_versions': { count: 3 },
     'download.updates_available_message': { count: 7 },
-    'search.no_results_containing': { query: 'moses' },
     'topics.this_source_is_connected_to': { title: 'Passover', sources: '4 sources' },
-    'topics.this_topic_is_connected_to': { title: 'Passover', sources: '4 sources' },
-    'topics.topics_related_to': { title: 'Passover' },
     'versions.merged_from': { sources: 'two editions' },
   };
 
@@ -1417,7 +1217,7 @@ describe('Settings screen around Purim', () => {
   test('renders the grogger toggle in both languages', () => {
     Sefaria.isGettinToBePurimTime = jest.fn(() => true);
     expectScreenLocalizes(
-      wrap(SettingsPage, { close: noop, logout: noop, openUri: noop }),
+      wrap(SettingsPage, { close: noop, openUri: noop }),
       ['settings.grogger_active']
     );
   });
@@ -1444,19 +1244,16 @@ const stubPackagesState = () => {
 };
 
 describe('Settings screen with the library downloaded', () => {
-  const settings = () => wrapWithState(SettingsPage,
-    { close: noop, logout: noop, openUri: noop }, { isLoggedIn: true });
+  const settings = () => wrap(SettingsPage, { close: noop, openUri: noop });
 
   beforeEach(() => {
     Sefaria.isGettinToBePurimTime = jest.fn(() => false);
     stubPackagesState();
   });
 
-  test('renders the offline-library and account controls in both languages', () => {
+  test('renders the offline-library controls in both languages', () => {
     expectScreenLocalizes(settings(), [
       'download.check_for_updates', 'download.delete_library',
-      // Only shown to a logged-in user.
-      'account.logout', 'account.delete_account',
     ]);
   });
 });
@@ -1473,8 +1270,7 @@ describe('Alerts from the settings page', () => {
   const renderSettings = () => {
     let inst;
     act(() => {
-      inst = renderer.create(wrapWithState(SettingsPage,
-        { close: noop, logout: noop, openUri: noop }, { isLoggedIn: true })());
+      inst = renderer.create(wrap(SettingsPage, { close: noop, openUri: noop })());
     });
     return inst;
   };
@@ -1513,14 +1309,6 @@ describe('Alerts from the settings page', () => {
       () => pressLabelled(renderSettings(), 'download.delete_library'),
       ['download.delete_library', 'download.confirm_delete_library_message',
        'common.yes', 'common.no']
-    );
-  });
-
-  test('deleting the account asks for confirmation in both languages', async () => {
-    await expectAlertLocalizes(
-      () => pressLabelled(renderSettings(), 'account.delete_account'),
-      ['account.delete_account', 'account.delete_account_message',
-       'common.cancel', 'common.ok']
     );
   });
 
@@ -1592,29 +1380,6 @@ describe('Alerts from the settings page', () => {
     }
   });
 
-  test('the account-deleted confirmation renders in both languages', async () => {
-    Sefaria.api.deleteUserAccount = jest.fn(async () => ({}));
-    await expectAlertLocalizes(
-      async () => {
-        pressLabelled(renderSettings(), 'account.delete_account');
-        pressAlertButton('common.ok');       // confirm the deletion
-        await act(async () => { await flushPromises(); });
-      },
-      ['account.delete_account_ok', 'common.ok']
-    );
-  });
-
-  test('a failed account deletion reports the error in both languages', async () => {
-    Sefaria.api.deleteUserAccount = jest.fn(async () => { throw new Error('server said no'); });
-    await expectAlertLocalizes(
-      async () => {
-        pressLabelled(renderSettings(), 'account.delete_account');
-        pressAlertButton('common.ok');
-        await act(async () => { await flushPromises(); });
-      },
-      ['account.delete_account_error', 'common.ok']
-    );
-  });
 });
 
 describe('Lexicon panel', () => {
@@ -1644,30 +1409,6 @@ describe('Lexicon panel', () => {
       selectedWords: 'בְּרֵאשִׁית בָּרָא אֱלֹהִים אֵת הַשָּׁמַיִם',
       oref: { categories: ['Tanakh'] }, handleOpenURL: noop,
     }), ['connections.define', 'connections.no_definitions_found']);
-  });
-});
-
-describe('Topic list on a source', () => {
-  test('says when there are no topics, in both languages', () => {
-    Sefaria.links = { ...Sefaria.links, aggregateTopics: jest.fn(() => []) };
-    expectScreenLocalizes(wrap(TopicList, {
-      topics: [], openTopic: noop, segmentRef: 'Genesis 1:1', heSegmentRef: 'בראשית א׳:א׳',
-    }), ['topics.no_topics_known_here']);
-  });
-});
-
-describe('Sheet metadata page', () => {
-  test('renders its labels in both languages', () => {
-    expectScreenLocalizes(wrap(SheetMeta, {
-      sheet: {
-        // Deliberately does not contain the word "Sheet": the English-leak check looks for
-        // the English value of every expected id in the Hebrew render, and a title carrying
-        // it would read as `common.sheet` never having gone through the string table.
-        title: 'On Freedom', topics: [], ownerName: 'A Person', ownerImageUrl: '',
-        dateModified: '2024-01-01', views: 0,
-      },
-      close: noop, openTopic: noop,
-    }), ['common.sheet', 'reader.table_of_contents', 'a11y.close', 'a11y.change_language_to']);
   });
 });
 
@@ -1719,22 +1460,6 @@ describe('Download progress bar', () => {
       download: DownloadTracker, identity: 'i18n-test', downloadSize: 1e8,
       downloadNotification: { downloadActive: false },
     }), ['common.connecting']);
-  });
-});
-
-describe('Dedication footer on Android', () => {
-  // `about.dedicated_ios` and `about.dedicated_android` are the same sentence with different
-  // line breaks; Jest reports Platform.OS as 'ios', so the Android line needs the platform
-  // switched for the duration of the render.
-  test('renders the Android wording in both languages', () => {
-    const realOS = Platform.OS;
-    Platform.OS = 'android';
-    try {
-      expectScreenLocalizes(wrap(ShortDedication, { openDedication: noop }),
-        ['about.dedicated_android']);
-    } finally {
-      Platform.OS = realOS;
-    }
   });
 });
 
@@ -1808,199 +1533,17 @@ describe('Save button toast', () => {
   });
 });
 
-describe('Login toast', () => {
-  test('a successful login confirms in both languages', async () => {
-    // The confirmation is a toast handed in as a prop. Authentication is stubbed to succeed
-    // so the success path runs without a network call.
-    markCovered(['account.login_successful']);
-    Sefaria.api.authenticate = jest.fn(async () => ({}));
-    Sefaria._auth = { uid: 1, token: 'stub' };
-
-    for (const lang of ['en', 'he']) {
-      strings.setLanguage(lang);
-      const messages = [];
-      let inst;
-      act(() => {
-        inst = renderer.create(
-          <TestContextWrapper child={AuthPage} childProps={{
-            authMode: 'login', close: noop, openLogin: noop, openRegister: noop,
-            openUri: noop, syncProfile: noop, showToast: (m) => messages.push(m),
-          }} />);
-      });
-      const submit = inst.root.findAll(n =>
-        typeof n.type !== 'string' && typeof n.props.onPress === 'function' &&
-        renderedText({ root: n }).some(t => normalize(t) === normalize(strings.account.login))
-      ).pop();
-      await act(async () => { submit.props.onPress(); await flushPromises(); });
-      act(() => { inst.unmount(); });
-
-      expect({ lang, messages: messages.map(normalize) })
-        .toEqual({ lang, messages: [normalize(value(lang, 'account.login_successful'))] });
-    }
-  });
-});
-
-describe('Swipe-to-remove on the saved list', () => {
-  // Rows arrive from an async `loadData`, so the assertions have to wait for them: the
-  // remove button is rendered behind each row and does not exist until there is a row.
-  test('renders its label in both languages', async () => {
-    Sefaria.primaryCategoryForTitle = jest.fn(() => 'Tanakh');
-    await expectSettledScreenLocalizes(wrapWithState(SwipeableCategoryList, {
-      close: noop, theme: {}, themeStr: 'white', openRef: noop,
-      textLanguage: 'english', interfaceLanguage: 'english',
-      onRemove: noop, openSettings: noop, openLogin: noop,
-      title: 'Saved', menuOpen: 'saved', icon: iconData.get('bookmark2', 'white'),
-      isLoggedIn: true, hasDismissedSyncModal: true, readingHistory: true, dispatch: noop,
-      loadData: () => Promise.resolve([
-        { ref: 'Genesis 1:1', he_ref: 'בראשית א:א', versions: {}, book: 'Genesis' },
-      ]),
-    }, { isLoggedIn: true, hasDismissedSyncModal: true }), ['common.remove'], {
-      // The button behind the row is only mounted once the row reports its height, and
-      // nothing lays anything out under a renderer test — so the layout event is delivered
-      // by hand.
-      interact: (inst) => inst.root
-        .findAll(n => typeof n.props.onLayout === 'function')
-        .forEach(n => n.props.onLayout({ nativeEvent: { layout: { height: 44, width: 320 } } })),
-    });
-  });
-});
-
 describe('History and Saved page with nothing in it', () => {
-  // The empty-state line only exists once the initial sync has finished and the list has
+    // The empty-state line only exists once local history has loaded and the list has
   // come back with no rows.
   test('says the history is empty, in both languages', async () => {
-    Sefaria.history.syncProfile = jest.fn(async () => ({}));
+    Sefaria.history.loadLocalHistory = jest.fn(async () => []);
     Sefaria.history.history = [];
     Sefaria.history.saved = [];
     await expectSettledScreenLocalizes(
       wrap(HistorySavedPage, { openRef: noop, openMenu: noop, hasInternet: true }),
       ['history.no_history']
     );
-  });
-});
-
-describe('Topics', () => {
-  const topicData = {
-    slug: 'passover', primaryTitle: 'Passover', title: 'Passover',
-    heTitle: 'פסח', description: { en: 'The festival of freedom.', he: 'חג החירות.' },
-    textRefs: ['Exodus 12:1'], textData: [], indexes: [],
-    parasha: null, subclass: null,
-  };
-
-  const topicProps = (overrides) => ({
-    topic: { slug: 'passover', title: 'Passover', primaryTitle: 'Passover' },
-    onBack: noop, openNav: noop, openTopic: noop, showToast: noop, openRef: noop,
-    setTopicsTab: noop, topicsTab: 'sources', openUri: noop, ...overrides,
-  });
-
-  beforeEach(() => {
-    Sefaria.topic_toc = [];
-    Sefaria._topicTocPages = { null: [] };
-    Sefaria.api.topic = jest.fn(async () => topicData);
-    Sefaria.api.getParashaNextRead = jest.fn(async () => ({}));
-    Sefaria.api.getBulkText = jest.fn(async () => ({}));
-    Sefaria.topicTocPage = jest.fn(() => []);
-    Sefaria.getTopicTocObject = jest.fn(() => null);
-    // No category for this topic, which is what makes the side column fall back to its
-    // "Explore Topics" heading rather than naming a category.
-    Sefaria.topicTocCategory = jest.fn(() => null);
-    // The trending list is what carries the heading; without it the section is not rendered
-    // at all. `_trendingTags` is the cache the component reads before the request returns.
-    const trending = [{ slug: 'passover', title: 'Passover', heTitle: 'פסח' }];
-    Sefaria.api._trendingTags = trending;
-    Sefaria.api.trendingTags = jest.fn(async () => trending);
-  });
-
-  test('a topic with sources names its tab in both languages', async () => {
-    // `wrapInRenderLanguage`, because the side column's section headings are
-    // `InterfaceTextWithFallback` pairs picked by interface language rather than by the
-    // string table — see the helper's note.
-    await expectSettledScreenLocalizes(wrapInRenderLanguage(TopicPage, topicProps()),
-      ['common.sources', 'topics.explore_topics']);
-  });
-
-  test('a topic with more than one kind of link offers to expand, in both languages', async () => {
-    // The expand button appears only when there is a second section to expand into, so this
-    // needs two link types, each with a link that is displayable.
-    const linkType = (key, title) => ({
-      shouldDisplay: true,
-      title: { en: title, he: title },
-      links: [{ topic: `${key}-topic`, title: { en: title, he: title }, shouldDisplay: true }],
-    });
-    Sefaria.api.topic = jest.fn(async () => ({
-      ...topicData,
-      links: { about: linkType('about', 'About'), sheets: linkType('sheets', 'Uses') },
-    }));
-    await expectSettledScreenLocalizes(
-      wrapInRenderLanguage(TopicPage, topicProps()), ['topics.see_more']);
-  });
-
-  test('an expanded topic offers to collapse again, in both languages', async () => {
-    const linkType = (key, title) => ({
-      shouldDisplay: true,
-      title: { en: title, he: title },
-      links: [{ topic: `${key}-topic`, title: { en: title, he: title }, shouldDisplay: true }],
-    });
-    Sefaria.api.topic = jest.fn(async () => ({
-      ...topicData,
-      links: { about: linkType('about', 'About'), sheets: linkType('sheets', 'Uses') },
-    }));
-    await expectSettledScreenLocalizes(
-      wrapInRenderLanguage(TopicPage, topicProps()), ['topics.see_less'],
-      { interact: (inst) => pressTitled(inst, 'topics.see_more') });
-  });
-
-  test('a parasha page lists its readings in both languages', async () => {
-    // `getParashaNextRead` returns [] when there is no upcoming reading, and the readings
-    // block is skipped for an array — so this has to be the object shape, together with the
-    // topic's own `ref`, before any of the three headings render.
-    Sefaria.api.topic = jest.fn(async () => ({
-      ...topicData,
-      parasha: 'Bereshit',
-      ref: { en: 'Genesis 1:1-6:8', he: 'בראשית א׳:א׳-ו׳:ח׳' },
-    }));
-    Sefaria.api.getParashaNextRead = jest.fn(async () => ({
-      date: '2024-10-26',
-      he_date: { en: '24 Tishrei 5785', he: 'כ״ד תשרי תשפ״ה' },
-      haftarah: [{
-        url: 'Isaiah.42.5-43.10',
-        displayValue: { en: 'Isaiah 42:5-43:10', he: 'ישעיהו מ״ב:ה׳-מ״ג:י׳' },
-      }],
-    }));
-    await expectSettledScreenLocalizes(wrapInRenderLanguage(TopicPage, topicProps()),
-      ['topics.readings', 'common.torah', 'common.haftarah', 'a11y.bulleted_list']);
-  });
-
-  test('an author page names its works tab in both languages', async () => {
-    Sefaria.api.topic = jest.fn(async () => ({
-      ...topicData, subclass: 'author', indexes: [{ title: 'Guide for the Perplexed' }],
-    }));
-    await expectSettledScreenLocalizes(
-      wrap(TopicPage, topicProps({ topicsTab: 'works' })), ['topics.works_on_sefaria']);
-  });
-
-  test('a parasha page offers to read the portion, in both languages', async () => {
-    // `ref` has to be the {en, he} pair the header button reads, not a bare string.
-    Sefaria.api.topic = jest.fn(async () => ({
-      ...topicData,
-      parasha: 'Bereshit',
-      ref: { en: 'Genesis 1:1-6:8', he: 'בראשית א׳:א׳-ו׳:ח׳' },
-    }));
-    // An empty array is the shape this returns when there is no upcoming reading, and it
-    // keeps the readings table (dates, haftarah list — all content, no interface strings)
-    // out of the way. The button under test is in the page header.
-    Sefaria.api.getParashaNextRead = jest.fn(async () => []);
-    await expectSettledScreenLocalizes(
-      wrap(TopicPage, topicProps()), ['learning_schedules.read_the_portion']);
-  });
-
-  test('the topics landing page heads its list in both languages', async () => {
-    // The heading and its strapline are the pair the page falls back to when no topic is
-    // selected, so they only exist on this `topic: null` render.
-    await expectSettledScreenLocalizes(
-      wrapInRenderLanguage(TopicCategory, { topic: null, openTopic: noop, onBack: noop, openNav: noop }),
-      ['topics.trending_topics', 'topics.explore_by_topic', 'topics.explore_by_topic_description',
-       'a11y.bulleted_list']);
   });
 });
 
@@ -2034,10 +1577,7 @@ const NOT_YET_COVERED = [
   // i18n.test.js lists, and no render test can reach a string that no code looks up. They
   // are kept in the JSON rather than deleted because deleting them also throws away Hebrew a
   // translator wrote; see the note on KNOWN_UNUSED.
-  'about.about', 'about.feedback', 'about.support_sefaria',
-  // The login screen's three-bullet pitch ("Save texts" / "Sync your reading" /
-  // "Get updates"), replaced by the Google and Apple buttons in 3b570bff.
-  'account.get_updates', 'account.save_texts', 'account.sync_your_reading',
+  'about.about', 'about.feedback',
   'common.apply', 'common.back', 'common.by', 'common.clear_all', 'common.of',
   'download.are_you_sure_delete_download_progress', 'download.download_in_progress',
   'download.download_library', 'download.download_paused', 'download.download_updates',
@@ -2048,17 +1588,12 @@ const NOT_YET_COVERED = [
   'learning_schedules.haftara', 'learning_schedules.parashah',
   'nav.browse', 'nav.calendar',
   'search.filter_by_text', 'search.results',
-  'topics.views',
   'versions.compare', 'versions.read', 'versions.versions',
 
   // ---------------------------------------------------------------------------------------
   // Looked up by code that runs, but that no user can reach. Each of these is a bug or a
   // leftover rather than a gap in this file — the id resolves, so `i18n.test.js` counts it as
   // used, but nothing ever puts it on a screen.
-
-  // AccountNavigationMenu.js: both menu entries are commented out (see MenuItemsMeta._items).
-  // The quoted ids inside the comment are why i18n.test.js still counts them as referenced.
-  'account.profile', 'account.updates',
 
   // TextSegment.js:71 builds an action sheet offering Copy / Share / Cancel, but the
   // `onLongPress` callback it defines is never passed to the TouchableOpacity below it, so
@@ -2069,8 +1604,8 @@ const NOT_YET_COVERED = [
   'common.copy', 'common.copied_to_clipboard',
 
   // Misc.js:845 MenuButton carries this label, and the only thing that renders MenuButton is
-  // SystemHeader (Misc.js:107), on Android alone. Nothing renders SystemHeader: TopicPage
-  // imports it and never uses it. So the button reaches no screen on any platform.
+  // SystemHeader (Misc.js:107), on Android alone. Nothing renders SystemHeader (TopicPage,
+  // which imported it, is gone). So the button reaches no screen on any platform.
   'a11y.open_menu',
 
   // ---------------------------------------------------------------------------------------

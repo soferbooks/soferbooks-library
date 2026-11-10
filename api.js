@@ -7,7 +7,6 @@ import 'abortcontroller-polyfill';
 
 import strings from './LocalizedStrings';
 import LinkContent from './LinkContent';
-import Auth from './auth';
 import { USER_AGENT } from './userAgent';
 
 var Api = {
@@ -17,21 +16,13 @@ var Api = {
   _baseHost: 'https://www.sefaria.org/',
   _textCache: {}, //in memory cache for API data
   _bulkText: {},
-  _bulkSheets: {},
   _parashaNextRead: {},
   _linkCache: {},
   _nameCache: {},
-  _allTags: {},
-  _sheetsByTag: {},
   _related: {},
-  _sheets: {},
-  _topic: {},
-  _portal: {},
-  _trendingTags: null,
   _versions: {},
   _translateVersions: {},
   _indexDetails: {},
-  _tagCategory: {},
   _lexiconCache: {},
   _currentRequests: {}, // object to remember current request in order to abort. keyed by apiType
   
@@ -181,22 +172,8 @@ var Api = {
         case "versions":
           url += "api/texts/versions/";
           break;
-        case "trendingTags":
-          url += "api/sheets/trending-tags/";
-          break;
-        case "allTags":
-          url += "api/sheets/tag-list/";
-          break;
-        case "sheetsByTag":
-          url += "api/sheets/tag/";
-          break;
         case "related":
           url += "api/related/";
-          break;
-        case "sheets":
-          const { more_data } = extra_args;
-          url += "api/sheets/";
-          urlSuffix = `?more_data=${more_data === true ? 1 : 1}`;
           break;
         case "name":
           url += "api/name/";
@@ -206,29 +183,13 @@ var Api = {
           url += "api/bulktext/";
           urlSuffix = paramStr;
           break;
-        case "bulksheets":
-          url += "api/v2/sheets/bulk/";
-          break;
         case "parashaNextRead":
           url += "api/calendars/next-read/";
-          break;
-        case "tagCategory":
-          url += "api/tag-category/";
-          //urlSuffix = '?ref_only=0';
           break;
         case "lexicon":
           const { words } = extra_args;
           url += `api/words/${encodeURIComponent(words)}?never_split=1`;
           ref = ref ? `&lookup_ref=${ref}`:""
-          break;
-        case "topic":
-          const { slug, with_refs, annotate_links, group_related, with_links, with_indexes } = extra_args;
-          url += `api/topics/${slug}`;
-          urlSuffix = `?with_links=${0+with_links}&annotate_links=${0+annotate_links}&with_refs=${0+with_refs}&group_related=${0+group_related}&with_indexes=${0+with_indexes}`;
-          break;
-        case "portal":
-          const { portalSlug } = extra_args;
-          url += `api/portals/${portalSlug}`;
           break;
         default:
           console.error("You passed invalid type: ",apiType," into _toURL()");
@@ -355,13 +316,6 @@ var Api = {
         });
     });
   },
-  portal: async function(slug) {
-    const cached = Sefaria.api._portal[slug];
-    if (!!cached) { return cached; }
-    let response = await Sefaria.api._request('', 'portal', false, { portalSlug: slug }, false);
-    Sefaria.api._portal[slug] = response;
-    return response;
-  },
   name: function(name, failSilently) {
     Sefaria.api._abortRequestType('name');
     return new Promise((resolve, reject) => {
@@ -394,111 +348,13 @@ var Api = {
       throw error;
     }
   },
-  trendingTags: function(failSilently) {
-    Sefaria.api._abortRequestType('trendingTags');
-    return new Promise((resolve, reject) => {
-      const cached = Sefaria.api._trendingTags;
-      if (!!cached) { resolve(cached); return; }
-      Sefaria.api._request('', 'trendingTags', false, {}, failSilently)
-        .then(response => {
-          Sefaria.api._trendingTags = response;
-          resolve(response);
-        })
-        .catch(error=>{
-          console.log("TrendingTags API error:", error);
-          reject();
-        });
-    });
-  },
-
-  allTags: function(sortBy, failSilently) {
-    Sefaria.api._abortRequestType('allTags-'+sortBy);
-    return new Promise((resolve, reject) => {
-      const cached = Sefaria.api._allTags[sortBy];
-      //if (!!cached) { console.log("cached"); resolve(cached); return; }
-      Sefaria.api._request(sortBy, 'allTags', false, {}, failSilently)
-        .then(response => {
-          Sefaria.api._allTags[sortBy] = response;
-          resolve(response);
-        })
-        .catch(error=>{
-          console.log("allTags API error:", error);
-          reject();
-        });
-    });
-  },
 
 
-  tagCategory: function(category, failSilently) {
-    Sefaria.api._abortRequestType('tagCategory');
-    return new Promise((resolve, reject) => {
-      const cached = Sefaria.api._tagCategory[category];
-      //if (!!cached) { console.log("cached"); resolve(cached); return; }
-      Sefaria.api._request(category, 'tagCategory', false, {}, failSilently)
-        .then(response => {
-          Sefaria.api._sheetsByTag[category] = response;
-          resolve(response);
-        })
-        .catch(error=>{
-          console.log("sheetsByTag API error:", error);
-          reject();
-        });
-    });
-  },
 
 
-  sheetsByTag: function(tag, failSilently) {
-    tag = encodeURIComponent(tag);
-    Sefaria.api._abortRequestType('sheetsByTag');
-    return new Promise((resolve, reject) => {
-      const cached = Sefaria.api._sheetsByTag[tag];
-      //if (!!cached) { console.log("cached"); resolve(cached); return; }
-      Sefaria.api._request(tag, 'sheetsByTag', false, {}, failSilently)
-        .then(response => {
-          Sefaria.api._sheetsByTag[tag] = response;
-          resolve(response);
-        })
-        .catch(error=>{
-          console.log("sheetsByTag API error:", error);
-          reject();
-        });
-    });
-  },
 
-  topic: async function(slug, with_links=true, annotate_links=true, with_refs=true, group_related=true, with_indexes=true) {
-    await Sefaria.api._abortRequestType('topic');
-    const cached = Sefaria.api._topic[slug];
-    if (!!cached) { return cached; }
-    let response = await Sefaria.api._request('', 'topic', false, {
-      with_links,
-      annotate_links,
-      with_refs,
-      group_related,
-      with_indexes,
-      slug,
-    }, false);
-    response = Sefaria.api.processTopicsData(response);
-    Sefaria.api._topic[slug] = response;
-    return response;
-  },
 
-  processTopicsData: function(data) {
-    if (!data) { return null; }
-    // Split  `refs` in `sourceRefs` and `sheetRefs`
-    let refMap = {};
-    for (let refObj of data.refs.filter(s => !s.is_sheet)) {
-      refMap[refObj.ref] = {ref: refObj.ref, order: refObj.order, dataSources: refObj.dataSources};
-      if (refObj.order) {
-        refMap[refObj.ref].order = {...refObj.order, availableLangs: refObj?.order?.availableLangs || [],
-          numDatasource: refObj?.order?.numDatasource || 1,
-          tfidf: refObj?.order?.tfidf || 0,
-          pr: refObj?.order?.pr || 0,
-          curatedPrimacy: {he: refObj?.order?.curatedPrimacy?.he || 0, en: refObj?.order?.curatedPrimacy?.en || 0}}
-      }
-    }
-    data.textRefs = Object.values(refMap);
-    return data;
-  },
+
 
   related: async function(ref) {
     //await Sefaria.api._abortRequestType('related');  doesn't seem necessary and causes many failed related calls when sections are small
@@ -557,37 +413,7 @@ var Api = {
     return Promise.all(promises).then(results => Object.assign({}, ...results));
   },
 
-  getBulkSheets: async function(sheetIds) {
-    if (sheetIds.length === 0) { return Promise.resolve({}); }
-    const idStr = sheetIds.join("|");
-    const cached = Sefaria.api._bulkSheets[idStr];
-    if (!!cached) { return cached; }
-    try {
-      const response = await Sefaria.api._request(idStr, 'bulksheets', false, {}, true);
-      Sefaria.api._bulkSheets[idStr] = response;
-      return response;
-    } catch(error) {
-      console.log("bulkSheets API error:", error, idStr);
-      throw error;
-    }
-  },
 
-  sheets: function(sheetID, more_data) {
-    Sefaria.api._abortRequestType('sheets');
-    return new Promise((resolve, reject) => {
-      const cached = Sefaria.api._sheets[sheetID];
-      //if (!!cached) { console.log("cached"); resolve(cached); return; }
-      Sefaria.api._request(sheetID, 'sheets', false, { more_data })
-        .then(response => {
-          Sefaria.api._sheets[sheetID] = response;
-          resolve(response);
-        })
-        .catch(error=>{
-          console.log("Sheets API error:", error);
-          reject();
-        });
-    });
-  },
 
   isACaseVariant: function(query, data) {
     // Check if query is just an improper capitalization of something that otherwise would be a ref
@@ -628,23 +454,14 @@ var Api = {
       return obj;
     }, {});
   },
-  // Auth (SSO, JWT storage/refresh, keychain, login/register/logout) lives in
-  // auth.js. Spread in here so every existing `Sefaria.api.<authMethod>` call
-  // site -- and every test that stubs one -- keeps working unchanged.
-  ...Auth,
 
 /*
 failSilently - if true, dont display a message if api call fails
 */
-  _request: async function(ref, apiType, urlify, extra_args, failSilently, isPrivate) {
+  _request: async function(ref, apiType, urlify, extra_args, failSilently) {
     const controller = new AbortController();
     const signal = controller.signal;
-    if (isPrivate) {
-      await Sefaria.api.getAuthToken();
-      if (!Sefaria._auth.uid && failSilently) { return Promise.resolve(); }
-    }
     const headers = { 'User-Agent': USER_AGENT };
-    if (isPrivate) { headers.Authorization = `Bearer ${Sefaria._auth.token}`; }
     Sefaria.api._currentRequests[apiType] = controller;
     const url = Sefaria.api._toURL(ref, true, apiType, urlify, extra_args);
     return new Promise(function(resolve, reject) {
@@ -684,7 +501,7 @@ failSilently - if true, dont display a message if api call fails
             [
               {text: strings.common.cancel, onPress: () => { reject("Return to Nav"); }, style: 'cancel' },
               {text: strings.common.try_again, onPress: () => {
-                Sefaria.api._request(ref,apiType, urlify, extra_args,failSilently,isPrivate).then(resolve);
+                Sefaria.api._request(ref,apiType, urlify, extra_args,failSilently).then(resolve);
               }}
             ]
           );

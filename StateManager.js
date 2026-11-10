@@ -11,16 +11,11 @@ const STATE_ACTIONS = {
   setTheme: "SET_THEME",
   setTextLanguage: "SET_TEXT_LANGUAGE",
   setInterfaceLanguage: "SET_INTERFACE_LANGUAGE",
-  setEmailFrequency: "SET_EMAIL_FREQUENCY",
   setPreferredCustom: "SET_PREFERRED_CUSTOM",
   setFontSize: "SET_FONT_SIZE",
   setAliyot: "SET_ALIYOT",
   setVocalization: "SET_VOCALIZATION",
-  toggleDebugInterruptingMessage: "TOGGLE_DEBUG_INTERRUPTING_MESSAGE",
   setBiLayout: "SET_BI_LAYOUT",
-  setIsLoggedIn: "SET_IS_LOGGED_IN",
-  setUserEmail: "SET_USER_EMAIL",
-  setHasDismissedSyncModal: "SET_HAS_DISMISSED_SYNC_MODAL",
   setDownloadNetworkSetting: "SET_DOWNLOAD_NETWORK_MODE",
   setReadingHistory: "SET_READING_HISTORY",
   setGroggerActive: "SET_GROGGER_ACTIVE",
@@ -28,7 +23,6 @@ const STATE_ACTIONS = {
 
 const UPDATE_SETTINGS_ACTIONS = {
   [STATE_ACTIONS.setInterfaceLanguage]: true,
-  [STATE_ACTIONS.setEmailFrequency]: true,
   [STATE_ACTIONS.setPreferredCustom]: true,
   [STATE_ACTIONS.setReadingHistory]: true,
 };
@@ -47,11 +41,6 @@ const ACTION_CREATORS = {
   setInterfaceLanguage: (language, fromAsync) => ({
     type: STATE_ACTIONS.setInterfaceLanguage,
     value: language,
-    fromAsync,
-  }),
-  setEmailFrequency: (freq, fromAsync) => ({
-    type: STATE_ACTIONS.setEmailFrequency,
-    value: freq,
     fromAsync,
   }),
   setReadingHistory: (isReadingHistory, fromAsync) => ({
@@ -77,28 +66,10 @@ const ACTION_CREATORS = {
     type: STATE_ACTIONS.setVocalization,
     value,
   }),
-  toggleDebugInterruptingMessage: (debug, fromAsync) => ({
-    type: STATE_ACTIONS.toggleDebugInterruptingMessage,
-    value: debug,
-    fromAsync,
-  }),
   setBiLayout: (layout, fromAsync) => ({
     type: STATE_ACTIONS.setBiLayout,
     value: layout,
     fromAsync,
-  }),
-  setIsLoggedIn: isLoggedIn => ({
-    type: STATE_ACTIONS.setIsLoggedIn,
-    value: isLoggedIn,
-  }),
-  setUserEmail: (email, fromAsync) => ({
-    type: STATE_ACTIONS.setUserEmail,
-    value: email,
-    fromAsync,
-  }),
-  setHasDismissedSyncModal: (hasDismissed, fromAsync) => ({
-    type: STATE_ACTIONS.setHasDismissedSyncModal,
-    value: hasDismissed,
   }),
   setDownloadNetworkSetting: (networkMode, fromAsync) => ({
     type: STATE_ACTIONS.setDownloadNetworkSetting,
@@ -120,10 +91,6 @@ const ASYNC_STORAGE_DEFAULTS = {
   interfaceLanguage: {
     default: strings.getInterfaceLanguage().match(/^(?:he|iw)/) ? "hebrew" : "english",
     action: ACTION_CREATORS.setInterfaceLanguage,
-  },
-  emailFrequency: {
-    default: 'daily',
-    action: ACTION_CREATORS.setEmailFrequency,
   },
   readingHistory: {
     default: true,
@@ -149,21 +116,9 @@ const ASYNC_STORAGE_DEFAULTS = {
     default: 0,
     action: ACTION_CREATORS.setVocalization,
   },
-  debugInterruptingMessage: {
-    default: false,
-    action: ACTION_CREATORS.toggleDebugInterruptingMessage,
-  },
   biLayout: {
     default: 'stacked',
     action: ACTION_CREATORS.setBiLayout,
-  },
-  userEmail: {
-    default: "",
-    action: ACTION_CREATORS.setUserEmail,
-  },
-  hasDismissedSyncModal: {
-    default: false,
-    action: ACTION_CREATORS.setHasDismissedSyncModal,
   },
   downloadNetworkSetting: {
     default: 'wifiOnly',
@@ -175,29 +130,17 @@ const ASYNC_STORAGE_DEFAULTS = {
   },
 };
 
-// Not part of ASYNC_STORAGE_DEFAULTS: auth lives in the Keychain (api.js),
-// hydrated at init via initAsyncStorage() below.
-const AUTH_DEFAULT = {
-  default: false,
-  action: ACTION_CREATORS.setIsLoggedIn,
-};
-
 const DEFAULT_STATE = {
   //theme: themeWhite,
   themeStr: ASYNC_STORAGE_DEFAULTS.color.default,
   textLanguage: ASYNC_STORAGE_DEFAULTS.textLanguage.default,
   interfaceLanguage: ASYNC_STORAGE_DEFAULTS.interfaceLanguage.default,
-  emailFrequency: ASYNC_STORAGE_DEFAULTS.emailFrequency.default,
   readingHistory: ASYNC_STORAGE_DEFAULTS.readingHistory.default,
   preferredCustom: ASYNC_STORAGE_DEFAULTS.preferredCustom.default,
   fontSize: ASYNC_STORAGE_DEFAULTS.fontSize.default,
   showAliyot: ASYNC_STORAGE_DEFAULTS.showAliyot.default,
   vocalization: ASYNC_STORAGE_DEFAULTS.vocalization.default,
-  debugInterruptingMessage: ASYNC_STORAGE_DEFAULTS.debugInterruptingMessage.default,
   biLayout: ASYNC_STORAGE_DEFAULTS.biLayout.default,
-  isLoggedIn: AUTH_DEFAULT.default,
-  userEmail: ASYNC_STORAGE_DEFAULTS.userEmail.default,
-  hasDismissedSyncModal: ASYNC_STORAGE_DEFAULTS.hasDismissedSyncModal.default,
   downloadNetworkSetting: ASYNC_STORAGE_DEFAULTS.downloadNetworkSetting.default,
   groggerActive: ASYNC_STORAGE_DEFAULTS.groggerActive.default,
 };
@@ -205,9 +148,6 @@ const DEFAULT_STATE = {
 const saveFieldToAsync = function (field, value) {
   AsyncStorage.setItem(field, JSON.stringify(value));
 };
-
-// Used as a duplicate of the state so the analytics can access them.
-let currentGlobalState = DEFAULT_STATE;
 
 const reducer = function (state, action) {
   if (UPDATE_SETTINGS_ACTIONS[action.type] && !action.fromAsync) {
@@ -239,13 +179,6 @@ const reducer = function (state, action) {
       newState = {
         ...state,
         interfaceLanguage: action.value,
-      }
-      break;
-    case STATE_ACTIONS.setEmailFrequency:
-      if (!action.fromAsync) { saveFieldToAsync('emailFrequency', action.value); }
-      newState = {
-        ...state,
-        emailFrequency: action.value,
       }
       break;
     case STATE_ACTIONS.setReadingHistory:
@@ -286,43 +219,11 @@ const reducer = function (state, action) {
         vocalization: action.value,
       }  
       break;  
-    case STATE_ACTIONS.toggleDebugInterruptingMessage:
-      // toggle if you didn't pass in debug, otherwise you're initializing the value
-      const newDebug = action.value === undefined ? (!state.debugInterruptingMessage) : action.value;
-      if (!action.fromAsync) { saveFieldToAsync('debugInterruptingMessage', newDebug); }
-      newState = {
-        ...state,
-        debugInterruptingMessage: newDebug,
-      }
-      break;
     case STATE_ACTIONS.setBiLayout:
       if (!action.fromAsync) { saveFieldToAsync('biLayout', action.value); }
       newState = {
         ...state,
         biLayout: action.value,
-      }
-      break;
-    case STATE_ACTIONS.setIsLoggedIn:
-      // action can be passed either object or bool
-      const isLoggedIn = !!action.value;
-      if (isLoggedIn && !!action.value.uid) { Sefaria._auth = action.value; }
-      newState = {
-        ...state,
-        isLoggedIn,
-      }
-      break;
-    case STATE_ACTIONS.setUserEmail:
-      if (!action.fromAsync) { saveFieldToAsync('userEmail', action.value); }
-      newState = {
-        ...state,
-        userEmail: action.value,
-      }
-      break;
-    case STATE_ACTIONS.setHasDismissedSyncModal:
-      if (!action.fromAsync) { saveFieldToAsync('hasDismissedSyncModal', action.value); }
-      newState = {
-        ...state,
-        hasDismissedSyncModal: action.value,
       }
       break;
     case STATE_ACTIONS.setDownloadNetworkSetting:
@@ -344,12 +245,8 @@ const reducer = function (state, action) {
       break;
   }
 
-  currentGlobalState = newState;
   return newState;
 };
-
-// Allows acess to the duplication of the state that is used by analytics
-const getCurrentGlobalState = () => currentGlobalState;
 
 const initAsyncStorage = dispatch => {
   // Loads data from each field in `_data` stored in Async storage into local memory for sync access.
@@ -370,23 +267,6 @@ const initAsyncStorage = dispatch => {
       promises.push(promise);
     }
   }
-  // The signed-in session lives in the Keychain, not AsyncStorage (see
-  // api.js hydrateAuthFromKeychain), so it's rehydrated separately here
-  // rather than through the ASYNC_STORAGE_DEFAULTS loop above. This is what
-  // makes a cold start restore an existing session instead of defaulting to
-  // logged out. hydrateAuthFromKeychain() is written to never reject, but
-  // this call is still guarded the same way the AsyncStorage loaders above
-  // are, so a truly unexpected failure degrades to logged out instead of
-  // blocking app init.
-  const authPromise = Sefaria.api.hydrateAuthFromKeychain()
-    .then(isLoggedIn => {
-      dispatch(AUTH_DEFAULT.action(isLoggedIn, true));
-    })
-    .catch(function(error) {
-      console.error("Failed to hydrate auth from keychain: " + error);
-      dispatch(AUTH_DEFAULT.action(false, true));
-    });
-  promises.push(authPromise);
   return Promise.all(promises);
 };
 
@@ -402,5 +282,4 @@ export {
   GlobalStateContext,
   DispatchContext,
   getTheme,
-  getCurrentGlobalState,
 };

@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="splash_background">#00315e</color>
-    <color name="sefaria_blue">#18345D</color>
+    <!-- SoferBooks brand: navy #1F3366, gold #C49A3C -->
+    <color name="splash_background">#1F3366</color>
+    <color name="launcher_background">#1F3366</color>
+    <color name="brand_navy">#1F3366</color>
+    <color name="brand_gold">#C49A3C</color>
 </resources>

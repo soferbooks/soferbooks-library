@@ -214,17 +214,6 @@ const OrderedList = ({items, renderItem}) => {
   );
 }
 
-const DotSeparatedList = ({ items, renderItem, keyExtractor, flexDirection='row' }) => {
-  return (
-    items.map((item, i) => (
-      <View key={keyExtractor(item)} style={{flexDirection, alignItems: 'center'}} accessibilityLabel={strings.a11y.bulleted_list}>
-        { renderItem(item, i) }
-        { i < (items.length - 1) ? <Image source={require('./img/dot.png')} resizeMode={'contain'} style={{marginHorizontal: 5}}/> : null}
-      </View>
-    ))
-  );
-};
-
 const SystemButton = ({ onPress, text, img, isHeb, isBlue, isLoading, extraStyles=[], extraImageStyles=[], placeholderImg=true, theme: themeProp }) => {
   const { theme: themeContext } = useGlobalState();
   // `themeProp` lets a caller (e.g. AuthPage, which is intentionally
@@ -1560,17 +1549,6 @@ const CategoryDescription = ({ description }) => {
   );
 };
 
-const Sefaria501 = () => {
-  const { theme, interfaceLanguage } = useGlobalState();
-  return(
-        <View>
-            <Text style={[styles.navReSefaria501, (interfaceLanguage === "hebrew") ? styles.hebrewSystemFont : null, theme.secondaryText]}>
-              { strings.about.sefaria_501 }
-            </Text>
-        </View>
-      );
-};
-
 const FlexFrame = ({ dir="row", children, ...viewStyleProps }) => {
   /**
    * @param viewStyleProps: any valid style for a <View>. The intention is to mainly use flex styles
@@ -1643,7 +1621,6 @@ export {
   DirectedArrow,
   DirectedButton,
   DisplaySettingsButton,
-  DotSeparatedList,
   FilterableFlatList,
   FlexFrame,
   Header,
@@ -1665,7 +1642,6 @@ export {
   RainbowBar,
   SaveButton,
   SearchButton,
-  Sefaria501,
   SefariaPressable,
   SefariaProgressBar,
   SimpleContentBlock,

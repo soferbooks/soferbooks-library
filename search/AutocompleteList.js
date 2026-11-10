@@ -19,8 +19,9 @@ import {
 } from '../Misc';
 import styles from '../Styles';
 import strings from '../LocalizedStrings';
-import { Topic } from '../Topic';
 import {iconData} from "../IconData";
+
+const EXCLUDED_COMPLETION_TYPES = new Set(['topic', 'persontopic', 'authortopic', 'user', 'collection', 'group']);
 
 class AutocompleteList extends React.Component {
   static propTypes = {
@@ -30,7 +31,6 @@ class AutocompleteList extends React.Component {
     query:    PropTypes.string,
     openRef:  PropTypes.func.isRequired,
     openTextTocDirectly: PropTypes.func.isRequired,
-    openTopic:     PropTypes.func.isRequired,
     setCategories: PropTypes.func.isRequired,
     search:   PropTypes.func.isRequired,
     openUri: PropTypes.func.isRequired,
@@ -69,10 +69,15 @@ class AutocompleteList extends React.Component {
       Sefaria.api.name(q, true)
       .then(results => {
         if (this._isMounted) {
-          const typeToValue = { "ref": 1, "toc": 3, "topic": 2, "persontopic": 2, "authortopic": 4, "user": 5, "collection": 6 };
+          const typeToValue = { "ref": 1, "toc": 3 };
           let completions = results.completion_objects.map((c,i) =>
           {
             c.type = c.type.toLowerCase()
+            return c;
+          })
+          // SoferBooks shows library items only: no Sefaria topics, users, groups or collections.
+          .filter(c => !EXCLUDED_COMPLETION_TYPES.has(c.type))
+          .map((c, i) => {
             if (i === 0) {typeToValue[c.type] = 0;}  // priveledge the first results' type
             return c;
           })
@@ -92,15 +97,6 @@ class AutocompleteList extends React.Component {
               type: 'ref',
               is_primary: true,
             });
-          } else if (results.topic_slug) {
-            // manually add topic item to list
-            completions = completions.filter(c => !(c.key == results.topic_slug && c.type == 'topic'));
-            completions.unshift({
-              title: q.substring(1),
-              key: results.topic_slug,
-              type: 'topic',
-            });
-
           }
           this.setState({completions, completionsLang: results.lang})
         }
@@ -143,16 +139,8 @@ class AutocompleteList extends React.Component {
     } else if (item.type == "toccategory" || item.type == 'toc') {
       this.props.setCategories(item.key);
       recentType = "toc";
-    } else if (item.type == "topic" || item.type == "persontopic" || item.type == "authortopic") {
-      recentType = item.type;
-      // NOTE: rest of metadata for topic will be populated when topic page loads
-      this.props.openTopic(new Topic({ slug: item.key }));
-    } else if (item.type == "user") {
-      recentType = "user";
-      this.props.openUri(`${Sefaria.api._baseHost}profile/${item.key}`);
-    } else if (item.type == "collection") {
-      recentType = "collection";
-      this.props.openUri(`${Sefaria.api._baseHost}collections/${item.key}`);
+    } else {
+      return;  // a type SoferBooks doesn't open (e.g. an old recent query for a topic)
     }
     Sefaria.saveRecentQuery(item.title, recentType, item.key, item.pic);
   };
@@ -200,15 +188,8 @@ class AutocompleteList extends React.Component {
         recentType = "toc";
       } else if (d.type == "Group") {
         recentType = "group"
-      } else if (d.type == "Topic" || d.type == "PersonTopic" || d.type == "AuthorTopic") {
-        recentType = d.type.toLowerCase();
-        this.props.openTopic(new Topic({slug: d.key}));
-      } else if (d.type == "User") {
-        recentType = "user";
-        this.props.openUri(`${Sefaria.api._baseHost}profile/${d.key}`);
-      } else if (d.type == "Collection") {
-        recentType = "collection";
-        this.props.openUri(`${Sefaria.api._baseHost}collections/${d.key}`);
+      } else {
+        return;
       }
       Sefaria.saveRecentQuery(query, recentType, d.key, d.pic);
     });

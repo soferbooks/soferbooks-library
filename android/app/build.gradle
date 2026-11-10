@@ -95,15 +95,17 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdkVersion rootProject.ext.compileSdkVersion
 
+    // The Kotlin/Java package (and so BuildConfig/R) stays org.sefaria.sefaria; only the
+    // installed applicationId is SoferBooks'. Renaming the namespace is a separate refactor.
     namespace "org.sefaria.sefaria"
     defaultConfig {
-        // qaApplicationId is passed by Fastlane/CI for QA builds (e.g. "org.sefaria.sefaria.my_branch").
+        // qaApplicationId is passed by Fastlane/CI for QA builds (e.g. "org.soferbooks.library.my_branch").
         // Falls back to the production ID when not set, so production builds are unaffected.
-        applicationId project.findProperty("qaApplicationId") ?: "org.sefaria.sefaria"
+        applicationId project.findProperty("qaApplicationId") ?: "org.soferbooks.library"
 
         // qaAppName is passed by Fastlane/CI so each QA build shows its own label on the home screen.
-        // Falls back to "Sefaria" for production builds.
-        resValue "string", "app_name", project.findProperty("qaAppName") ?: "Sefaria"
+        // Falls back to "SoferBooks Library" for production builds.
+        resValue "string", "app_name", project.findProperty("qaAppName") ?: "SoferBooks Library"
 
         // react-native-config finds BuildConfig by reflection, guessing its package
         // from getPackageName() -- the applicationId, which QA builds override
@@ -146,5 +148,4 @@ dependencies {
     implementation project(':react-native-config')
 }
 
-apply plugin: 'com.google.gms.google-services'
-apply plugin: 'com.google.firebase.crashlytics'
+// No Firebase (google-services / Crashlytics) in SoferBooks Library.

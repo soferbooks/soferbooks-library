@@ -17,6 +17,9 @@ module.exports = {
         "node_modules/(?!(?:static-container|(?:jest-)?react-native|@react-native(?:-community)?|expo|@expo|@unimodules|unimodules|react-navigation|@react-navigation))"
     ],
     "moduleNameMapper": {
+        // No Firebase in SoferBooks: the app resolves this import to shims/crashlytics.js
+        // (metro.config.js); tests use the jest mock of the same API.
+        "^@react-native-firebase/crashlytics$": "<rootDir>/__mocks__/@react-native-firebase/crashlytics.js",
         // The app imports the `expo-file-system/legacy` subpath, which the
         // existing __mocks__/expo-file-system.js never intercepted -- so the
         // real native module was loaded in tests and blew up on import.

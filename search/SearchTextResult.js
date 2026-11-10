@@ -6,11 +6,11 @@ import {
 import styles from '../Styles.js';
 import {useGlobalState, useRtlFlexDir} from "../Hooks";
 import {
-    StoryFrame,
+    PreviewFrame,
     ColorBarBox,
-    StoryTitleBlock,
-    StoryBodyBlock,
-} from "../Story";
+    PreviewTitleBlock,
+    PreviewBodyBlock,
+} from "../TextPreview";
 import {iconData} from "../IconData";
 import strings from "../LocalizedStrings";
 
@@ -22,16 +22,16 @@ export const SearchTextResult = ({text, tref, heTref, openRef, lang, versionTitl
         openRef(tref, {[shortLang]: versionTitle}, true, false, true);
     };
     return (
-        <StoryFrame extraStyles={[{marginVertical: 16}]}>
+        <PreviewFrame extraStyles={[{marginVertical: 16}]}>
             {isDuplicate ? null :
-                <StoryTitleBlock en={tref} he={Sefaria.normHebrewRef(heTref)} onClick={onClick}/>
+                <PreviewTitleBlock en={tref} he={Sefaria.normHebrewRef(heTref)} onClick={onClick}/>
             }
             <ColorBarBox tref={tref}>
-                <StoryBodyBlock en={en} he={he}/>
+                <PreviewBodyBlock en={en} he={he}/>
             </ColorBarBox>
             <VersionTitleLine versionTitle={versionTitle} />
             <SimilarResults duplicates={duplicates} />
-        </StoryFrame>
+        </PreviewFrame>
     );
 };
 

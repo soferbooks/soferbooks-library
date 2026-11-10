@@ -42,7 +42,7 @@ describe('PageHistory', () => {
 
 describe('TabHistory push state', () => {
   const statesToPushWithTabs = [
-      [{tab: "Texts", state: {sup: 1}}, {tab: "Topics", state: {sup: 3}}, {tab: "Texts", state: {sup: 5}}],
+      [{tab: "Texts", state: {sup: 1}}, {tab: "Search", state: {sup: 3}}, {tab: "Texts", state: {sup: 5}}],
   ];
   test.each(statesToPushWithTabs)('push state', (...tabStates) => {
       const hist = new TabHistory();

@@ -195,7 +195,7 @@ const VersionMetadata = ({version, showVersionTitle, openUri, greyBackground}) =
             }
             {version.purchaseInformationURL &&
                 <TouchableOpacity onPress={() => { openUri(version.purchaseInformationURL); }}>
-                    <Text style={[textStyle, textAlign, theme.sefariaColorText]}>{strings.versions.buy_in_print}</Text>
+                    <Text style={[textStyle, textAlign, theme.brandColorText]}>{strings.versions.buy_in_print}</Text>
                 </TouchableOpacity>
             }
         </View>

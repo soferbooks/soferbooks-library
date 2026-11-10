@@ -158,16 +158,9 @@ const KNOWN_UNUSED = [
 
   // === Not used on master, but do not delete: an unmerged branch needs it. ===
 
-  // Used by the in-flight auth work (48a4cfcf, on feature/sc-45083-sso-google-apple-signin
-  // and feature/sc-46734-google-account-chooser-on-login). Deleting it breaks those branches.
+  // Used by Sefaria's in-flight auth work (48a4cfcf). SoferBooks has no sign-in, but this is
+  // a generic label worth keeping for a future back button.
   'common.back',
-
-  // The login screen used to open with a three-bullet pitch: "Save texts", "Sync your
-  // reading", "Get updates". 3b570bff ("feat: add Google and Apple SSO sign-in to auth
-  // flow") replaced that block with the Google and Apple buttons.
-  'account.get_updates',
-  'account.save_texts',
-  'account.sync_your_reading',
 
   // === Removed features. The screens that displayed these no longer exist. ===
 
@@ -202,7 +195,6 @@ const KNOWN_UNUSED = [
   'search.filter_by_text',
 
   // Sheets came out of the app in November 2025 (63252a7d, e51c51c6, b6d75f7d).
-  'topics.views',
   'versions.read',
 
   // Older versions-box changes: the compare button went in 2018 (022355a8) and the section
@@ -211,7 +203,6 @@ const KNOWN_UNUSED = [
   'versions.versions',
 
   // Superseded by a full sentence with placeholders, or by a rewrite of the screen.
-  'about.support_sefaria',   // donate button reworked, 5e4f8fb7 (2019)
   'common.by',               // now part of `topics.this_source_is_connected_to`
   'common.of',               // now part of `download.downloading_progress`
   'search.results',          // search results summary rewritten, 98629944 (2019)
@@ -236,7 +227,7 @@ describe('unused i18n ids', () => {
   const referenced = new Set(
     matchAll(new RegExp(`\\bstrings\\.(${nsAlternation})\\.([a-z0-9_]+)`, 'g')).map(m => `${m[1]}.${m[2]}`)
   );
-  // Any quoted id: getString('common.cancel'), titleKey="account.help", and the lookup tables
+  // Any quoted id: getString('common.cancel'), titleKey="common.settings", and the lookup tables
   // in SettingsPage.js that map a state value to an id.
   matchAll(new RegExp(`['"\`]((?:${nsAlternation})\\.[a-z0-9_]+)['"\`]`, 'g')).forEach(m => referenced.add(m[1]));
 

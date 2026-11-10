@@ -11,7 +11,6 @@ import {
 
 import styles from '../Styles';
 import {SearchTextResult} from './SearchTextResult';
-import SearchSheetResult from './SearchSheetResult';
 
 class SearchResultList extends React.Component {
   static propTypes = {
@@ -30,28 +29,8 @@ class SearchResultList extends React.Component {
     this.props.setLoadTail(this.props.searchState.type, true);
   };
 
-  renderRow = ({ item }) => {
-    const { searchType } = this.props;
-    const renderer = searchType === "sheet" ? this.renderSheetResult : this.renderTextResult;
-    return renderer({ item });
-  };
-
-  renderSheetResult = ({ item }) => {
-    const refToOpen = "Sheet "+ item.id
-    return (
-        <SearchSheetResult
-            textType={item.textType}
-            title={item.title}
-            heTitle={item.heTitle}
-            text={item.text}
-            ownerImageUrl={item.metadata.ownerImageUrl}
-            ownerName={item.metadata.ownerName}
-            views={item.metadata.views}
-            tags={item.metadata.tags}
-            onPress={this.props.openRef.bind(null,refToOpen)}
-        />
-    );
-  };
+  // Text results only: SoferBooks has no community source sheets.
+  renderRow = ({ item }) => this.renderTextResult({ item });
 
   renderTextResult = ({ item }) => {
     return (

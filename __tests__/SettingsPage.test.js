@@ -22,13 +22,12 @@ test('settings buttons', async () => {
   const inst = renderer.create(
     <TestContextWrapper child={SettingsPage} childProps={{
         close: () => {},
-        logout: () => {},
         openUri: () => {},
       }}
     />
   );
   const yo = inst.root.findAllByType(ButtonToggleSetNew);
-  expect(yo.length).toBe(6);
+  expect(yo.length).toBe(5);
 
   let counter = 1;
   for (let y of yo) {
@@ -52,13 +51,12 @@ test('settings buttons with grogger', () => {
   const inst = renderer.create(
     <TestContextWrapper child={SettingsPage} childProps={{
         close: () => {},
-        logout: () => {},
         openUri: () => {},
       }}
     />
   );
   const yo = inst.root.findAllByType(ButtonToggleSetNew);
-  expect(yo.length).toBe(7);
+  expect(yo.length).toBe(6);
 });
 
 test('press reading history button', async () => {
@@ -70,7 +68,6 @@ test('press reading history button', async () => {
   const inst = renderer.create(
     <TestContextWrapper child={SettingsPage} childProps={{
       close: () => {},
-      logout: () => {},
       openUri: () => {},
       }}
     />

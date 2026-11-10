@@ -12,7 +12,6 @@ class DeepLinkRouter extends React.PureComponent {
     openUri:                 PropTypes.func.isRequired,
     openTextTocDirectly:     PropTypes.func.isRequired,
     openSearch:              PropTypes.func.isRequired,
-    openTopic:               PropTypes.func.isRequired,
     setSearchOptions:        PropTypes.func.isRequired,
     setTextLanguage:         PropTypes.func.isRequired,
     setNavigationCategories: PropTypes.func.isRequired,
@@ -22,12 +21,10 @@ class DeepLinkRouter extends React.PureComponent {
     const routes = [
       ['^$', props.openNav],
       ['^texts$', props.openNav],
-      ['^texts/(saved)$', this.openMenu, ['saved']],
-      ['^texts/(history)$', this.openMenu, ['menu']],
+      ['^texts/(saved|history)$', this.openHistory],  // one local Saved/History page
       ['^texts/(.+)?$', this.openCats, ['cats']],
       ['^search$', this.openSearch],
-      ['^topics/(category)/(.+)$', this.openTopic, ['categoryString','slug']],
-      ['^topics/(.+)$', {fromOutside: this.catchAll, fromInside: this.openTopic}, ['slug']],
+      ['^topics(/.*)?$', this.catchAll],  // no Topics pages in SoferBooks: open them on the web
       // login/register/logout are browser-session/CSRF-bound auth flows the app can't
       // complete in-app, so they must exit to the browser via catchAll rather than fall
       // into the tref route below and get treated as a text title lookup. Sefaria-Project's
@@ -40,21 +37,13 @@ class DeepLinkRouter extends React.PureComponent {
     ];
     this._routes = routes.map(([ regex, funcOrObj, namedCaptureGroups ]) => new Route({regex, funcOrObj, namedCaptureGroups}));
   }
-  openMenu = ({ menu }) => {
-    this.props.openMenu(menu);
-  };
-  openTopicFromTag = ({ tag }) => {
-    const slug = tag.toLowerCase().replace(/ /g, '-');  // approximation at what the slug should be
-    this.openTopic({ slug });
+  openHistory = () => {
+    this.props.openMenu('history');
   };
   openCats = ({ cats }) => {
     cats = cats.split('/');
     this.props.openNav();
     this.props.setNavigationCategories(cats);
-  };
-  openTopic = ({ slug, categoryString }) => {
-    const isCategory = !!categoryString;
-    this.props.openTopic({slug}, isCategory);
   };
   openRef = ({ tref, ven, vhe, version, aliyot, lang, url }) => {
     // wrapper for openRef to convert url params to function params
