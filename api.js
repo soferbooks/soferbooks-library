@@ -7,6 +7,7 @@ import 'abortcontroller-polyfill';
 
 import strings from './LocalizedStrings';
 import LinkContent from './LinkContent';
+import * as shomer from './shomer';
 import { USER_AGENT } from './userAgent';
 
 var Api = {
@@ -211,9 +212,13 @@ var Api = {
         } else {
           const en_text = (data.text instanceof Array) ? data.text.join(' ') : data.text;
           const he_text = (data.he   instanceof Array) ? data.he.join(' ')   : data.he;
+          const result = new LinkContent(en_text, he_text, data.sectionRef);
+          // which English version the server picked, so the content filter can check it
+          result.versionTitle = data.versionTitle || null;
+          result.versionSource = data.versionSource || null;
           resolve({
             "fromAPI": true,
-            "result": new LinkContent(en_text, he_text, data.sectionRef)
+            "result": result,
           });
         }
       }).catch(error => reject(error));
@@ -410,7 +415,8 @@ var Api = {
       return response;
     });
 
-    return Promise.all(promises).then(results => Object.assign({}, ...results));
+    // content filter: the bulktext API does not say which translation it used
+    return Promise.all(promises).then(results => shomer.stripPreviewEnglish(Object.assign({}, ...results)));
   },
 
 

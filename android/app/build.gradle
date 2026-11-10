@@ -1,7 +1,7 @@
-def VERSION_BUILD=62061086
-def VERSION_MAJOR=6
-def VERSION_MINOR=8
-def VERSION_PATCH=8
+def VERSION_BUILD=1
+def VERSION_MAJOR=1
+def VERSION_MINOR=0
+def VERSION_PATCH=0
 
 apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
@@ -106,6 +106,8 @@ android {
         // qaAppName is passed by Fastlane/CI so each QA build shows its own label on the home screen.
         // Falls back to "SoferBooks Library" for production builds.
         resValue "string", "app_name", project.findProperty("qaAppName") ?: "SoferBooks Library"
+        // Home-screen icon label: short, so launchers do not cut it to "SoferBoo..."
+        resValue "string", "launcher_label", project.findProperty("qaAppName") ?: "SoferBooks"
 
         // react-native-config finds BuildConfig by reflection, guessing its package
         // from getPackageName() -- the applicationId, which QA builds override

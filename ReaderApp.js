@@ -244,6 +244,9 @@ class ReaderApp extends React.PureComponent {
   }
 
   componentDidUpdate(prevProps, prevState) {
+    if (this._libraryPromptPending && prevProps.contentFilter == null && this.props.contentFilter != null) {
+      this.promptLibraryDownload();  // the content filter was just chosen on first launch
+    }
     if (this.state.readerTabs !== prevState.readerTabs) {
       this._saveTabs(this.state.readerTabs);
     }
@@ -277,7 +280,16 @@ class ReaderApp extends React.PureComponent {
   };
 
   promptLibraryDownload() {
-    AsyncStorage.getItem("libraryDownloadPrompted").
+    // First launch: the content-filter chooser is up until a choice is made (contentFilter is
+    // undefined while loading, null while not chosen). Wait for it; componentDidUpdate asks again.
+    if (this.props.contentFilter == null) {
+      this._libraryPromptPending = true;
+      return Promise.resolve();
+    }
+    this._libraryPromptPending = false;
+    if (this._libraryPromptStarted) { return Promise.resolve(); }
+    this._libraryPromptStarted = true;
+    return AsyncStorage.getItem("libraryDownloadPrompted").
     then(async (prompted) => {
       prompted = JSON.parse(prompted); // todo: if (prompted) return and move the Asynctorage down
       await AsyncStorage.setItem("libraryDownloadPrompted", "true");

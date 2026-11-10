@@ -241,6 +241,24 @@ describe('runtime helpers (shomer/index.js)', () => {
     expect(shomer.stripHiddenEnglish(ok)).toBe(ok);
   });
 
+  test('History/Saved previews (bulktext, version unknown) keep only the Hebrew while the filter is on', () => {
+    const previews = { 'Genesis 1:3': { en: 'God said, "Let there be light"', he: 'וַיֹּאמֶר', heRef: 'בראשית א:ג' } };
+    const out = shomer.stripPreviewEnglish(previews);
+    expect(out['Genesis 1:3']).toEqual({ en: '', he: 'וַיֹּאמֶר', heRef: 'בראשית א:ג' });
+    expect(previews['Genesis 1:3'].en).toMatch(/light/);  // input untouched
+    shomer.setConfig({ preset: 'off' });
+    expect(shomer.stripPreviewEnglish(previews)).toBe(previews);
+  });
+
+  test('a single-ref preview (links panel) drops a hidden English, keeps an allowed one', () => {
+    const hidden = { en: 'God said', he: 'וַיֹּאמֶר', versionTitle: 'Tanakh: The Holy Scriptures, published by JPS' };
+    expect(shomer.stripHiddenPreviewEnglish(hidden)).toMatchObject({ en: '', he: 'וַיֹּאמֶר', versionTitle: null });
+    const ok = { en: 'And God said', he: 'וַיֹּאמֶר', versionTitle: 'The Koren Jerusalem Bible' };
+    expect(shomer.stripHiddenPreviewEnglish(ok)).toBe(ok);
+    // English from an unknown version is not trusted while the filter is on
+    expect(shomer.stripHiddenPreviewEnglish({ en: 'x', he: 'y' }).en).toBe('');
+  });
+
   test('translations and related sheets', () => {
     expect(shomer.filterTranslations({ versions: [{ versionTitle: 'King James Version' }, { versionTitle: 'Metsudah Chumash' }] }).versions)
       .toEqual([{ versionTitle: 'Metsudah Chumash' }]);

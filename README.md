@@ -1,129 +1,83 @@
-# Sefaria-Mobile
-This repo contains the source code and export script to generate the content for Sefaria's [iOS App](https://itunes.apple.com/us/app/sefaria/id1163273965?mt=8) **AND** Sefaria's [Android App](https://play.google.com/store/apps/details?id=org.sefaria.sefaria&hl=en&gl=US).
+# SoferBooks Library
 
-We're using React-Native, so much of the app is written in JavaScript and we deploy almost the same code to both Android and iOS. There are minor differences in native packages that we use and a small amount of native code we've written ourselves.
+SoferBooks Library is a free Android app for reading the classic Jewish texts: Tanakh, Talmud,
+halacha, commentaries and more, online or downloaded for offline reading. It needs no account;
+reading history and saved texts stay on the phone. A content filter (chosen on first launch,
+changeable in Settings) hides books, translations and sheets the reader does not want to see.
 
-If you haven't already done so, install React Native for your development environment using the [React Native "Set Up Your Environment"](https://reactnative.dev/docs/set-up-your-environment) guide. Follow the instructions for your operating system; if a tutorial asks you to install Expo/EAS to create a new app, skip that — you'll use this repo as the project. Set up **both** iOS and Android.
+The texts come from [Sefaria](https://www.sefaria.org)'s free library and keep their own licences
+(shown under "About this text" in the reader).
 
-## Requirements
+## Origin
 
-| Tool | Version | Notes |
-|------|---------|-------|
-| Node | ≥ 20.19.4 | via [nvm](https://github.com/nvm-sh/nvm) or `brew install node` |
-| Watchman | latest | `brew install watchman` (the `cmake` step can be slow — this is normal) |
-| Ruby | ~3.2 | **Not** macOS system Ruby (2.6). Use [rbenv](https://github.com/rbenv/rbenv). Required by the `Gemfile` (CocoaPods + Fastlane) |
-| JDK | 17–20 | Android/Gradle. `brew install openjdk@17` |
-| Xcode | latest stable | Full IDE (not just Command Line Tools). Required for iOS + `pod install` |
-| Android Studio / SDK | latest | For the Android SDK, emulator, and an AVD |
-| CocoaPods | ~1.16 | Installed via Bundler (`bundle exec pod …`) |
+This app is built on [Sefaria-Mobile](https://github.com/Sefaria/Sefaria-Mobile), Sefaria's
+open-source React Native app, and keeps its GPL-3.0 licence. Thanks to Sefaria for the app and
+for the library behind it.
 
-## Getting Started
+## Building
 
-### 1. Node + Watchman
-```sh
-brew install node        # or: nvm install 20
-brew install watchman
-```
+You need Node 20 or later, JDK 17 and the Android SDK (platform 36, build-tools 36.0.0 and NDK
+27.1.12297006, installed with Android Studio or `sdkmanager`). No Firebase files are needed.
 
-### 2. Clone + JS dependencies
-```sh
-git clone https://github.com/Sefaria/Sefaria-Mobile
-cd Sefaria-Mobile
-npm install              # runs patch-package automatically
-```
+1. Install the JavaScript dependencies (this also applies the patches in `patches/`):
 
-### 3. Ruby (for CocoaPods / Fastlane)
-The `Gemfile` pins Ruby `~> 3.2`; macOS system Ruby (2.6) will fail `bundle install`.
-```sh
-brew install rbenv ruby-build
-grep -q 'rbenv init' ~/.zshrc || echo 'eval "$(rbenv init - zsh)"' >> ~/.zshrc && exec zsh
-rbenv install 3.2.2 && rbenv local 3.2.2
-gem install bundler && bundle install
-```
+   ```sh
+   npm install
+   ```
 
-### 4. iOS — Xcode + Pods
-Install **Xcode** from the App Store (or [Apple Developer downloads](https://developer.apple.com/download/all/?q=xcode)), launch it once, then:
-```sh
-sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
-sudo xcodebuild -license accept        # until you do this, git/clang fail machine-wide
-xcodebuild -downloadPlatform iOS       # if the iOS Simulator runtime isn't installed
-cd ios && bundle exec pod install && cd ..
-```
+2. Tell Gradle where the JDK and the Android SDK are. Either set the environment variables:
 
-### 5. Android — JDK + SDK
-```sh
-brew install openjdk@17
-# JAVA_HOME (add to ~/.zshrc):
-export JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home
-```
-Install the Android SDK + an AVD via Android Studio's setup wizard, **or** headlessly:
-```sh
-brew install --cask android-commandlinetools
-export ANDROID_HOME=$HOME/Library/Android/sdk       # add to ~/.zshrc, plus:
-export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH"
-yes | sdkmanager --sdk_root="$ANDROID_HOME" --licenses
-sdkmanager --sdk_root="$ANDROID_HOME" "platform-tools" "platforms;android-36" \
-  "build-tools;36.0.0" "emulator" "ndk;27.1.12297006" \
-  "system-images;android-36;google_apis;arm64-v8a"
-```
+   ```sh
+   # Windows (PowerShell)
+   $env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
+   $env:ANDROID_HOME = "$env:LOCALAPPDATA\Android\Sdk"
 
-## Google service file from Firebase
+   # macOS / Linux
+   export JAVA_HOME=/path/to/jdk-17
+   export ANDROID_HOME=$HOME/Android/Sdk     # macOS: $HOME/Library/Android/sdk
+   ```
 
-Firebase requires the Google service files for Android and iOS. These aren't in the repo since they're private. Sefaria employees can download them from the Firebase [Project Settings](https://console.firebase.google.com/u/0/project/sefaria-mobile-analytics/settings/general/) (project `sefaria-mobile-analytics`). If you don't have access, ask a coworker :).
+   or create `android/local.properties` (not committed) with the SDK path:
 
-- `GoogleService-Info.plist` → `ios/` (iOS bundle id `org.sefaria.sefariaApp`)
-- `google-services.json` → `android/app/` (package `org.sefaria.sefaria`)
+   ```properties
+   sdk.dir=C\:\\Users\\you\\AppData\\Local\\Android\\Sdk
+   ```
 
-The app will not build (Android) or launch (iOS) without these.
+   Without one of these the build stops with "SDK location not found".
 
-## Build and run
+3. Build the debug APK:
+
+   ```sh
+   cd android
+   ./gradlew assembleDebug          # Windows: .\gradlew.bat assembleDebug
+   ```
+
+   The APK is written to `android/app/build/outputs/apk/debug/app-debug.apk`.
+
+4. A debug build loads its JavaScript from Metro. Start Metro and install the app on a running
+   emulator or a USB device:
+
+   ```sh
+   npx react-native start
+   adb reverse tcp:8081 tcp:8081
+   adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+   ```
+
+   (`npx react-native run-android` does the build, install and launch in one step.)
+
+The app's version is set at the top of `android/app/build.gradle` (`VERSION_MAJOR`,
+`VERSION_MINOR`, `VERSION_PATCH`, `VERSION_BUILD`). Optional developer settings, such as a local
+library export server, go in `.env` (see `.env.example`).
+
+## Tests
 
 ```sh
-npx react-native start                          # terminal 1 (Metro)
-npx react-native run-ios                        # terminal 2
-# or
-npx react-native run-android
+npx jest              # run all tests once
+npm test              # watch mode
 ```
-Alternatively for iOS, open `ios/ReaderApp.xcworkspace` in Xcode and hit Run.
-
-> **Apple Silicon note:** `ios/Podfile` sets `EXCLUDED_ARCHS[sdk=iphonesimulator*] = arm64` (a legacy workaround; harmless in CI since CI only builds signed device archives, which don't use the `iphonesimulator*` SDK). If a local Simulator build fails on an M-series Mac (e.g. GoogleUtilities header errors under an x86_64/Rosetta build), build native arm64:
-> ```sh
-> xcodebuild -workspace ios/ReaderApp.xcworkspace -scheme ReaderApp -configuration Debug \
->   -destination 'platform=iOS Simulator,name=iPhone 16' ARCHS=arm64 'EXCLUDED_ARCHS=' ONLY_ACTIVE_ARCH=YES
-> ```
-> If you hit `GoogleUtilities/.../Public/GoogleUtilities/GULxxx.h file not found`, your Pods install is incomplete — run `cd ios && bundle exec pod deintegrate && bundle exec pod install`.
-
-## Local Development
-
-### Connect Simulator to Local Django Server
-
-Test the app against a local instance of Sefaria-Project by setting `Api._baseHost`:
-
-#### On Android
-1. Set `Api._baseHost` to `10.0.2.2:8000` (a special alias that maps to localhost on your dev machine).
-2. Ensure `10.0.2.2` is in `ALLOWED_HOSTS` in `local_settings.py` in your Sefaria-Project repo.
-
-#### On iOS
-1. Set `Api._baseHost` to `localhost:8000`.
-
-### Simulate Deep Linking
-
-For Android:
-```bash
-adb shell am start -W -a android.intent.action.VIEW -d "<INSERT_URL_HERE>" org.sefaria.sefaria
-```
-
-For iOS:
-```bash
-xcrun simctl openurl booted <INSERT_URL_HERE>
-```
-
-### Debug tools
-- **whyDidYouRender** (unnecessary-render logging): in `index.js`, remove the `&& false` from `if (process.env.NODE_ENV !== "production" && false)`. Logs appear in the Chrome/JS console.
-- **Tests**: `npm run test` (watch) or `npm run test-ci`.
-
-### Support
-This project is tested with BrowserStack.
 
 ## License
-[GPL](http://www.gnu.org/copyleft/gpl.html)
+
+SoferBooks Library is free software under the GNU General Public License, version 3, as was
+Sefaria-Mobile, from which it is derived. See [LICENSE](LICENSE). The texts keep their own
+licences.

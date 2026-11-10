@@ -867,6 +867,10 @@ global.Sefaria = {
         if (!link.category) {
           link.category = 'Other';
         }
+        // Links to books the content filter hides are not in the index: leave them out of every
+        // count (also when they share a collectiveTitle with a visible book)
+        const tempIndex = Sefaria.index(link.textTitle);
+        if (!tempIndex) { continue; }
         // Count Category
         if (link.category in summary) {
           //TODO summary[link.category].count += 1
@@ -882,8 +886,6 @@ global.Sefaria = {
           category.books[title].heRefSet.add(link.sourceHeRef);
           category.books[title].hasEn = category.books[title].hasEn || link.sourceHasEn;
         } else {
-          const tempIndex = Sefaria.index(link.textTitle);
-          if (!tempIndex) { continue; }
           category.books[title] =
           {
               count:             1,

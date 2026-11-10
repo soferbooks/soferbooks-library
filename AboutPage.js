@@ -2,7 +2,7 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import {View, ScrollView, Image, Text} from 'react-native';
 import VersionNumber from 'react-native-version-number';
-import {CircleCloseButton, InterfaceText, SefariaPressable} from './Misc';
+import {BackButtonRow, Header, InterfaceText, SefariaPressable} from './Misc';
 import styles from './Styles';
 import {useGlobalState} from './Hooks';
 import strings from './LocalizedStrings';
@@ -23,9 +23,8 @@ export const AboutPage = ({ close, openUri }) => {
     return (
         <View style={[{alignSelf: 'stretch', flex: 1}, theme.mainTextPanel]}>
             <ScrollView contentContainerStyle={{paddingHorizontal: 30, paddingBottom: 40}}>
-                <View style={{marginHorizontal: -30, flexDirection: 'row-reverse'}}>
-                    <CircleCloseButton onPress={close}/>
-                </View>
+                <BackButtonRow onPress={close} />
+                <Header titleKey={'about.about_soferbooks'} />
                 <Image source={logo} resizeMode={'contain'} style={styles.aboutLogo} accessibilityLabel={strings.a11y.soferbooks_logo} />
                 <InterfaceText stringKey={'about.soferbooks_intro'} extraStyles={body} />
                 <InterfaceText stringKey={'about.texts_courtesy'} extraStyles={body} />

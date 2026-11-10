@@ -98,12 +98,18 @@ export const LibrarySourcesSettings = ({ langStyle }) => {
       <Text style={[langStyle, theme.secondaryText, local.detail]}>{strings.library_sources.description}</Text>
       {SOURCES.map(s => (
         <View key={s.id} style={local.groupRow}>
-          <Text style={[langStyle, theme.text, local.groupText]}>
-            {interfaceLanguage === 'hebrew' ? s.heName : s.name}
-            {s.available ? '' : `  (${strings.library_sources.coming_soon})`}
-          </Text>
-          {/* only Sefaria can be downloaded today; it is always on */}
-          <Switch value={s.enabled} disabled accessibilityLabel={s.name} />
+          <View style={local.groupText}>
+            <Text style={[langStyle, theme.text]}>
+              {interfaceLanguage === 'hebrew' ? s.heName : s.name}
+              {s.available ? '' : `  (${strings.library_sources.coming_soon})`}
+            </Text>
+            {s.enabled ? <Text style={[langStyle, theme.secondaryText, local.detail]}>{strings.library_sources.always_on}</Text> : null}
+          </View>
+          {/* only Sefaria can be downloaded today and it is always on: shown as on (not greyed
+              out as disabled); switching it off does nothing */}
+          {s.enabled
+            ? <Switch value onValueChange={() => {}} accessibilityLabel={s.name} accessibilityHint={strings.library_sources.always_on} />
+            : <Switch value={false} disabled accessibilityLabel={s.name} />}
         </View>
       ))}
     </View>

@@ -71,7 +71,9 @@ class AutocompleteList extends React.Component {
       Sefaria.api.name(q, true)
       .then(results => Sefaria.shomer?.filterNameResponse(results) ?? results)  // content filter
       .then(results => {
-        if (this._isMounted) {
+        // only if the box still holds this query: a late answer for an older one (or for a
+        // query since cleared) must not fill the list
+        if (this._isMounted && this.props.query === q) {
           const typeToValue = { "ref": 1, "toc": 3 };
           let completions = results.completion_objects.map((c,i) =>
           {
@@ -96,7 +98,7 @@ class AutocompleteList extends React.Component {
             this.props.setQueryRef(queryRef, results.index, this.shouldQueryOpenToc(results));
             completions.unshift({
               title: results.ref,
-              key: refQuery,
+              key: queryRef,
               type: 'ref',
               is_primary: true,
             });
@@ -269,18 +271,20 @@ class AutocompleteList extends React.Component {
 
   render() {
     const isheb = this.props.interfaceLanguage === "hebrew";
+    // an empty (or too short) box shows recent searches, never the suggestions of an old query
+    const completions = (this.props.query || '').length >= 3 ? this.state.completions : [];
     const langStyle = !isheb ? styles.enInt : styles.heInt;
     return (
 
         Platform.OS == "ios" ?
 
             (<KeyboardAvoidingView style={[styles.autocompleteList, this.props.theme.mainTextPanel, this.props.theme.lighterGreyBorder]} behavior="padding">
-              {!!this.state.completions.length ?
+              {!!completions.length ?
                 <FlatList
                   keyExtractor={this._keyExtractor}
                   contentContainerStyle={{paddingBottom: 20}}
                   keyboardShouldPersistTaps={'handled'}
-                  data={this.state.completions}
+                  data={completions}
                   renderItem={this.renderItem}
                 />
                 :
@@ -299,12 +303,12 @@ class AutocompleteList extends React.Component {
               }
             </KeyboardAvoidingView>)
 
-        : (!!this.state.completions.length ?
+        : (!!completions.length ?
                 <FlatList
                   keyExtractor={this._keyExtractor}
                   contentContainerStyle={{paddingBottom: 20}}
                   keyboardShouldPersistTaps={'handled'}
-                  data={this.state.completions}
+                  data={completions}
                   renderItem={this.renderItem}
                 />
                 :

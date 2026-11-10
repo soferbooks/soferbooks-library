@@ -290,11 +290,15 @@ export default StyleSheet.create({
     marginTop: 10,
     marginBottom: 10,
     flex: 1,
-    marginHorizontal: iPad ? 20 : 15,
+    marginHorizontal: iPad ? 20 : 10,
   },
   readerDisplayOptionsMenuToggleSetOuter: {
+    // two per row: share the row (shrinking on narrow phones) rather than a fixed width that
+    // pushed the right-hand group past the screen edge
     flexDirection: 'column',
-    width: iPad ? 350 : 190,
+    flex: 1,
+    minWidth: 0,
+    maxWidth: iPad ? 350 : 190,
   },
   readerDisplayOptionMenuToggleSetNotColor: {
     borderRadius: 5
@@ -304,9 +308,11 @@ export default StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-around",
     marginVertical: 16,
+    paddingHorizontal: 5,
   },
   readerDisplayOptionsMenuItem: {
     flex: 1,
+    minWidth: 0,
     flexDirection: "row",
     height: 50,
     borderWidth: 1,
@@ -344,6 +350,8 @@ export default StyleSheet.create({
   },
   readerDisplayOptionsMenuIcon: {
     height: 18,
+    width: 36,  // a set width (contain keeps the shape) so a wide image cannot stretch the button
+    maxWidth: '100%',
   },
   buttonToggle: {
     flex: 1,

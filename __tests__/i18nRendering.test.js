@@ -449,6 +449,7 @@ describe('Settings screen', () => {
         'settings.app_version',
         'filter.section_header', 'filter.description', 'filter.groups_header',
         'library_sources.header', 'library_sources.description', 'library_sources.coming_soon',
+        'library_sources.always_on',
       ]
     );
   });
@@ -804,7 +805,7 @@ describe('About page', () => {
   test('renders its text in both languages', () => {
     expectScreenLocalizes(wrap(AboutPage, { close: noop, openUri: noop }), [
       'about.soferbooks_intro', 'about.texts_courtesy', 'about.licences', 'about.built_on',
-      'about.source_code', 'a11y.close', 'a11y.soferbooks_logo',
+      'about.source_code', 'about.about_soferbooks', 'a11y.soferbooks_logo',
     ]);
   });
 });
@@ -920,11 +921,11 @@ describe('Alerts', () => {
   describe('from the reader', () => {
     // These are instance methods, so the app has to be mounted to reach them — the same way
     // `__tests__/ReaderApp.test.js` gets at `getSettingsObject`.
-    const readerAppInstance = () => {
+    const readerAppInstance = (extraProps = {}) => {
       let inst;
       act(() => { inst = renderer.create(
           <TestContextWrapper passContextToChildren child={ReaderApp}
-            childProps={{ showErrorBoundary: noop }} />); });
+            childProps={{ showErrorBoundary: noop, ...extraProps }} />); });
       return inst.root.findByType(ReaderApp).instance;
     };
 
@@ -953,12 +954,14 @@ describe('Alerts', () => {
     });
 
     test('the first-run download prompt renders in both languages', async () => {
-      const app = readerAppInstance();
+      // the prompt waits until the content filter has been chosen
+      const app = readerAppInstance({ contentFilter: configForPreset('rwmo') });
       await expectAlertLocalizes(
         async () => {
           await AsyncStorage.removeItem('libraryDownloadPrompted');
           // The method reads AsyncStorage before alerting and does not hand back its
           // promise, so wait for the queued work rather than for the call.
+          app._libraryPromptStarted = false;  // shown once per app run; each language asks again
           app.promptLibraryDownload();
           await flushPromises();
           // "Not now" opens the second alert explaining how to download later.

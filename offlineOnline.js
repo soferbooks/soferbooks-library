@@ -72,6 +72,7 @@ const avoidHiddenTranslationOnline = async (ref, context, versions, failSilently
      * Load the first English translation the filter allows instead; if there is none, show the
      * Hebrew only.
      */
+    if (!context) { return versions?.en ? data : avoidHiddenPreviewOnline(data); }
     const textContent = data?.textContent;
     if (!textContent || !shomer.isActive() || versions?.en ||
         !shomer.isVersionHidden({versionTitle: textContent.versionTitle, versionSource: textContent.versionSource})) {
@@ -90,6 +91,15 @@ const avoidHiddenTranslationOnline = async (ref, context, versions, failSilently
         console.log('content filter: could not load another translation', e);
     }
     return {...data, textContent: shomer.stripHiddenEnglish(textContent)};
+};
+
+// The same for a single-ref preview without context (commentary/links panel, inline commentary):
+// {result: {en, he, versionTitle, versionSource}}. These load one by one for a whole panel, so
+// rather than fetch another translation for each, a hidden English is just left out (Hebrew only).
+const avoidHiddenPreviewOnline = (data) => {
+    const result = data?.result;
+    const safe = shomer.stripHiddenPreviewEnglish(result);
+    return safe === result ? data : {...data, result: safe};
 };
 
 export const loadTranslations = async (ref, online=true) => {

@@ -1010,8 +1010,11 @@ async function addDir(path) {
   const exists = await fileExists(path);
   if (!exists) {
     try {
-      await FileSystem.makeDirectoryAsync(path);
+      // intermediates: also succeeds when the directory already exists. The core files download
+      // in parallel, so several calls race past fileExists and all but the first used to fail.
+      await FileSystem.makeDirectoryAsync(path, { intermediates: true });
     } catch(e) {
+      if (await fileExists(path)) { return; }  // another parallel call made it first
       log(getCrashlytics(), `Could not create directory at ${path}; ${e}`);
     }
   }

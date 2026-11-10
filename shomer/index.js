@@ -136,6 +136,31 @@ export function stripHiddenEnglish(textContent) {
   };
 }
 
+/**
+ * Preview text whose English version is unknown (the bulktext API used by History/Saved does not
+ * say which translation it used, and the server default may be a hidden one): while the filter
+ * is on, keep the Hebrew only. Takes the bulktext shape {ref: {en, he, ...}}.
+ */
+export function stripPreviewEnglish(previews) {
+  if (!previews || !isActive()) { return previews; }
+  const out = {};
+  for (const [ref, p] of Object.entries(previews)) {
+    out[ref] = p && typeof p === 'object' ? { ...p, en: '' } : p;
+  }
+  return out;
+}
+
+/**
+ * A single-ref preview ({en, he, versionTitle, versionSource}, as api._text returns without
+ * context) whose English comes from a hidden translation: the same with the English taken out.
+ */
+export function stripHiddenPreviewEnglish(result) {
+  if (!result || !isActive()) { return result; }
+  if (!result.versionTitle) { return result.en ? { ...result, en: '' } : result; }  // unknown version: be safe
+  if (!versionMatch(config, { versionTitle: result.versionTitle, versionSource: result.versionSource })) { return result; }
+  return { ...result, en: '', versionTitle: null, versionSource: null };
+}
+
 // ---------- Search ----------
 
 // Raw search response ({hits: {hits, total}, aggregations}) -> the same without hidden hits
