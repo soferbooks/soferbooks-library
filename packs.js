@@ -10,6 +10,8 @@
  *   search.shards[id].assets     search-<id>[-n].zip -> library/<Title>_search.txt
  *   search.packages[name]        the shards of a Sefaria package + its trigram index
  *                                (index-<slug>.idx -> library/<name>_search.idx)
+ *   search.local_titles          books with versions whose licence does not let us host
+ *                                their text; localSearch.js makes those lines on the phone
  *
  * After a package download (or update) finishes, syncPacks() fetches the manifest and
  * downloads only what the chosen packages need and the phone does not have yet (assets
@@ -26,6 +28,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {releasesBaseUrl} from './sources';
 import {CORRECTIONS_DIR, clearCorrectionsCache} from './corrections';
 import {clearOfflineSearchCache} from './offlineSearch';
+import {syncLocalSearch} from './localSearch';
 
 export const MANIFEST_FORMAT = 1;
 export const STATE_KEY = 'soferbooksPacks';
@@ -305,5 +308,8 @@ async function _syncPacks(selected, {isHidden = null, base = releasesBaseUrl()} 
   if (plan.shards.length) { await removeHiddenSearchFiles(isHidden); }
   await save();
   clearOfflineSearchCache();
+  // the versions the release may not host: their search lines are made on the phone, from
+  // its own Sefaria zips, in the background (localSearch.js)
+  syncLocalSearch((manifest.search && manifest.search.local_titles) || [], {isHidden}).catch(() => {});
   return {tag: manifest.tag, downloaded, failed};
 }

@@ -20,6 +20,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { File } from 'expo-file-system';
 
 const LIBRARY_DIR = `${FileSystem.documentDirectory}library/`;
+const LOCAL_SEARCH_DIR = `${FileSystem.documentDirectory}local_search/`;  // localSearch.js
 const SEARCH_SUFFIX = '_search.txt';
 const INDEX_SUFFIX = '_search.idx';
 const MAX_RESULTS = 1000;      // stop scanning once this many segments matched
@@ -94,18 +95,27 @@ function folderUri(uri) {
   return uri.endsWith('/') ? uri : `${uri}/`;
 }
 
-/** All downloaded search files, as [title, uri] pairs. */
+/**
+ * All search files, as [title, uri] pairs: the downloaded ones (library/) and the ones
+ * the phone made itself for versions the release may not host (local_search/, see
+ * localSearch.js).  A book can have one of each; both are scanned.
+ */
 async function searchFiles() {
-  let names;
-  try {
-    names = await FileSystem.readDirectoryAsync(folderUri(LIBRARY_DIR));
-  } catch (e) {
-    return [];
+  const out = [];
+  for (const dir of [LIBRARY_DIR, LOCAL_SEARCH_DIR]) {
+    let names;
+    try {
+      names = await FileSystem.readDirectoryAsync(folderUri(dir));
+    } catch (e) {
+      continue;
+    }
+    for (const name of names) {
+      if (name.endsWith(SEARCH_SUFFIX)) {
+        out.push([name.slice(0, -SEARCH_SUFFIX.length), `${folderUri(dir)}${name}`]);
+      }
+    }
   }
-  return names
-      .filter(name => name.endsWith(SEARCH_SUFFIX))
-      .map(name => [name.slice(0, -SEARCH_SUFFIX.length), `${folderUri(LIBRARY_DIR)}${name}`])
-      .sort((a, b) => a[0].localeCompare(b[0]));
+  return out.sort((a, b) => a[0].localeCompare(b[0]));
 }
 
 function bookPath(title) {
@@ -493,5 +503,5 @@ export async function executeOfflineQuery(args) {
 
 /** Books that exist offline and can be searched. */
 export async function offlineSearchBookCount() {
-  return (await searchFiles()).length;
+  return new Set((await searchFiles()).map(([title]) => title)).size;
 }

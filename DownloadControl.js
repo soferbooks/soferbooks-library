@@ -10,6 +10,7 @@ import {getCrashlytics, recordError, log} from '@react-native-firebase/crashlyti
 import {SCHEMA_VERSION, serverFor, exportPathFor} from './sources';
 import * as shomer from './shomer';
 import {syncPacks} from './packs';
+import {localSearchPath} from './localSearch';
 
 // Sefaria's own mobile download server, as upstream Sefaria-Mobile uses (see sources.js).
 // For the local export server set SEFARIA_DOWNLOAD_SERVER in .env (see sources.js).
@@ -540,6 +541,7 @@ async function deleteBooks(bookList, shouldCleanTmpDirectory=true) {
     // the book's offline search text (SoferBooks search pack, packs.js) goes with it
     try {
       await FileSystem.deleteAsync(`${FILE_DIRECTORY}/${bookTitle}_search.txt`, {idempotent: true});
+      await FileSystem.deleteAsync(localSearchPath(bookTitle), {idempotent: true});
     } catch (e) {}
     return bookTitle
   };
