@@ -24,6 +24,7 @@ import {
 import { GlobalStateContext, getTheme } from './StateManager';
 import { iconData } from "./IconData";
 import Sefaria from "./sefaria";
+import { displayRef } from "./extras/schema7";
 
 const ReaderControls = ({
   enRef,
@@ -51,7 +52,7 @@ const ReaderControls = ({
           direction="back"
       />
   );
-    var textTitle = isHeb ? heRef : enRef;
+    var textTitle = isHeb ? heRef : displayRef(enRef, heRef);  // an extra book's section keys: its Hebrew names
     if (sheet) {
       textTitle = Sefaria.util.stripHtml(sheet.title);
     }

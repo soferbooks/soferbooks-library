@@ -106,7 +106,7 @@ describe('the editors\' notes: a book of their own, linked to the text', () => {
     const [notes] = notesBook(tree, entry, main, version);
     expect(notes.entry).toMatchObject({
       title: `${NOTES_PREFIX}ספר בדיקה`, heTitle: `${NOTES_PREFIX}ספר בדיקה`, dependence: 'Commentary',
-      base_text_titles: ['ספר בדיקה'], categories: ['Musar', 'Wikitext', 'Notes'], heCategories: ['ספרי מוסר', 'ויקיטקסט', 'הערות'],
+      base_text_titles: ['ספר בדיקה'], categories: ['Musar', 'Wikisource', 'Notes'], heCategories: ['ספרי מוסר', 'ויקיטקסט', 'הערות'],
     });
     const index = notes.files[`${NOTES_PREFIX}ספר בדיקה_index.json`];
     expect(index).toMatchObject({dependence: 'Commentary', base_text_titles: ['ספר בדיקה'], sofer_notes: true});
@@ -153,12 +153,12 @@ describe('the editors\' notes: a book of their own, linked to the text', () => {
 describe('the catalogue: Sofer\'s list of whole sefarim', () => {
   const entries = parseCatalog();
 
-  test('each book filed under its shelf, then Wikitext; CC BY-SA; its names as Sofer compares them', () => {
+  test('each book filed under its shelf, then Wikisource (as Settings names it); CC BY-SA; its names as Sofer compares them', () => {
     expect(entries.length).toBe(CATALOG_DATA.books.length);
     expect(entries.length).toBeGreaterThan(20);
     const e = entries.find(x => x.id === 'ספר הרקמה');
     expect(e).toMatchObject({source: 'wikisource', heTitle: 'ספר הרקמה', title: 'ספר הרקמה',
-      categories: ['Reference', 'Wikitext'], heCategories: ['ספרות עזר', 'ויקיטקסט'], license: 'CC-BY-SA'});
+      categories: ['Reference', 'Wikisource'], heCategories: ['ספרות עזר', 'ויקיטקסט'], license: 'CC-BY-SA'});
     expect(e.names).toEqual(['הרקמה', 'ספר הרקמה']);
     // (Sofer's: books the library has from Sefaria, vowelled editions and the two kinds the phone
     //  does not convert yet are not offered)
@@ -311,7 +311,7 @@ describe('downloading a Wikisource book, its notes, and the update check', () =>
     expect(first).toBe(`${T}, S1`);
     const zipped = JSON.parse(await FileSystem.readAsStringAsync(`library/${T}.zip`));
     const index = JSON.parse(zipped[`${T}_index.json`]);
-    expect(index.categories).toEqual(['Musar', 'Wikitext']);
+    expect(index.categories).toEqual(['Musar', 'Wikisource']);
     expect(index.authors).toEqual([{he: 'יעקב חאגיז', en: ''}]);
     expect(index.versions[0]).toMatchObject({versionTitle: 'Wikitext', license: 'CC-BY-SA', librarySource: 'wikisource',
       versionSource: pageUrl(T)});
@@ -330,8 +330,8 @@ describe('downloading a Wikisource book, its notes, and the update check', () =>
     expect(state.installed[T].pages).toHaveLength(6);
     expect(state.installed[NOTES]).toMatchObject({companionOf: T});
     expect(extras.booksToUpdate('wikisource')).toEqual([]);
-    // in the library's table of contents beside the book: Musar > Wikitext > Notes
-    const shelf = toc.find(c => c.category === 'Musar').contents.find(c => c.category === 'Wikitext');
+    // in the library's table of contents beside the book: Musar > Wikisource > Notes
+    const shelf = toc.find(c => c.category === 'Musar').contents.find(c => c.category === 'Wikisource');
     expect(shelf.contents.map(x => x.title || x.category)).toEqual([T, 'Notes']);
     expect(shelf.contents[1].contents[0]).toMatchObject({title: NOTES, dependence: 'Commentary', base_text_titles: [T],
       firstSection: `${NOTES}, S2`});    // (its first section with notes)
@@ -405,7 +405,7 @@ describe('downloading a Wikisource book, its notes, and the update check', () =>
         langStyle: {}, theme: {}, interfaceLanguage: 'english'}));
     });
     const texts = inst.root.findAllByType(Text).map(t => [].concat(t.props.children).join(''));
-    expect(texts).toContain([].concat(strings.formatString(strings.extras.downloaded_count, {count: 1})).join(''));
+    expect(texts).toContain(strings.extras.downloaded_count_one);   // ("1 book downloaded", not "1 books")
     renderer.act(() => inst.unmount());
   });
 

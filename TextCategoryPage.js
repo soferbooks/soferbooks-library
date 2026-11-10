@@ -114,6 +114,11 @@ class DisplayTocItem {
         if (this.isCategory) {
             return { en: tocItem.category, he: tocItem.heCategory };
         }
+        if (extras.isExtraTitle(tocItem.title) && tocItem.heTitle) {
+            // an extra book's English title is only its Hebrew name made safe for a file name
+            // (אור רש"ז -> אור רש-ז): show the Hebrew name as it is
+            return { en: tocItem.heTitle, he: tocItem.heTitle };
+        }
         return { en: tocItem.title, he: tocItem.heTitle };
     };
 

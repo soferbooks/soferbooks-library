@@ -40,3 +40,15 @@ export const loadPanelFlexPreference = async () => {
 };
 
 export const savePanelFlexPreference = flex => AsyncStorage.setItem(PANEL_FLEX_STORAGE_KEY, String(flex)).catch(() => {});
+
+// Height of the reader header (ReaderControls); the display (Aa) menu opens just below it.
+export const READER_HEADER_HEIGHT = 58;
+
+/**
+ * Top of the display (Aa) menu: below the header, the tab bar and the schedule bar, so the
+ * schedule bar stays in view while the menu is open. undefined = the menu's own default (58).
+ */
+export const displayMenuTop = (tabBarHeight = 0, scheduleBarHeight = 0) => {
+  const extra = (tabBarHeight || 0) + (scheduleBarHeight || 0);
+  return extra > 0 ? READER_HEADER_HEIGHT + extra : undefined;
+};

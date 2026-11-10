@@ -42,7 +42,7 @@ import {zip} from 'react-native-zip-archive';
 import md5 from 'md5';
 import otzaria from './otzaria';
 import dicta from './dicta';
-import wikisource from './wikisource';
+import wikisource, {withCurrentShelf} from './wikisource';
 import {bookFiles} from './schema7';
 import {chooseBooks, addToToc, categoryNames} from './catalog';
 import {bookLines} from '../localSearch';
@@ -116,11 +116,11 @@ export function loadExtras() {
 export function applyToToc(toc) {
   const lists = {};
   for (const [id, cat] of Object.entries(catalogs)) {
-    if (enabled[id] && cat && Array.isArray(cat.entries)) { lists[id] = cat.entries; }
+    if (enabled[id] && cat && Array.isArray(cat.entries)) { lists[id] = cat.entries.map(withCurrentShelf); }
   }
   books = chooseBooks(toc, lists, state).books;
   for (const [title, rec] of Object.entries(state.installed)) {    // (books made with another: its notes)
-    if (rec.companionOf && books[rec.companionOf] && rec.entry) { books[title] = {...rec.entry, source: rec.source, title}; }
+    if (rec.companionOf && books[rec.companionOf] && rec.entry) { books[title] = {...withCurrentShelf(rec.entry), source: rec.source, title}; }
   }
   const first = {};
   for (const [title, rec] of Object.entries(state.installed)) { first[title] = rec.firstSection; }
@@ -170,6 +170,7 @@ export async function setSourceEnabled(id, on) {
   } else {
     for (const title of installedTitles(id)) { await removeFiles(title); delete state.installed[title]; }
     await saveState();
+    forgetCaches();
     const {[id]: _, ...rest} = enabled;
     enabled = rest;
   }
@@ -217,7 +218,18 @@ async function removeFiles(title) {
     `${FileSystem.documentDirectory}${title}_index.json`]) {
     await FileSystem.deleteAsync(path, {idempotent: true}).catch(() => {});
   }
+  // the book's sections unpacked from its zip when it was read (offline.js reads those first): a
+  // deleted book stayed readable until the app was restarted, an updated one showed its old text
+  let names = [];
+  try { names = await FileSystem.readDirectoryAsync(FileSystem.documentDirectory); } catch (e) { names = []; }
+  for (const name of names.filter(n => isUnpackedFileOf(n, title))) {
+    await FileSystem.deleteAsync(`${FileSystem.documentDirectory}${name}`, {idempotent: true}).catch(() => {});
+  }
 }
+
+/** A file offline.js unpacked from `title`'s zip: "<title>, S1.metadata.json", "<title>, S1.<hash>.he.json" */
+export const isUnpackedFileOf = (name, title) => typeof name === 'string' && !!title && name.endsWith('.json')
+  && (name.startsWith(`${title}, `) || name.startsWith(`${title}.`));
 
 function forgetCaches() {
   if (typeof Sefaria !== 'undefined') {

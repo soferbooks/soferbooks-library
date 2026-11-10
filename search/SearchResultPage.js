@@ -21,11 +21,18 @@ const useSearchTabData = ({ textSearchState }) => {
     ];
 }
 
+/** The filters shown as on in "FILTER (n)": the books/categories chosen, and "Exact Matches Only" */
+export const appliedFilterCount = searchState => {
+    if (!searchState) { return 0; }
+    const exact = !!searchState.fieldExact && searchState.field === searchState.fieldExact;
+    return (searchState.appliedFilters || []).length + (exact ? 1 : 0);
+};
+
 export const SearchResultPage = (props) => {
     const {interfaceLanguage, theme} = useGlobalState();
     const tabs = useSearchTabData({...props});
     const flexDirection = useRtlFlexDir(interfaceLanguage);
-    const numFilters = props.searchState.appliedFilters.length;
+    const numFilters = appliedFilterCount(props.searchState);
     const onFilterPress = () => props.openSubMenu("filter");
     return (
         <View style={styles.menu}>

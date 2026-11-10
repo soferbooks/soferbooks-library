@@ -29,7 +29,7 @@ import { STATE_ACTIONS } from './StateManager';
 import ReaderAppContext from './context';
 import ReaderControls from './ReaderControls';
 import styles from './Styles';
-import strings from './LocalizedStrings';
+import strings, { isolate } from './LocalizedStrings';
 import Sefaria from './sefaria';
 import { LinkFilter, VersionFilter } from './Filter';
 import ReaderDisplayOptionsMenu from './ReaderDisplayOptionsMenu';
@@ -101,6 +101,7 @@ import {
   loadPanelFlexPreference,
   savePanelFlexPreference,
   DEFAULT_PANEL_FLEX,
+  displayMenuTop,
 } from "./reader/panelLayout";
 
 const ViewPort = Dimensions.get('window');
@@ -207,6 +208,7 @@ class ReaderApp extends React.PureComponent {
         currentTranslations: [],
         readerTabs: emptyTabsState(),
         inlineCommentaryPrefs: {},
+        scheduleBarHeight: 0,
         splitView: false,
         splitTabId: null,
         windowWidth: ViewPort.width,
@@ -229,6 +231,7 @@ class ReaderApp extends React.PureComponent {
     this.dimensionsSubscription = Dimensions.addEventListener('change', ({ window }) => {
       this.setState({ windowWidth: window.width });
     });
+    this._extrasSubscription = extras.subscribe(this._onExtrasChanged);
     this.RNShakeSubscription = RNShake.addListener(() => {
       if (this.props.groggerActive === 'on' && Sefaria.isGettinToBePurimTime()) {
         SoundPlayer.playSoundFile('grogger', 'mp3');
@@ -250,6 +253,7 @@ class ReaderApp extends React.PureComponent {
     this.linkingSubscription.remove();
     this.RNShakeSubscription.remove();
     DownloadTracker.unsubscribe('ReaderApp')
+    this._extrasSubscription && this._extrasSubscription();
     this.dimensionsSubscription && this.dimensionsSubscription.remove();
     this._saveTabs.flush();
   }
@@ -593,8 +597,21 @@ class ReaderApp extends React.PureComponent {
         sheet_owner = sheet.ownerName;
         sheet_title = sheet.title;
       } else {
-        ref = (textListVisible && segmentRef) ? segmentRef : sectionArray[sectionIndexRef];
-        he_ref = (textListVisible && segmentRef) ? (heSegmentRef || Sefaria.toHeSegmentRef(sectionHeArray[sectionIndexRef], segmentRef)) : sectionHeArray[sectionIndexRef];
+        // a text opened at a passage (Shulchan Arukh OC 447:11) is remembered there while the reader
+        // is still in that section, so Continue Reading says (and reopens) 447:11, not just 447
+        const sectionRef = sectionArray[sectionIndexRef];
+        const offsetRef = this.state.offsetRef;
+        const openedAt = (typeof offsetRef === 'string' && sectionRef && offsetRef.startsWith(`${sectionRef}:`)) ? offsetRef : null;
+        if (textListVisible && segmentRef) {
+          ref = segmentRef;
+          he_ref = heSegmentRef || Sefaria.toHeSegmentRef(sectionHeArray[sectionIndexRef], segmentRef);
+        } else if (openedAt) {
+          ref = openedAt;
+          he_ref = Sefaria.toHeSegmentRef(sectionHeArray[sectionIndexRef], openedAt);
+        } else {
+          ref = sectionRef;
+          he_ref = sectionHeArray[sectionIndexRef];
+        }
       }
       if (!ref) {
         console.warn(new Error(`Ref is null. textListVisible: '${String(textListVisible)}'. segmentRef: '${String(segmentRef)}. sectionArray: '${String(sectionArray)}'. sectionIndexRef: '${String(sectionIndexRef)}'`));
@@ -1076,7 +1093,7 @@ class ReaderApp extends React.PureComponent {
       Alert.alert(
         strings.extras.not_downloaded_title,
         strings.formatString(strings.extras.not_downloaded_message,
-          {title: book?.heTitle || title, source: isHe ? heSourceName : sourceName}),
+          {title: isolate(book?.heTitle || title), source: isHe ? heSourceName : sourceName}),
         [
           {text: strings.common.cancel, style: 'cancel', onPress: () => resolve(false)},
           {text: strings.download.download, onPress: download},
@@ -1084,6 +1101,31 @@ class ReaderApp extends React.PureComponent {
         {cancelable: true, onDismiss: () => resolve(false)},
       );
     });
+  };
+
+  /**
+   * An extra book was deleted (from its contents page, or with its source turned off): its tabs
+   * must not keep showing it from memory. Their saved screens are dropped, and when the reader is
+   * showing it, the "download to read" warning of its source comes up (Cancel leaves the reader).
+   */
+  _onExtrasChanged = () => {
+    const gone = t => !!t && extras.needsDownload(t);
+    for (const tab of this.state.readerTabs.tabs) {
+      if (gone(tab.title)) { delete this._tabSnapshots[tab.id]; }
+    }
+    const title = this.state.textTitle;
+    if (this.state.menuOpen || this.state.sheet || !gone(title)) {
+      if (!gone(title)) { this._deletedExtraAlerted = null; }
+      return;
+    }
+    if (this._deletedExtraAlerted === title) { return; }
+    this._deletedExtraAlerted = title;
+    const ref = this.state.segmentRef || this.state.sectionArray?.[this.state.sectionIndexRef] || title;
+    this.extraBookAlert(title, first => this.openRef(Sefaria.textTitleForRef(ref) === title && ref !== title ? ref : first, 'tab', undefined, false))
+      .then(opened => {
+        this._deletedExtraAlerted = null;
+        if (!opened && gone(this.state.textTitle) && !this.state.menuOpen) { this.openNav(false); }
+      });
   };
 
   textUnavailableAlert = ref => {
@@ -2039,7 +2081,8 @@ class ReaderApp extends React.PureComponent {
       }
     };
     this._loadToken++;  // ignore anything still loading for the previous tab
-    const snapshot = this._tabSnapshots[id];
+    // (a deleted extra book is not shown from memory: openRef below asks to download it)
+    const snapshot = extras.needsDownload(tab.title) ? null : this._tabSnapshots[id];
     if (snapshot && !target) {
       Sefaria.links.reset();
       return new Promise(resolve => this.setState({
@@ -2156,6 +2199,12 @@ class ReaderApp extends React.PureComponent {
     return new Promise(resolve => this.setState({ readerTabs, loaded: false, ReaderDisplayOptionsMenuVisible: false }, () => {
       this.openRef(ref, 'tab', undefined, false).then(resolve, resolve);
     }));
+  };
+
+  // the display (Aa) menu opens below the schedule bar, so the bar stays in view while it is open
+  _onScheduleBarLayout = e => {
+    const h = Math.round(e.nativeEvent.layout.height);
+    if (h !== this.state.scheduleBarHeight) { this.setState({ scheduleBarHeight: h }); }
   };
 
   /** The schedule sequence bar: go to reading `index` of the active tab's schedule. */
@@ -2431,7 +2480,10 @@ class ReaderApp extends React.PureComponent {
               getHistoryObject={this.getHistoryObject}
               showToast={this.showToast}
             />
-            {activeSchedule ? <ScheduleSequenceBar sequence={activeSchedule} onGo={this.goToScheduleReading} /> : null}
+            {activeSchedule ?
+              <View onLayout={this._onScheduleBarLayout}>
+                <ScheduleSequenceBar sequence={activeSchedule} onGo={this.goToScheduleReading} />
+              </View> : null}
 
             <View style={{flex: 1, flexDirection: 'row'}}>
             <View style={{flex: 1}} ref={this._getReaderBodyRef} onLayout={this._measureReaderBody} collapsable={false}>
@@ -2591,7 +2643,7 @@ class ReaderApp extends React.PureComponent {
                 splitViewAvailable={splitViewAvailable}
                 splitView={this.state.splitView}
                 setSplitView={this.setSplitView}
-                topOffset={showTabBar ? 58 + READER_TAB_BAR_HEIGHT : undefined}
+                topOffset={displayMenuTop(showTabBar ? READER_TAB_BAR_HEIGHT : 0, activeSchedule ? this.state.scheduleBarHeight : 0)}
               />) : null
             }
         </Animated.View>
@@ -2674,7 +2726,7 @@ class ReaderApp extends React.PureComponent {
               </ConditionalProgressWrapper>
                 { this.renderContent() }
               { this.shouldShowFooter(this.state.menuOpen) && (
-                  <FooterTabBar selectedTabName={this.state.footerTab} setTab={this.setFooterTab} />
+                  <FooterTabBar selectedTabName={TabMetadata.selectedTabName(this.state.menuOpen, this.state.footerTab)} setTab={this.setFooterTab} />
               )}
             </View>
           </SafeAreaView>

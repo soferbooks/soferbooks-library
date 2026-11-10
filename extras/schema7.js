@@ -171,3 +171,46 @@ export function tocItem(entry, firstSection) {
   if (entry.base_text_titles) { item.base_text_titles = entry.base_text_titles; }
   return item;
 }
+
+// ---------------------------------------------------------------- showing the sections' names
+// The sections' English names are Sofer's keys (S0, S1, S1_2 ...): they make the refs, but they
+// are not names to show. Where an English name or ref would show one, the Hebrew is shown
+// instead (books converted before this was added included, since nothing on disk changes).
+
+const KEY = 'S\\d+(?:_\\d+)?';
+const SECTION_KEY = new RegExp(`^${KEY}$`);
+const KEY_IN_REF = new RegExp(`, ${KEY}(?=$|[ ,:])`, 'g');
+const HAS_KEY_IN_REF = new RegExp(`, ${KEY}(?=$|[ ,:])`);
+
+/**
+ * A web address (or a text with some) as people read it: percent-escapes decoded
+ * ("https://he.wikisource.org/wiki/%D7%90" -> ".../wiki/א"); left as it is when it cannot be.
+ */
+export function readableUrl(text) {
+  if (typeof text !== 'string' || text.indexOf('%') === -1) { return text; }
+  return text.replace(/(?:%[0-9A-Fa-f]{2})+/g, run => {
+    try { return decodeURIComponent(run); } catch (e) { return run; }
+  });
+}
+
+/** True for a section key used as an English name ("S0", "S2_3") */
+export const isSectionKey = name => typeof name === 'string' && SECTION_KEY.test(name);
+
+/** A section's English name to show: '' for a key (ContentTextWithFallback then shows the Hebrew) */
+export const nodeEnTitle = name => (isSectionKey(name) ? '' : name);
+
+/** True when an English ref names sections by their keys ("חבור יפה מהישועה, S0") */
+export const refHasSectionKeys = ref => typeof ref === 'string' && HAS_KEY_IN_REF.test(ref);
+
+/**
+ * An English ref as it is shown: a ref with section keys is shown as its Hebrew ref (heRef), with
+ * the paragraph number of a paragraph-level ref; without a Hebrew ref, the keys are left out.
+ */
+export function displayRef(ref, heRef) {
+  if (!refHasSectionKeys(ref)) { return ref; }
+  const seg = / (\d+(?:-\d+)?)$/.exec(ref);
+  if (heRef) {
+    return seg && !/[\d׳']$/.test(heRef) ? `${heRef} ${seg[1]}` : heRef;
+  }
+  return ref.replace(KEY_IN_REF, '').trim();
+}

@@ -46,8 +46,17 @@ export const CONVERTER_VERSION = 1;
 // Wikimedia asks for an agent naming the program and how to reach its makers
 export const USER_AGENT = 'SoferBooksLibrary/1.0 (https://github.com/soferbooks/soferbooks-library)';
 export const LICENSE = 'CC-BY-SA';
-export const CATEGORY = 'Wikitext';         // the books are filed under <top category>/Wikitext
-export const CATEGORY_HE = {...OTZARIA_CATEGORY_HE, Wikitext: 'ויקיטקסט', Notes: 'הערות'};
+// The books are filed under <top category>/Wikisource, named as in Settings (Wikisource / ויקיטקסט).
+// Catalogues made before were filed under "Wikitext" (Sofer's name): withCurrentShelf() moves them.
+export const CATEGORY = 'Wikisource';
+export const OLD_CATEGORY = 'Wikitext';
+export const CATEGORY_HE = {...OTZARIA_CATEGORY_HE, Wikisource: 'ויקיטקסט', Wikitext: 'ויקיטקסט', Notes: 'הערות'};
+
+/** A catalogue entry (or book) filed under the old "Wikitext" shelf, filed under "Wikisource" */
+export function withCurrentShelf(entry) {
+  if (!entry || !Array.isArray(entry.categories) || !entry.categories.includes(OLD_CATEGORY)) { return entry; }
+  return {...entry, categories: entry.categories.map(c => (c === OLD_CATEGORY ? CATEGORY : c))};
+}
 export const NOTES_PREFIX = 'הערות המהדיר על ';
 export const MAX_DEPTH = 3;                 // wikisource.fetch_book
 export const BATCH = 50;                    // titles in one query (the API's limit)

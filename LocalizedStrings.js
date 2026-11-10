@@ -77,6 +77,16 @@ export const buildContent = () => ({
 
 const strings = new LocalizedStrings(buildContent());
 
+/**
+ * A name put into a sentence of the other direction (a Hebrew book title in an English message),
+ * isolated (FSI ... PDI) so it does not turn the sentence around: without it the message took
+ * the title's direction and its full stop showed at the start (".connection").
+ */
+export const isolate = s => `\u2068${s}\u2069`;
+
+/** "{count} books downloaded", or its own sentence for one ("1 book downloaded") */
+export const countString = (many, one, count) => (count === 1 && one ? one : strings.formatString(many, {count}));
+
 export default strings;
 
 /**

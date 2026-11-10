@@ -21,7 +21,33 @@ export const ANCHOR_MAX_MS = 30000;    // give up eventually, even if the user n
 export const ANCHOR_MAX_SEEKS = 40;    // max blind scrolls while looking for an unrendered target
 const SEEK_FRACTION = 0.8;
 
-export const createAnchor = (ref, now = Date.now()) => (ref ? { ref, startedAt: now, seeks: 0 } : null);
+/**
+ * `inset`: where the anchored cell's top is kept, in px below the top of the list (default
+ * ANCHOR_TOP_INSET, as after a jump). A display change keeps the passage where it was on screen.
+ */
+export const createAnchor = (ref, now = Date.now(), inset = ANCHOR_TOP_INSET) => (
+  ref ? { ref, startedAt: now, seeks: 0, inset } : null
+);
+
+/**
+ * The passage the reader is looking at, to keep in place across a display change (language,
+ * commentary under each passage, font size): the first cell whose top is in view, or the cell
+ * that fills the top of the screen when it starts above it. `cells` is [{ref, y}] of the rendered
+ * cells (y in the list content). Returns {ref, inset} (inset = its top relative to the viewport
+ * top), or null.
+ */
+export const pickVisibleAnchor = (cells, currentY, viewportHeight = 0) => {
+  const sorted = (cells || []).filter(c => c && c.ref && typeof c.y === 'number').sort((a, b) => a.y - b.y);
+  if (!sorted.length) { return null; }
+  const firstInView = sorted.find(c => c.y >= currentY - ANCHOR_TOLERANCE);
+  let containing = null;
+  for (const c of sorted) { if (c.y <= currentY) { containing = c; } }
+  // a cell starting in the upper part of the screen is what the reader is on; otherwise the one
+  // covering the top of the screen (a long passage that started above it)
+  const limit = currentY + Math.max(120, (viewportHeight || 0) / 3);
+  const pick = firstInView && (!containing || firstInView.y <= limit) ? firstInView : containing;
+  return pick ? { ref: pick.ref, inset: pick.y - currentY } : null;
+};
 
 export const isAnchorActive = (anchor, now = Date.now()) => !!anchor && now - anchor.startedAt < ANCHOR_MAX_MS;
 
@@ -32,11 +58,12 @@ export const isAnchorActive = (anchor, now = Date.now()) => !!anchor && now - an
  *   targetIndex:    the anchor's flat index in the list
  *   renderedRange:  [minIndex, maxIndex] of the cells currently rendered (null if unknown)
  *   viewportHeight: height of the list's viewport
+ *   inset:          the anchor's place below the top of the list (anchor.inset)
  * Returns {offset, seek}: seek=true when the target is not rendered and we are only moving towards it.
  */
-export const anchorCorrection = ({ cellY, currentY, targetIndex, renderedRange, viewportHeight }) => {
+export const anchorCorrection = ({ cellY, currentY, targetIndex, renderedRange, viewportHeight, inset = ANCHOR_TOP_INSET }) => {
   if (typeof cellY === 'number') {
-    const offset = Math.max(0, cellY - ANCHOR_TOP_INSET);
+    const offset = Math.max(0, cellY - inset);
     return Math.abs(offset - currentY) > ANCHOR_TOLERANCE ? { offset, seek: false } : null;
   }
   if (typeof targetIndex !== 'number' || !renderedRange) { return null; }

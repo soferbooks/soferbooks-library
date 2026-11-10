@@ -13,15 +13,26 @@ import {
 } from 'react-native';
 import ActionSheet from 'react-native-action-sheet';
 import strings from '../LocalizedStrings';
+import { displayRef } from '../extras/schema7';
 import { useGlobalState } from '../Hooks';
 
 export const READER_TAB_BAR_HEIGHT = 38;
 
-/** Label for a tab or archived tab in the current menu language. */
+/**
+ * Label for a tab or archived tab in the current menu language: the passage the tab is at
+ * ("Shulchan Arukh, Orach Chayim 447:11", not just its section), and an extra book's Hebrew
+ * section names in place of its section keys (extras/schema7.js).
+ */
 export const tabLabel = (tab, isHeb) => {
   if (!tab) { return ''; }
-  if (isHeb) { return tab.heRef || tab.heTitle || tab.ref || tab.title || ''; }
-  return tab.ref || tab.title || '';
+  const seg = tab.segmentRef && tab.ref && tab.segmentRef.startsWith(`${tab.ref}:`) ? tab.segmentRef : null;
+  if (isHeb) {
+    if (seg && tab.heRef && typeof Sefaria !== 'undefined' && Sefaria.toHeSegmentRef) {
+      try { return Sefaria.toHeSegmentRef(tab.heRef, seg) || tab.heRef; } catch (e) { /* the section's ref */ }
+    }
+    return tab.heRef || tab.heTitle || tab.ref || tab.title || '';
+  }
+  return displayRef(seg || tab.ref || tab.title || '', tab.heRef);
 };
 
 const showOptions = (options, onChoose) => {

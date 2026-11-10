@@ -156,7 +156,13 @@ export function stripPreviewEnglish(previews) {
  */
 export function stripHiddenPreviewEnglish(result) {
   if (!result || !isActive()) { return result; }
-  if (!result.versionTitle) { return result.en ? { ...result, en: '' } : result; }  // unknown version: be safe
+  if (!result.versionTitle) {
+    // A text the server merged from several versions (e.g. Rashi on Genesis) has no versionTitle,
+    // only the list of versions it was put together from: keep it when none of them is hidden.
+    const merged = Array.isArray(result.versionSources) ? result.versionSources.filter(Boolean) : [];
+    if (merged.length && !merged.some(vt => versionMatch(config, { versionTitle: vt }))) { return result; }
+    return result.en ? { ...result, en: '' } : result;  // unknown version: be safe
+  }
   if (!versionMatch(config, { versionTitle: result.versionTitle, versionSource: result.versionSource })) { return result; }
   return { ...result, en: '', versionTitle: null, versionSource: null };
 }

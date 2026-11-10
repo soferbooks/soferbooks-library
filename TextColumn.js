@@ -18,7 +18,8 @@ import TextRange from './TextRange';
 import TextRangeContinuous from './TextRangeContinuous';
 import TextHeightMeasurer from './TextHeightMeasurer';
 import InlineCommentary from './reader/InlineCommentary';
-import { createAnchor, isAnchorActive, anchorCorrection, renderedIndexRange, ANCHOR_MAX_SEEKS } from './reader/scrollAnchor';
+import { refHasSectionKeys } from './extras/schema7';
+import { createAnchor, isAnchorActive, anchorCorrection, renderedIndexRange, pickVisibleAnchor, ANCHOR_MAX_SEEKS } from './reader/scrollAnchor';
 import { VOCALIZATION } from './VocalizationEnum';
 import { stringPair } from './LocalizedStrings';
 const ViewPort  = Dimensions.get('window');
@@ -160,6 +161,7 @@ class TextColumn extends React.PureComponent {
       targetIndex: this.state.jumpInfoMap ? this.state.jumpInfoMap.get(ref) : undefined,
       renderedRange: renderedIndexRange(this._mountedCells, this.state.jumpInfoMap),
       viewportHeight: this.state.scrollViewHeight,
+      inset: this._anchor.inset,
     });
     if (!correction) { return; }
     if (correction.seek) {
@@ -177,6 +179,23 @@ class TextColumn extends React.PureComponent {
   };
 
   _onScrollBeginDrag = () => { this._releaseAnchor(); };
+
+  /**
+   * A display change (language, commentary under each passage, font size, layout) is about to
+   * change the height of every row: keep the passage now at the top of the screen where it is,
+   * instead of leaving the scroll offset where it was (which slid the text by whole verses).
+   */
+  _anchorVisiblePassage = () => {
+    if (this._anchorActive() || this.state.jumpState.jumping || this.state.itemLayoutList) { return; }
+    const cells = [];
+    for (const ref of this._mountedCells) {
+      if (typeof this._cellY[ref] === 'number') { cells.push({ ref, y: this._cellY[ref] }); }
+    }
+    const picked = pickVisibleAnchor(cells, this.currentY, this.state.scrollViewHeight);
+    if (!picked) { return; }
+    this._anchor = createAnchor(picked.ref, Date.now(), picked.inset);
+    this._scheduleReanchor();
+  };
   generateDataSource = (props, gonnaJump) => {
     // Returns data representing sections and rows to be passed into ListView.DataSource.cloneWithSectionsAndRows
     // Takes `props` as an argument so it can generate data with `nextProps`.
@@ -389,11 +408,18 @@ class TextColumn extends React.PureComponent {
   inlineSectionHeader = (ref) => {
     // Returns a string to be used as an inline section header for `ref`.
     var heTitle = Sefaria.index(this.props.textTitle).heTitle;
-    var trimmer = new RegExp("^(" + this.props.textTitle + "|" + heTitle + "),? ");
+    const esc = s => String(s || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');  // "ארחות חיים (כתר ראש)"
+    var trimmer = new RegExp("^(" + esc(this.props.textTitle) + "|" + esc(heTitle) + "),? ");
     return ref.replace(trimmer, '');
   };
 
   componentDidUpdate(prevProps, prevState) {
+    if (this.props.textLanguage !== prevProps.textLanguage ||
+        this.props.inlineCommentary !== prevProps.inlineCommentary ||
+        this.props.fontSize !== prevProps.fontSize ||
+        this.props.biLayout !== prevProps.biLayout) {
+      this._anchorVisiblePassage();
+    }
     if (this.props.data.length !== prevProps.data.length ||
         this.props.textFlow !== prevProps.textFlow ||
         this.props.textLanguage !== prevProps.textLanguage ||
@@ -656,12 +682,14 @@ class TextColumn extends React.PureComponent {
     if (props.isSheet) { return null; }
 
     const isHeb = Sefaria.util.get_menu_language(props.interfaceLanguage, props.textLanguage) == "hebrew";
+    // an extra book's sections are named by keys in English ("S1"): their Hebrew names instead
+    const keyed = !isHeb && refHasSectionKeys(section.ref) && !!section.heRef;
     return (
       <TextHeader
-        title={isHeb ?
+        title={isHeb || keyed ?
                 this.inlineSectionHeader(section.heRef) :
                 this.inlineSectionHeader(section.ref)}
-        isHebrew={isHeb}
+        isHebrew={isHeb || keyed}
         theme={props.theme}
         outerStyle={styles.sectionHeaderBorder}
       />

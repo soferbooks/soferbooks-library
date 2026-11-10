@@ -216,6 +216,8 @@ var Api = {
           // which English version the server picked, so the content filter can check it
           result.versionTitle = data.versionTitle || null;
           result.versionSource = data.versionSource || null;
+          // a text merged from several English versions has no versionTitle, only `sources`
+          result.versionSources = Array.isArray(data.sources) ? [...new Set(data.sources.flat(Infinity))] : null;
           resolve({
             "fromAPI": true,
             "result": result,

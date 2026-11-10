@@ -284,6 +284,11 @@ describe('runtime helpers (shomer/index.js)', () => {
     expect(shomer.stripHiddenPreviewEnglish(ok)).toBe(ok);
     // English from an unknown version is not trusted while the filter is on
     expect(shomer.stripHiddenPreviewEnglish({ en: 'x', he: 'y' }).en).toBe('');
+    // a text the server merged from several versions (Rashi on Genesis): kept when none is hidden
+    const merged = { en: 'LET ME SWALLOW', he: 'הלעיטני', versionTitle: null,
+      versionSources: ["Pentateuch with Rashi's commentary by M. Rosenbaum and A.M. Silbermann, 1929-1934"] };
+    expect(shomer.stripHiddenPreviewEnglish(merged)).toBe(merged);
+    expect(shomer.stripHiddenPreviewEnglish({ ...merged, versionSources: ['King James Version'] }).en).toBe('');
   });
 
   test('translations and related sheets', () => {

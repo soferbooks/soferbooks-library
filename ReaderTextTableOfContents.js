@@ -10,6 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import * as extras from './extras';
+import { refHasSectionKeys, nodeEnTitle, readableUrl } from './extras/schema7';
 
 import {ErrorBoundaryFallbackComponent} from "./ErrorBoundaryFallbackComponent";
 import {
@@ -30,6 +31,9 @@ import iPad from './isIPad';
 import { useGlobalState } from './Hooks.js';
 import {ErrorBoundary} from "react-error-boundary";
 
+// a title with brackets, "ארחות חיים (כתר ראש)", is matched as it is
+const escapeRegExp = s => String(s || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 const sectionString = (isHeb, textToc, currentRef, currentHeRef) => {
   // Returns a string expressing just the section we're currently looking including section name when possible
   // e.g. "Genesis 1" -> "Chapter 1"
@@ -38,9 +42,10 @@ const sectionString = (isHeb, textToc, currentRef, currentHeRef) => {
                       textToc.sectionNames[textToc.sectionNames.length > 1 ? textToc.sectionNames.length-2 : 0] :
                       null;
 
-  if (isHeb) {
+  // an extra book's sections are named by keys in English ("S1"): its Hebrew names instead
+  if (isHeb || (refHasSectionKeys(currentRef) && currentHeRef)) {
     if (!currentHeRef) { return "";}
-    var trimmer = new RegExp("^(" + textToc.heTitle + "),? ");
+    var trimmer = new RegExp("^(" + escapeRegExp(textToc.heTitle) + "),? ");
     var sectionString = currentHeRef.replace(trimmer, '');
     if (sectionName) {
       sectionString = Sefaria.hebrewSectionName(sectionName) + " " + sectionString;
@@ -48,7 +53,7 @@ const sectionString = (isHeb, textToc, currentRef, currentHeRef) => {
   } else {
     if (!currentRef) { return "";}
 
-    var trimmer = new RegExp("^(" + textToc.title + "),? ");
+    var trimmer = new RegExp("^(" + escapeRegExp(textToc.title) + "),? ");
     var sectionString = currentRef.replace(trimmer, '');
     if (sectionName) {
       sectionString = sectionName + " " + sectionString;
@@ -72,8 +77,9 @@ const ReaderTextTableOfContents = ({
   const textErrorBoundaryAlert = useCallback(() => {
     textUnavailableAlert(title);
   }, [title]);
-  var enTitle = title;
   var heTitle = Sefaria.index(title).heTitle;
+  // an extra book's English title is its Hebrew name made safe for a file name: show the Hebrew
+  var enTitle = extras.isExtraTitle(title) && heTitle ? heTitle : title;
   const isHeb = menuLanguage == "hebrew";
   const langStyle = interfaceLanguage === "hebrew" ? styles.heInt : styles.enInt;
   var categories  = Sefaria.index(title).categories;
@@ -175,11 +181,11 @@ const ExtraBookInfo = ({ title, textToc, close }) => {
   return (
     <View style={{marginTop: 10}}>
       {version.versionSource ?
-        <Text style={[langStyle, theme.tertiaryText, {fontSize: 13}]}>{version.versionSource}</Text> : null}
+        <Text style={[langStyle, theme.tertiaryText, {fontSize: 13}]}>{readableUrl(version.versionSource)}</Text> : null}
       {version.license ?
         <Text style={[langStyle, theme.tertiaryText, {fontSize: 13}]}>{strings.formatString(strings.extras.license_line, {license: version.license})}</Text> : null}
       {version.versionNotesInHebrew ?
-        <Text style={[styles.he, theme.tertiaryText, {fontSize: 13}]}>{version.versionNotesInHebrew}</Text> : null}
+        <Text style={[styles.he, theme.tertiaryText, {fontSize: 13}]}>{readableUrl(version.versionNotesInHebrew)}</Text> : null}
       <TouchableOpacity onPress={remove} accessibilityRole="button" style={{paddingVertical: 6}}>
         <Text style={[langStyle, theme.text, {fontSize: 14, textDecorationLine: 'underline'}]}>{strings.extras.delete_book}</Text>
       </TouchableOpacity>
@@ -353,7 +359,7 @@ const SchemaNode = ({ schema, refPath, openRef, categories }) => {
         return (
           <TouchableOpacity style={styles.textTocNamedSection} onPress={open} key={i}>
             <ContentTextWithFallback
-              en={node.title} he={node.heTitle}
+              en={nodeEnTitle(node.title)} he={node.heTitle}
               extraStyles={[styles.textTocSectionTitle, theme.text]}
               lang={menuLanguage}
             />
@@ -646,7 +652,7 @@ const CollapsibleNode = ({
       {titleEmpty ? null : (
         <TouchableOpacity onPress={toggleVisibility} style={{flex: 1, flexDirection: showHebrew ? "row-reverse" : "row"}}>
           <ContentTextWithFallback
-            en={node.title} he={node.heTitle}
+            en={nodeEnTitle(node.title)} he={node.heTitle}
             extraStyles={[styles.textTocSectionTitle, theme.text]}
             lang={menuLanguage}
           />

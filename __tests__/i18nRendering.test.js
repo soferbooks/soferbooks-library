@@ -1895,6 +1895,27 @@ const NOT_YET_COVERED = [
   'extras.up_to_date',
 ];
 
+describe('Counts of one', () => {
+  // "1 books downloaded": a count of one has a sentence of its own (countString)
+  const { countString } = require('../LocalizedStrings');
+  test.each([
+    ['extras.downloaded_count', 'extras.downloaded_count_one'],
+    ['extras.turn_off_message', 'extras.turn_off_message_one'],
+    ['extras.updates_message', 'extras.updates_message_one'],
+  ])('%s has its own sentence for one', (many, one) => {
+    markCovered([one]);
+    for (const lang of ['en', 'he']) {
+      strings.setLanguage(lang);
+      const text = id => [].concat(id).join('');
+      expect(text(countString(strings.getString(many), strings.getString(one), 1))).toBe(strings.getString(one));
+      expect(text(countString(strings.getString(many), strings.getString(one), 3))).toContain('3');
+      expect(strings.getString(one)).not.toMatch(/[{]count[}]/);
+    }
+    strings.setLanguage('en');
+    expect(strings.getString(one)).not.toMatch(/1 books|books has/);
+  });
+});
+
 describe('coverage of the whole string table', () => {
   const allIds = Object.keys(en);
 

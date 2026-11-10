@@ -3,7 +3,7 @@
 import React, { useContext, useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, Switch, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { GlobalStateContext, DispatchContext, STATE_ACTIONS, getTheme } from '../StateManager';
-import strings from '../LocalizedStrings';
+import strings, { countString, isolate } from '../LocalizedStrings';
 import styles from '../Styles';
 import { CHOICES, GROUPS, configForPreset, toggleGroup } from './presets';
 import { SOURCES } from '../sources';
@@ -116,7 +116,7 @@ export const ExtraSourceRow = ({ source, langStyle, theme, interfaceLanguage }) 
   const toggle = value => {
     if (value) { run(() => extras.setSourceEnabled(source.id, true)); return; }
     if (!downloaded) { run(() => extras.setSourceEnabled(source.id, false)); return; }
-    Alert.alert(name, strings.formatString(strings.extras.turn_off_message, {count: downloaded}), [
+    Alert.alert(name, countString(strings.extras.turn_off_message, strings.extras.turn_off_message_one, downloaded), [
       {text: strings.common.cancel, style: 'cancel'},
       {text: strings.common.yes, onPress: () => run(() => extras.setSourceEnabled(source.id, false))},
     ]);
@@ -127,7 +127,7 @@ export const ExtraSourceRow = ({ source, langStyle, theme, interfaceLanguage }) 
       Alert.alert(name, strings.extras.up_to_date, [{text: strings.common.ok}]);
       return;
     }
-    Alert.alert(name, strings.formatString(strings.extras.updates_message, {count: changed.length}), [
+    Alert.alert(name, countString(strings.extras.updates_message, strings.extras.updates_message_one, changed.length), [
       {text: strings.common.not_now, style: 'cancel'},
       {text: strings.download.download, onPress: () => run(async () => {
         for (const title of changed) { await extras.downloadBook(title); }
@@ -141,7 +141,7 @@ export const ExtraSourceRow = ({ source, langStyle, theme, interfaceLanguage }) 
           <Text style={[langStyle, theme.text]}>{name}</Text>
           <Text style={[langStyle, theme.secondaryText, local.detail]}>{strings.extras.source_detail}</Text>
           {on ? <Text style={[langStyle, theme.secondaryText, local.detail]}>
-            {strings.formatString(strings.extras.downloaded_count, {count: downloaded})}
+            {countString(strings.extras.downloaded_count, strings.extras.downloaded_count_one, downloaded)}
           </Text> : null}
         </View>
         {busy && !underWay.length ? <ActivityIndicator /> : null}
@@ -151,7 +151,7 @@ export const ExtraSourceRow = ({ source, langStyle, theme, interfaceLanguage }) 
       {underWay.map(t => (
         <View key={t}>
           <Text style={[langStyle, theme.secondaryText, local.detail]}>
-            {strings.formatString(strings.extras.downloading, {title: bookName(t)})}
+            {strings.formatString(strings.extras.downloading, {title: isolate(bookName(t))})}
           </Text>
           <ExtraDownloadStatus title={t} theme={theme} langStyle={langStyle} />
         </View>

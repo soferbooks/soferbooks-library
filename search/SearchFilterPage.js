@@ -149,10 +149,14 @@ const SearchFilterFooter = ({ buttonToggleSetData }) => {
                 <Header titleKey={"search.options"} />
             </View>
             <View style={{marginTop: 16}}>
-                <FlexFrame dir={"row"} justifyContent={"flex-start"} alignItems={"center"}>
-                    <IndeterminateCheckBox onPress={toggleFunction} state={active+0} />
-                    <InterfaceText stringKey={"search.exact_matches_only"} extraStyles={[{marginHorizontal: 10}, theme.text]}/>
-                </FlexFrame>
+                {/* (the label toggles it too, not only the small box) */}
+                <TouchableOpacity onPress={toggleFunction} accessibilityRole="checkbox"
+                                  accessibilityState={{checked: !!active}} testID="exact-matches-only">
+                    <FlexFrame dir={"row"} justifyContent={"flex-start"} alignItems={"center"}>
+                        <IndeterminateCheckBox onPress={toggleFunction} state={active+0} />
+                        <InterfaceText stringKey={"search.exact_matches_only"} extraStyles={[{marginHorizontal: 10}, theme.text]}/>
+                    </FlexFrame>
+                </TouchableOpacity>
             </View>
         </View>
     )

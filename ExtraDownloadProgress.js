@@ -7,7 +7,7 @@
  */
 import React, { useEffect, useState } from 'react';
 import { Modal, View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
-import strings from './LocalizedStrings';
+import strings, { isolate } from './LocalizedStrings';
 import * as extras from './extras';
 
 /** The progress as words ("12 of 340 pages", "42%"), or null when it is not known */
@@ -61,7 +61,7 @@ export const ExtraDownloadModal = ({ title, name, theme, langStyle }) => (
     <View style={local.backdrop}>
       <View style={[local.card, theme.mainTextPanel]}>
         <Text style={[langStyle, theme.text, local.title]}>
-          {strings.formatString(strings.extras.downloading, { title: name || title })}
+          {strings.formatString(strings.extras.downloading, { title: isolate(name || title) })}
         </Text>
         <ExtraDownloadStatus title={title} theme={theme} langStyle={langStyle} />
       </View>

@@ -5,6 +5,7 @@ import {View} from 'react-native';
 import {SimpleInterfaceBlock, SimpleContentBlock, SimpleLinkedBlock} from './Misc';
 import styles from './Styles';
 import {useGlobalState} from './Hooks';
+import {displayRef} from './extras/schema7';
 
 /**
  * Building blocks for a text preview card (a ref title over a colour-barred text snippet),
@@ -24,7 +25,7 @@ export const PreviewTitleBlock = ({ he, en, children, onClick }) => {
     const isHeb = interfaceLanguage === 'hebrew';
     return (
         <View style={{flex: 1}}>
-            <SBlock he={he} en={en} extraStyles={[styles.topicSourceTitle, isHeb ? styles.he : styles.en]} onClick={onClick} />
+            <SBlock he={he} en={displayRef(en, he)} extraStyles={[styles.topicSourceTitle, isHeb ? styles.he : styles.en]} onClick={onClick} />
             {children}
         </View>
     );

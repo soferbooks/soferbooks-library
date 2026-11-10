@@ -109,6 +109,15 @@ export class TabMetadata {
     return TabMetadata._tabData[0].name;
   }
 
+  /**
+   * The footer button to show as selected: the one whose own page is showing (the home page after
+   * a text opened from search is Home's, not Search's), else the tab the pages belong to.
+   */
+  static selectedTabName(menuOpen, footerTab) {
+    const owner = menuOpen ? TabMetadata._tabData.find(tabDatum => tabDatum.menu === menuOpen) : null;
+    return owner ? owner.name : footerTab;
+  }
+
   static menuByName(name) {
     const tabDatum = TabMetadata._tabData.find(tabDatum => tabDatum.name === name);
     if (!tabDatum) {
