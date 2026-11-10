@@ -60,8 +60,59 @@ import {FooterTabBar} from "./FooterTabBar";
 import {getSafeViewStyleAndStatusBarBackground} from "./getSafeViewStyles";
 import ContentFilterChooser from "./shomer/ContentFilterChooser";
 import {correctionEmail, versionOnScreen} from "./reportError";
+import ReaderTabBar, { READER_TAB_BAR_HEIGHT } from "./tabs/ReaderTabBar";
+import {
+  emptyTabsState,
+  openTab,
+  switchTab,
+  closeTab,
+  closeOtherTabs,
+  updateTabPlace,
+  restoreArchivedTab,
+  removeArchivedTab,
+  clearArchivedTabs,
+  findTab,
+  findTabForBook,
+  tabResumeRef,
+} from "./tabs/tabState";
+import { loadTabs, makeDebouncedTabSaver } from "./tabs/tabStorage";
+import SplitTabPane from "./reader/SplitTabPane";
+import {
+  getInlineCommentary,
+  setInlineCommentary,
+  loadInlineCommentaryPrefs,
+  saveInlineCommentaryPrefs,
+  availableInlineSources,
+} from "./reader/inlineCommentaryPrefs";
+import {
+  panelFlexForTouch,
+  panelReleaseAction,
+  loadPanelFlexPreference,
+  savePanelFlexPreference,
+  DEFAULT_PANEL_FLEX,
+} from "./reader/panelLayout";
 
 const ViewPort = Dimensions.get('window');
+
+// Reader state kept per open tab in memory, so switching back to a tab is instant and keeps its
+// exact place, open panel and filters. (Tabs that are not in memory reopen from their saved place.)
+const TAB_SNAPSHOT_KEYS = [
+  'offsetRef', 'segmentRef', 'segmentIndexRef', 'sectionIndexRef', 'textReference', 'textTitle', 'heTitle', 'heRef',
+  'textFlow', 'data', 'sectionArray', 'sectionHeArray', 'next', 'prev', 'textToc', 'relatedBySectionRef', 'linksLoaded',
+  'textListVisible', 'textListFlex', 'connectionsMode', 'filterIndex', 'linkSummary', 'linkContents',
+  'linkRecentFilters', 'linkStaleRecentFilters', 'loadingLinks', 'versionRecentFilters', 'versionFilterIndex',
+  'currVersionObjects', 'selectedVersions', 'versions', 'versionsApiError', 'versionStaleRecentFilters',
+  'versionContents', 'dictLookup', 'highlightedWordID', 'highlightedWordSegmentRef', 'translations',
+  'currentTranslations', 'segmentRefOnSheet',
+];
+// A change in any of these may move the active tab's place.
+const TAB_PLACE_STATE_KEYS = ['menuOpen', 'loaded', 'textTitle', 'textReference', 'segmentRef', 'segmentIndexRef',
+  'sectionIndexRef', 'sectionArray', 'textListVisible', 'connectionsMode', 'selectedVersions', 'offsetRef'];
+// App-wide reader state that must never be rolled back by the back button (PageHistory snapshots).
+const NON_HISTORY_STATE_KEYS = ['readerTabs', 'inlineCommentaryPrefs', 'splitView', 'splitTabId', 'windowWidth',
+  'textListFlexPreference', 'hasInternet'];
+const SPLIT_VIEW_STORAGE_KEY = 'readerSplitView';
+const SPLIT_VIEW_MIN_WIDTH = 600;  // dp: tablets and large foldables
 
 
 class ReaderApp extends React.PureComponent {
@@ -79,6 +130,11 @@ class ReaderApp extends React.PureComponent {
     super(props, context);
     this._initDeepLinkURL = null;  // if you init the app thru a deep link, need to make sure the URL is applied during componentDidMount()
     this.tabHistory = new TabHistory();
+    this._tabSnapshots = {};  // tab id -> reader state (see TAB_SNAPSHOT_KEYS)
+    this._saveTabs = makeDebouncedTabSaver();
+    this._loadToken = 0;  // bumped by every text load / tab switch, so stale async loads are dropped
+    this._tocFromReader = false;
+    this._newTabRouteUntil = 0;
     if (Platform.OS === 'android') {
       UIManager.setLayoutAnimationEnabledExperimental && UIManager.setLayoutAnimationEnabledExperimental(true);
       if (strings.getInterfaceLanguage() === 'iw-IL') {
@@ -104,7 +160,7 @@ class ReaderApp extends React.PureComponent {
         loadingTextHead: false,
         textListVisible: false,
         textListFlex: 0.0001,
-        textListFlexPreference: 0.6,
+        textListFlexPreference: DEFAULT_PANEL_FLEX,
         textListAnimating: false,
         data: null,
         linksLoaded: [],  // bool arrary corresponding to data indicating if links have been loaded, which occurs async with API
@@ -138,6 +194,11 @@ class ReaderApp extends React.PureComponent {
         highlightedWordSegmentRef: null,
         translations: [],
         currentTranslations: [],
+        readerTabs: emptyTabsState(),
+        inlineCommentaryPrefs: {},
+        splitView: false,
+        splitTabId: null,
+        windowWidth: ViewPort.width,
       };
     this.NetInfoEventListener = () => {};  // calling the event listener unsubcribes, initialize to a null method
 
@@ -154,6 +215,9 @@ class ReaderApp extends React.PureComponent {
       this.networkChangeListener
     );
     this.backHandlerListener = BackHandler.addEventListener('hardwareBackPress', this.manageBack);
+    this.dimensionsSubscription = Dimensions.addEventListener('change', ({ window }) => {
+      this.setState({ windowWidth: window.width });
+    });
     this.RNShakeSubscription = RNShake.addListener(() => {
       if (this.props.groggerActive === 'on' && Sefaria.isGettinToBePurimTime()) {
         SoundPlayer.playSoundFile('grogger', 'mp3');
@@ -175,7 +239,42 @@ class ReaderApp extends React.PureComponent {
     this.linkingSubscription.remove();
     this.RNShakeSubscription.remove();
     DownloadTracker.unsubscribe('ReaderApp')
+    this.dimensionsSubscription && this.dimensionsSubscription.remove();
+    this._saveTabs.flush();
   }
+
+  componentDidUpdate(prevProps, prevState) {
+    if (this.state.readerTabs !== prevState.readerTabs) {
+      this._saveTabs(this.state.readerTabs);
+    }
+    if (!this.state.menuOpen && this.state.loaded && !this.state.sheet &&
+        (TAB_PLACE_STATE_KEYS.some(k => this.state[k] !== prevState[k]) || this.props.textLanguage !== prevProps.textLanguage)) {
+      this._syncActiveTabPlace();
+    }
+  }
+
+  /**
+   * Saved reader preferences: open/archived tabs, "show under each passage" choices, the
+   * connections panel height and split view. Never rejects.
+   */
+  loadReaderPrefs = async () => {
+    try {
+      const [readerTabs, inlineCommentaryPrefs, textListFlexPreference, splitView] = await Promise.all([
+        loadTabs(),
+        loadInlineCommentaryPrefs(),
+        loadPanelFlexPreference(),
+        AsyncStorage.getItem(SPLIT_VIEW_STORAGE_KEY).catch(() => null),
+      ]);
+      this.setState(prev => ({
+        readerTabs: prev.readerTabs.tabs.length ? prev.readerTabs : readerTabs,
+        inlineCommentaryPrefs,
+        textListFlexPreference,
+        splitView: splitView === 'true',
+      }));
+    } catch (e) {
+      console.warn('Could not load reader preferences', e);
+    }
+  };
 
   promptLibraryDownload() {
     AsyncStorage.getItem("libraryDownloadPrompted").
@@ -216,17 +315,12 @@ class ReaderApp extends React.PureComponent {
     * @returns {Promise<unknown>|*}
    */
   getInitialPromise = () => {
-    if (Sefaria.history.lastPlace.length) {
-      const mostRecent =  Sefaria.history.lastPlace[0];
-      return this.openRef(mostRecent.ref, null, mostRecent.versions, false)  // first call to openRef should not add to backStack
-    } else {
-      // if no last place, open navigation
-      return Promise.resolve(this.openNav());
-    }
+    // SoferBooks opens on the home page; the open tabs (and Continue Reading) are one tap away there.
+    return Promise.resolve(this.openNav(false));
   }
 
   initFiles = () => {
-    Sefaria.util.deleteUnzippedFiles()
+    Promise.all([Sefaria.util.deleteUnzippedFiles(), this.loadReaderPrefs()])
     .then(() => Sefaria.init(this.props.dispatch)).then(() => {
         setTimeout(BootSplash.hide, 700);
         this.setState({
@@ -285,6 +379,10 @@ class ReaderApp extends React.PureComponent {
     if (!!oldState) {
       this._applyPreviousState(oldState);
       return true;
+    } else if (!this.state.menuOpen) {
+      // reader with nothing behind it (e.g. after switching tabs): go home rather than closing the app
+      this.openNav(false);
+      return true;
     } else {
       // close app
       return false;
@@ -293,6 +391,8 @@ class ReaderApp extends React.PureComponent {
 
   _applyPreviousState = oldState => {
     oldState._completedInit = this.state._completedInit || oldState._completedInit;  // dont go back to false for this variable. can't undo completedInit!
+    for (const k of NON_HISTORY_STATE_KEYS) { delete oldState[k]; }  // tabs and reader preferences are not part of "back"
+    this._loadToken++;
     const isTextColumn = !oldState.menuOpen;
     if (isTextColumn) {
       // you're going back to textcolumn. make sure to jump
@@ -334,6 +434,12 @@ class ReaderApp extends React.PureComponent {
     // unnamed parameter.
     // func used for internal routing (e.g. HTMLView and Markdown)
     this.handleOpenURLNamedParam({ url, fromOutside: false });
+  };
+
+  /** Long-press on an in-text link: route it as usual, but open the text it leads to in a new tab. */
+  openURLInNewTab = (url) => {
+    this._newTabRouteUntil = Date.now() + 3000;  // consumed by openRef (the router may resolve the ref asynchronously)
+    this.handleOpenURL(url);
   };
 
   onDownloaderChange = (openSettings) => {
@@ -557,8 +663,11 @@ class ReaderApp extends React.PureComponent {
     ref = ref.indexOf("-") !== -1 ? ref.split("-")[0] : ref;
 
     // Clear the current state, load ref, then load text into the state.
+    const loadToken = ++this._loadToken;
     return new Promise((resolve, reject) => {
       this.setState({
+          loadingTextTail: false,
+          loadingTextHead: false,
           loaded: false,
           data: [],
           relatedBySectionRef: {},
@@ -575,6 +684,7 @@ class ReaderApp extends React.PureComponent {
       () => {
 
         Sefaria.offlineOnline.loadText(ref, true, versions, !this.state.hasInternet, true).then(({textContent, links}) => { // Silencing the popup on failed Sefaria.api _requests and creating a new pop up if an error arises
+            if (loadToken !== this._loadToken) { resolve(); return; }  // another text or tab replaced this load
             // if specific versions were requested, but no content exists for those versions, try again with default versions
             if (Sefaria.util.objectHasNonNullValues(textContent.nonExistantVersions) ||
                 (textContent.content.length === 0 && !!versions)) {
@@ -812,9 +922,11 @@ class ReaderApp extends React.PureComponent {
   };
 
   updateDataPrev = () => {
+    const loadToken = this._loadToken;
     this.setState({ loadingTextHead: true });
     Sefaria.offlineOnline.loadText(this.state.prev, true, this.state.selectedVersions, !this.state.hasInternet)
       .then(({textContent}) => {
+        if (loadToken !== this._loadToken) { return; }  // switched tab/text meanwhile
         this.setState(prevState => {
           const updatedData = [textContent.content, ...prevState.data];
           const newSectionArray = [textContent.sectionRef, ...prevState.sectionArray];
@@ -845,9 +957,11 @@ class ReaderApp extends React.PureComponent {
   };
 
   updateDataNext = () => {
+    const loadToken = this._loadToken;
     this.setState({ loadingTextTail: true }, () => {
       Sefaria.offlineOnline.loadText(this.state.next, true, this.state.selectedVersions, !this.state.hasInternet)
           .then(({textContent}) => {
+            if (loadToken !== this._loadToken) { return; }  // switched tab/text meanwhile
             this.setState(prevState => {
               const updatedData = [...prevState.data, textContent.content];
               const newSectionArray = [...prevState.sectionArray, textContent.sectionRef];
@@ -897,7 +1011,12 @@ class ReaderApp extends React.PureComponent {
   };
 
   openRefConnectionsPanel = (ref, versions, loadNewVersions=false) => {
-    this.openRef(ref,"text list", versions, undefined, undefined, loadNewVersions);
+    if (loadNewVersions && Sefaria.textTitleForRef(ref) === this.state.textTitle) {
+      // choosing another translation/version of the text being read stays in this tab
+      return this.openRef(ref,"text list", versions, undefined, undefined, loadNewVersions);
+    }
+    // a source from the panel (Gemara, a commentary's full text, ...) opens in a new tab; this tab keeps its place
+    return this.openRefInNewTab(ref, versions);
   };
 
   textUnavailableAlert = ref => {
@@ -926,6 +1045,14 @@ class ReaderApp extends React.PureComponent {
   enableAliyot - true when you click on an aliya form ReaderTextTableOfContents
   */
   openRef = (ref, calledFrom, versions, addToBackStack=true, enableAliyot=false, loadNewVersions=false) => {
+    if (calledFrom === 'deep link' && Date.now() < this._newTabRouteUntil) {
+      this._newTabRouteUntil = 0;
+      return this.openRefInNewTab(ref, versions);
+    }
+    if (calledFrom !== 'tab' && this._isOutsideReader()) {
+      const routed = this._openRefFromOutside(ref, calledFrom, versions, addToBackStack, enableAliyot, loadNewVersions);
+      if (routed) { return routed; }
+    }
     return new Promise((resolve, reject) => {
       if (enableAliyot) {
         this.setAliyot(true);
@@ -989,6 +1116,9 @@ class ReaderApp extends React.PureComponent {
   };
 
   openMenu = (menu, via, pushHistory=true) => {
+    if (!!menu && !this.state.menuOpen) {
+      this._saveSnapshotForActiveTab();  // leaving the reader: keep this tab's exact state for when it is reopened
+    }
     if (!!menu && pushHistory) {
       if (!this.state.menuOpen && !!this.state.data) {
         // text column. remove related data
@@ -1016,7 +1146,8 @@ class ReaderApp extends React.PureComponent {
       }
   };
 
-  openNav = () => {
+  openNav = (pushHistory = true) => {
+      this._saveSnapshotForActiveTab();
       this.clearAllSearchFilters('text');
       this.setState({
         loaded: true,
@@ -1027,7 +1158,7 @@ class ReaderApp extends React.PureComponent {
         connectionsMode: null,
         dictLookup: null,
       });
-      this.openMenu("navigation");
+      this.openMenu("navigation", null, pushHistory !== false);
   };
 
   openUri = uri => {
@@ -1089,6 +1220,7 @@ class ReaderApp extends React.PureComponent {
       this.textUnavailableAlert(title);
       return;
     }
+    this._tocFromReader = false;  // choosing a chapter here opens the book in a tab, not in the current one
     this.loadTextToc(title);
     this.setState({
       textTitle: title,
@@ -1100,6 +1232,7 @@ class ReaderApp extends React.PureComponent {
   };
 
   openTextToc = () => {
+      this._tocFromReader = !this.state.menuOpen;
       this.openMenu("text toc");
   };
 
@@ -1351,9 +1484,23 @@ class ReaderApp extends React.PureComponent {
     this.setState({offsetRef:null});
   };
 
+  _getReaderBodyRef = ref => { this._readerBodyRef = ref; };
+
+  _measureReaderBody = () => {
+    // page position and height of the area shared by the text and the connections panel
+    this._readerBodyRef && this._readerBodyRef.measure && this._readerBodyRef.measure((x, y, width, height, pageX, pageY) => {
+      if (height > 0) { this._readerBodyLayout = { top: pageY, height }; }
+    });
+  };
+
+  _panelFlexForTouch = (pageY, grabOffset = 0) => {
+    const layout = this._readerBodyLayout || { top: 75, height: ViewPort.height - 75 };
+    return panelFlexForTouch(pageY, layout.top, layout.height, grabOffset);
+  };
+
   onTextListDragStart = (evt) => {
-    let headerHeight = 75;
-    let flex = 1.0 - (evt.nativeEvent.pageY-headerHeight)/(ViewPort.height-headerHeight);
+    this._measureReaderBody();
+    const flex = this._panelFlexForTouch(evt.nativeEvent.pageY);
     // Save an offset which represent how high inside the header the click started
     this._textListDragOffset = this.state.textListFlex - flex;
     return !this.state.textListAnimating;
@@ -1361,15 +1508,7 @@ class ReaderApp extends React.PureComponent {
 
   onTextListDragMove = (evt) => {
     if (this.state.textListAnimating) return;
-
-    let headerHeight = 75;
-    let flex = 1.0 - (evt.nativeEvent.pageY-headerHeight)/(ViewPort.height-headerHeight) + this._textListDragOffset;
-    if (flex > 0.999) {
-      flex = 0.999;
-    } else if (flex < 0.001) {
-      flex = 0.001;
-    }
-    this.setState({ textListFlex: flex });
+    this.setState({ textListFlex: this._panelFlexForTouch(evt.nativeEvent.pageY, this._textListDragOffset) });
   };
 
   onTextListAnimateFinish = () => {
@@ -1404,13 +1543,18 @@ class ReaderApp extends React.PureComponent {
   };
 
   onTextListDragEnd = evt => {
-    const headerHeight = 75;
-    const flex = 1.0 - (evt.nativeEvent.pageY-headerHeight)/(ViewPort.height-headerHeight) + this._textListDragOffset;
-    
-    if (flex > 0.9 || flex < 0.2) {
-      this.animateTextList(flex, flex > 0.9 ? 0.9999 : 0.0001, 200);
+    if (this.state.textListAnimating) return;
+    const pageY = evt && evt.nativeEvent && evt.nativeEvent.pageY;
+    const flex = typeof pageY === 'number' ? this._panelFlexForTouch(pageY, this._textListDragOffset || 0) : this.state.textListFlex;
+    const action = panelReleaseAction(flex);
+    if (action === 'full') {
+      this.animateTextList(flex, 0.9999, 200);
+    } else if (action === 'close') {
+      this.animateTextList(flex, 0.0001, 200);
     } else {
+      // remembered (also across restarts) as the height the panel opens at
       this.setState({ textListFlexPreference: flex });
+      savePanelFlexPreference(flex);
     }
   };
   _getSearchStateName = type => ( `${type}SearchState` );
@@ -1724,6 +1868,287 @@ class ReaderApp extends React.PureComponent {
     return menuBlacklist.indexOf(menuOpen) === -1;
   };
 
+  /* ======================= Reader tabs ======================= */
+
+  _isOutsideReader = () => !!this.state.menuOpen && !(this.state.menuOpen === 'text toc' && this._tocFromReader);
+
+  /** Keep the in-memory reader state of the active tab (see TAB_SNAPSHOT_KEYS). */
+  _saveSnapshotForActiveTab = () => {
+    const id = this.state.readerTabs.activeTabId;
+    if (!id || this.state.menuOpen || !this.state.loaded || !this.state.data || this.state.sheet) { return; }
+    const tab = findTab(this.state.readerTabs, id);
+    if (!tab || tab.title !== this.state.textTitle) { return; }
+    const snapshot = {};
+    for (const k of TAB_SNAPSHOT_KEYS) { snapshot[k] = this.state[k]; }
+    this._tabSnapshots[id] = snapshot;
+  };
+
+  /** Drop in-memory state of tabs that were closed or archived (archived tabs keep only book + place). */
+  _pruneSnapshots = readerTabs => {
+    const open = new Set(readerTabs.tabs.map(t => t.id));
+    for (const id of Object.keys(this._tabSnapshots)) {
+      if (!open.has(id)) { delete this._tabSnapshots[id]; }
+    }
+  };
+
+  /** Where the reader is now, in the shape stored on a tab. */
+  _currentTabPlace = () => {
+    const s = this.state;
+    if (!s.textTitle || !s.sectionArray || !s.sectionArray.length) { return null; }
+    const sectionRef = s.sectionArray[s.sectionIndexRef] || s.textReference;
+    if (!sectionRef) { return null; }
+    const inThisBook = r => !!r && Sefaria.textTitleForRef(r) === s.textTitle;
+    let segmentRef = null;
+    if (s.segmentIndexRef !== -1 && inThisBook(s.segmentRef)) {
+      segmentRef = s.segmentRef;  // top segment on screen (or the one the panel is open on)
+    } else if (inThisBook(s.offsetRef)) {
+      segmentRef = s.offsetRef;   // segment the text was opened at, before any scrolling
+    }
+    return {
+      title: s.textTitle,
+      heTitle: s.heTitle || null,
+      ref: sectionRef,
+      heRef: (s.sectionHeArray && s.sectionHeArray[s.sectionIndexRef]) || s.heRef || null,
+      segmentRef,
+      versions: this.removeDefaultVersions(sectionRef, s.selectedVersions) || null,
+      textLanguage: this.props.textLanguage,
+      textListVisible: !!s.textListVisible,
+      connectionsMode: s.connectionsMode || null,
+    };
+  };
+
+  /** Record the reader's place on the active tab (opening a tab first if the reader shows a text without one). */
+  _syncActiveTabPlace = () => {
+    const place = this._currentTabPlace();
+    if (!place) { return; }
+    const readerTabs = this.state.readerTabs;
+    const next = readerTabs.activeTabId ? updateTabPlace(readerTabs, readerTabs.activeTabId, place) : openTab(readerTabs, place);
+    if (next !== readerTabs) {
+      this._pruneSnapshots(next);
+      this.setState({ readerTabs: next });
+    }
+  };
+
+  /**
+   * Show tab `id` in the reader. With `target` ({ref, versions, loadNewVersions}) the tab is
+   * navigated there; otherwise it reopens exactly where it was.
+   * opts.keepHistory: keep the back stack (used when coming from a page such as home);
+   * opts.baseTabs: tabs state to start from (e.g. after closing a tab); opts.skipSnapshot.
+   */
+  switchToTab = (id, target = null, { keepHistory = false, baseTabs = null, skipSnapshot = false } = {}) => {
+    const base = baseTabs || this.state.readerTabs;
+    const tab = findTab(base, id);
+    if (!tab) { return Promise.resolve(); }
+    const inReader = !this.state.menuOpen;
+    if (inReader && !baseTabs && id === base.activeTabId && !target) { return Promise.resolve(); }  // already showing
+    if (inReader && !skipSnapshot) { this._saveSnapshotForActiveTab(); }
+    if (!keepHistory) { this.tabHistory.clear({ tab: this.state.footerTab }); }  // back history belonged to the other tab
+    const readerTabs = switchTab(base, id);
+    this._pruneSnapshots(readerTabs);
+    // each tab keeps its language; applied once the tab is showing, so it is recorded on the right tab
+    const applyTabLanguage = () => {
+      if (tab.textLanguage && tab.textLanguage !== this.props.textLanguage) {
+        this.props.dispatch({ type: STATE_ACTIONS.setTextLanguage, value: tab.textLanguage });
+      }
+    };
+    this._loadToken++;  // ignore anything still loading for the previous tab
+    const snapshot = this._tabSnapshots[id];
+    if (snapshot && !target) {
+      Sefaria.links.reset();
+      return new Promise(resolve => this.setState({
+        ...snapshot,
+        readerTabs,
+        menuOpen: null,
+        loaded: true,
+        loadingTextTail: false,
+        loadingTextHead: false,
+        textListAnimating: false,
+        ReaderDisplayOptionsMenuVisible: false,
+        // TextColumn jumps to offsetRef when (re)mounted: put the tab back at its top segment
+        offsetRef: (snapshot.segmentIndexRef !== -1 && snapshot.segmentRef) ? snapshot.segmentRef : snapshot.offsetRef,
+        textColumnKey: `${id}|${Date.now()}`,
+      }, () => { applyTabLanguage(); resolve(); }));
+    }
+    delete this._tabSnapshots[id];
+    const ref = target ? target.ref : tabResumeRef(tab);
+    const versions = (target ? target.versions : tab.versions) || undefined;
+    // loaded: false until the tab's text arrives, so the previous tab's text is never recorded as this tab's place
+    return new Promise(resolve => this.setState({ readerTabs, loaded: false, ReaderDisplayOptionsMenuVisible: false }, () => {
+      applyTabLanguage();
+      this.openRef(ref, 'tab', versions, false, false, !!(target && target.loadNewVersions)).then(() => {
+        if (!Sefaria.textTitleForRef(ref)) {
+          // the book is no longer available (e.g. hidden by the content filter): drop the tab
+          this.setState(prev => ({ readerTabs: closeTab(prev.readerTabs, id) }));
+          this.openNav(false);
+        }
+        resolve();
+      }, resolve);
+    }));
+  };
+
+  /**
+   * openRef from a page outside the reader (home, library, search, history, calendars...):
+   * a book that is already open in a tab is shown in that tab (at its place when `ref` is just the
+   * book's resume point); otherwise a new tab is opened (or the book's archived tab is reopened).
+   * Returns a promise when it took over, or null to let openRef continue in the (new) active tab.
+   */
+  _openRefFromOutside = (ref, calledFrom, versions, addToBackStack, enableAliyot, loadNewVersions) => {
+    const title = Sefaria.textTitleForRef(ref);
+    if (!title) { return null; }  // openRef shows the "text unavailable" alert
+    let readerTabs = this.state.readerTabs;
+    const existing = findTabForBook(readerTabs, title);
+    if (existing) {
+      const historyItem = Sefaria.history.getHistoryRefForTitle(title);
+      const isResume = ref === existing.ref || ref === tabResumeRef(existing) || (!!historyItem && historyItem.ref === ref);
+      if (addToBackStack) {
+        if (calledFrom === 'search') {
+          // as in openRef: don't clone the (large) search results into the back stack
+          const { appliedFilters, appliedFilterAggTypes } = this.state.textSearchState;
+          this.state.textSearchState = new SearchState({type: 'text', appliedFilters, appliedFilterAggTypes});
+        }
+        this.modifyHistory({ dir: "forward", state: this.state, calledFrom });
+      }
+      if (enableAliyot) { this.setAliyot(true); }
+      return this.switchToTab(existing.id, isResume && !loadNewVersions ? null : { ref, versions, loadNewVersions }, { keepHistory: true });
+    }
+    const archived = readerTabs.archived.find(a => a.title === title);
+    readerTabs = archived ?
+      restoreArchivedTab(readerTabs, archived.id) :
+      openTab(readerTabs, { title, heTitle: Sefaria.index(title)?.heTitle || null, ref, versions: versions || null });
+    this._pruneSnapshots(readerTabs);
+    this.setState({ readerTabs });
+    return null;
+  };
+
+  /** Open `ref` in a new tab; the current tab stays exactly where it is. */
+  openRefInNewTab = (ref, versions) => {
+    const title = Sefaria.textTitleForRef(ref);
+    if (!title) {
+      this.textUnavailableAlert(ref);
+      return Promise.resolve();
+    }
+    if (!this.state.menuOpen) { this._saveSnapshotForActiveTab(); }
+    const readerTabs = openTab(this.state.readerTabs, { title, heTitle: Sefaria.index(title)?.heTitle || null, ref, versions: versions || null });
+    this._pruneSnapshots(readerTabs);
+    this.tabHistory.clear({ tab: this.state.footerTab });
+    this.showToast(strings.tabs.opened_in_new_tab, Toast.durations.SHORT);
+    return new Promise(resolve => this.setState({ readerTabs, loaded: false, ReaderDisplayOptionsMenuVisible: false }, () => {
+      this.openRef(ref, 'tab', versions || undefined, false).then(resolve, resolve);
+    }));
+  };
+
+  /** Home page strip: open a tab, with "back" returning to the home page. */
+  openReaderTabFromHome = id => {
+    this.modifyHistory({ dir: "forward", state: this.state });
+    this.switchToTab(id, null, { keepHistory: true });
+  };
+
+  closeReaderTab = id => {
+    const readerTabs = this.state.readerTabs;
+    const wasActive = readerTabs.activeTabId === id;
+    const next = closeTab(readerTabs, id);
+    delete this._tabSnapshots[id];
+    if (wasActive && !this.state.menuOpen) {
+      if (next.activeTabId) {
+        this.switchToTab(next.activeTabId, null, { baseTabs: next, skipSnapshot: true });
+      } else {
+        this.setState({ readerTabs: next });
+        this.openNav(false);
+      }
+      return;
+    }
+    this.setState({ readerTabs: next });
+  };
+
+  closeOtherReaderTabs = id => {
+    const next = closeOtherTabs(this.state.readerTabs, id);
+    if (!this.state.menuOpen && this.state.readerTabs.activeTabId !== id) {
+      this.switchToTab(id, null, { baseTabs: next });
+    } else {
+      this._pruneSnapshots(next);
+      this.setState({ readerTabs: next });
+    }
+  };
+
+  restoreArchivedReaderTab = archivedId => {
+    if (!this.state.menuOpen) { this._saveSnapshotForActiveTab(); }
+    const next = restoreArchivedTab(this.state.readerTabs, archivedId);
+    if (next === this.state.readerTabs) { return; }
+    this.switchToTab(next.activeTabId, null, { baseTabs: next, skipSnapshot: true, keepHistory: !!this.state.menuOpen });
+  };
+
+  removeArchivedReaderTab = archivedId => {
+    this.setState(prev => ({ readerTabs: removeArchivedTab(prev.readerTabs, archivedId) }));
+  };
+
+  clearArchivedReaderTabs = () => {
+    this.setState(prev => ({ readerTabs: clearArchivedTabs(prev.readerTabs) }));
+  };
+
+  /* ---------- tablet split view ---------- */
+
+  _isSplitViewAvailable = () => this.state.windowWidth >= SPLIT_VIEW_MIN_WIDTH;
+
+  _otherTabs = () => this.state.readerTabs.tabs.filter(t => t.id !== this.state.readerTabs.activeTabId);
+
+  _getSplitTab = () => {
+    const others = this._otherTabs();
+    return others.find(t => t.id === this.state.splitTabId) ||
+      others.reduce((best, t) => (!best || (t.lastUsed || 0) > (best.lastUsed || 0) ? t : best), null);
+  };
+
+  setSplitView = on => {
+    this.setState({ splitView: !!on });
+    AsyncStorage.setItem(SPLIT_VIEW_STORAGE_KEY, on ? 'true' : 'false').catch(() => {});
+    this.closeReaderDisplayOptionsMenu();
+  };
+
+  /** Show another tab in the split pane (null: the next one). */
+  pickSplitTab = id => {
+    if (id) { this.setState({ splitTabId: id }); return; }
+    const others = this._otherTabs();
+    const current = this._getSplitTab();
+    const i = others.findIndex(t => current && t.id === current.id);
+    const next = others[(i + 1) % others.length];
+    if (next) { this.setState({ splitTabId: next.id }); }
+  };
+
+  /** Make the split pane's tab the main one (the main one moves to the split pane). */
+  focusSplitTab = (id, segmentRef) => {
+    let base = this.state.readerTabs;
+    if (segmentRef) { base = updateTabPlace(base, id, { segmentRef }); }
+    delete this._tabSnapshots[id];
+    this.setState({ splitTabId: this.state.readerTabs.activeTabId });
+    this.switchToTab(id, null, { baseTabs: base });
+  };
+
+  onSplitTabPlaceChange = (id, place) => {
+    delete this._tabSnapshots[id];  // its saved place is now newer than any in-memory state
+    this.setState(prev => ({ readerTabs: updateTabPlace(prev.readerTabs, id, place) }));
+  };
+
+  /* ---------- "show under each passage" ---------- */
+
+  setInlineCommentaryForBook = key => {
+    const inlineCommentaryPrefs = setInlineCommentary(this.state.inlineCommentaryPrefs, this.state.textTitle, key);
+    this.setState({ inlineCommentaryPrefs });
+    saveInlineCommentaryPrefs(inlineCommentaryPrefs);
+    this.closeReaderDisplayOptionsMenu();
+  };
+
+  _getContextValue = () => {
+    // memoized so context consumers only re-render when the tabs change
+    if (!this._contextValue || this._contextValue.readerTabs !== this.state.readerTabs) {
+      this._contextValue = {
+        handleOpenURL: this.handleOpenURL,
+        openURLInNewTab: this.openURLInNewTab,
+        readerTabs: this.state.readerTabs,
+        openReaderTab: this.openReaderTabFromHome,
+      };
+    }
+    return this._contextValue;
+  };
+
   renderContent() {
     const loading = !this.state.loaded;
     switch(this.state.menuOpen) {
@@ -1818,10 +2243,29 @@ class ReaderApp extends React.PureComponent {
       relatedData = this.state.relatedBySectionRef[this.state.sectionArray[this.state.sectionIndexRef]][this.state.segmentIndexRef].relatedWOLinks || {};
     } catch(e) {}
     const vowelToggleAvailable = Sefaria.vowelToggleAvailability(this.state.data[this.state.sectionIndexRef]);
+    const { readerTabs } = this.state;
+    const showTabBar = readerTabs.tabs.length > 0;
+    const splitViewAvailable = this._isSplitViewAvailable() && !isSheet;
+    const showSplit = splitViewAvailable && this.state.splitView;
+    const inlineCommentary = (!isSheet && this.state.textFlow !== 'continuous') ?
+      getInlineCommentary(this.state.inlineCommentaryPrefs, this.state.textTitle) : null;
     return (
         <Animated.View
           style={[styles.container, this.props.theme.container]}
         >
+            {showTabBar ?
+              <ReaderTabBar
+                tabs={readerTabs.tabs}
+                activeTabId={readerTabs.activeTabId}
+                archived={readerTabs.archived}
+                onSelect={this.switchToTab}
+                onClose={this.closeReaderTab}
+                onCloseOthers={this.closeOtherReaderTabs}
+                onNewTab={this.openNav}
+                onRestoreArchived={this.restoreArchivedReaderTab}
+                onRemoveArchived={this.removeArchivedReaderTab}
+                onClearArchived={this.clearArchivedReaderTabs}
+              /> : null}
             <CategoryColorLine category={Sefaria.primaryCategoryForTitle(this.state.textTitle, isSheet)} />
             <ReaderControls
               enRef={this.state.textReference}
@@ -1836,6 +2280,8 @@ class ReaderApp extends React.PureComponent {
               showToast={this.showToast}
             />
 
+            <View style={{flex: 1, flexDirection: 'row'}}>
+            <View style={{flex: 1}} ref={this._getReaderBodyRef} onLayout={this._measureReaderBody} collapsable={false}>
             { loading ?
             <LoadingView style={{flex: textColumnFlex}} category={Sefaria.primaryCategoryForTitle(this.state.textTitle)}/> :
             <View style={[{flex: textColumnFlex}, styles.mainTextPanel, this.props.theme.mainTextPanel]}
@@ -1883,6 +2329,7 @@ class ReaderApp extends React.PureComponent {
                   highlightedWordID={this.state.highlightedWordID}
                   highlightedWordSegmentRef={this.state.highlightedWordSegmentRef}
                   setHighlightedWord={this.setHighlightedWord}
+                  inlineCommentary={inlineCommentary}
                 />
             </View> }
 
@@ -1942,6 +2389,27 @@ class ReaderApp extends React.PureComponent {
               />
                : null
             }
+            </View>
+            {showSplit ?
+              <SplitTabPane
+                tab={this._getSplitTab()}
+                otherTabs={this._otherTabs()}
+                theme={this.props.theme}
+                themeStr={this.props.themeStr}
+                fontSize={this.props.fontSize}
+                textLanguage={this.props.textLanguage}
+                interfaceLanguage={this.props.interfaceLanguage}
+                biLayout={this.props.biLayout}
+                showAliyot={this.props.showAliyot}
+                hasInternet={this.state.hasInternet}
+                onPickTab={this.pickSplitTab}
+                onFocusTab={this.focusSplitTab}
+                onPlaceChange={this.onSplitTabPlaceChange}
+                showToast={this.showToast}
+                handleOpenURL={this.handleOpenURL}
+                textUnavailableAlert={this.textUnavailableAlert}
+              /> : null}
+            </View>
             {this.state.ReaderDisplayOptionsMenuVisible ?
               (<ReaderDisplayOptionsMenu
                 ref={this._getReaderDisplayOptionsMenuRef}
@@ -1964,6 +2432,13 @@ class ReaderApp extends React.PureComponent {
                 canHaveAliyot={Sefaria.canHaveAliyot(this.state.textTitle)}
                 vowelToggleAvailable={vowelToggleAvailable}
                 themeStr={this.props.themeStr}
+                inlineSources={isSheet ? [] : availableInlineSources(this.state.relatedBySectionRef, t => Sefaria.index(t)?.heTitle)}
+                inlineCommentary={inlineCommentary}
+                setInlineCommentary={this.setInlineCommentaryForBook}
+                splitViewAvailable={splitViewAvailable}
+                splitView={this.state.splitView}
+                setSplitView={this.setSplitView}
+                topOffset={showTabBar ? 58 + READER_TAB_BAR_HEIGHT : undefined}
               />) : null
             }
         </Animated.View>
@@ -2014,7 +2489,7 @@ class ReaderApp extends React.PureComponent {
   render() {
     // StatuBar comment: can't figure out how to get barStyle = light-content to be respected on Android
     const { safeViewStyle, statusBarBackgroundColor, statusBarStyle } = getSafeViewStyleAndStatusBarBackground(this.state, this.props.theme.mainTextPanel, this.props.themeStr === "white");
-    const readerAppContextData = {handleOpenURL: this.handleOpenURL};
+    const readerAppContextData = this._getContextValue();
 
     return (
       <ReaderAppContext.Provider value={readerAppContextData}>

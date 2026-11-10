@@ -2,7 +2,7 @@
 
 import PropTypes from 'prop-types';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useContext } from 'react';
 import {
   Platform,
   Share,
@@ -11,7 +11,8 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import ActionSheet from 'react-native-action-sheet';
-import { RenderHTML } from 'react-native-render-html';
+import { RenderHTML, useInternalRenderer } from 'react-native-render-html';
+import ReaderAppContext from './context';
 import Clipboard from "@react-native-clipboard/clipboard";
 import ReactNativeHapticFeedback from "react-native-haptic-feedback";
 import strings from './LocalizedStrings';
@@ -120,7 +121,7 @@ const TextSegment = React.memo(({
           return (
             <TDefaultRenderer {...props} />
           );
-        }}}
+        }, a: LinkRenderer}}
       />
     </TouchableOpacity>
   );
@@ -134,6 +135,24 @@ TextSegment.propTypes = {
   bilingual:          PropTypes.bool,
   onTextPress:        PropTypes.func.isRequired,
   showToast:          PropTypes.func.isRequired,
+};
+
+/**
+ * In-text link: tap follows it (renderersProps.a.onPress, as before); long-press opens it in a
+ * new reader tab.
+ */
+const LinkRenderer = (props) => {
+  const { Renderer, rendererProps } = useInternalRenderer('a', props);
+  const { openURLInNewTab } = useContext(ReaderAppContext);
+  const href = props.tnode?.attributes?.href;
+  if (!openURLInNewTab || !href) {
+    return <Renderer {...rendererProps} />;
+  }
+  const onLongPress = () => {
+    ReactNativeHapticFeedback.trigger("impactMedium");
+    openURLInNewTab(href);
+  };
+  return <Renderer {...rendererProps} textProps={{ ...(rendererProps.textProps || {}), onLongPress }} />;
 };
 
 const ClickableWord = ({ onPress, setDictionaryLookup, setHighlightedWord, highlightedWordID, segmentRef, TDefaultRenderer, ...props }) => {

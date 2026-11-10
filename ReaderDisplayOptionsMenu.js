@@ -9,6 +9,7 @@ import {
   View,
   Image,
   Animated,
+  ScrollView,
 } from 'react-native';
 import styles from './Styles.js';
 import strings from './LocalizedStrings';
@@ -33,7 +34,15 @@ class ReaderDisplayOptionsMenu extends React.Component {
     setTextLanguage:                 PropTypes.func,
     setAliyot:                       PropTypes.func,
     incrementFont:                   PropTypes.func,
-    setTheme:                        PropTypes.func
+    setTheme:                        PropTypes.func,
+    // "Under each passage": commentaries/targumim available for this sefer ([{key, en, he}])
+    inlineSources:                   PropTypes.array,
+    inlineCommentary:                PropTypes.string,
+    setInlineCommentary:             PropTypes.func,
+    splitViewAvailable:              PropTypes.bool,
+    splitView:                       PropTypes.bool,
+    setSplitView:                    PropTypes.func,
+    topOffset:                       PropTypes.number,
   };
   constructor(props) {
     super(props);
@@ -55,6 +64,37 @@ class ReaderDisplayOptionsMenu extends React.Component {
       useNativeDriver: false,
     }).start(cb);
   };
+
+  renderInlineSources() {
+    // "Under each passage": show a commentary/targum under every segment like a translation
+    const sources = this.props.inlineSources || [];
+    if (!sources.length || !this.props.setInlineCommentary) { return null; }
+    const isHeb = this.props.interfaceLanguage === "hebrew";
+    const langStyle = isHeb ? styles.heInt : styles.enInt;
+    const choices = [{key: null, en: strings.reader.inline_none, he: strings.reader.inline_none}, ...sources];
+    return (
+      <View style={{marginTop: 4, marginBottom: 8}}>
+        <Text style={[langStyle, {textAlign: "center"}, this.props.theme.secondaryText]}>{strings.reader.under_each_passage}</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{paddingHorizontal: 10, paddingTop: 6, flexDirection: isHeb ? 'row-reverse' : 'row'}}>
+          {choices.map(src => {
+            const selected = (this.props.inlineCommentary || null) === src.key;
+            return (
+              <TouchableOpacity
+                key={src.key || '|none'}
+                onPress={() => this.props.setInlineCommentary(src.key)}
+                accessibilityState={{selected}}
+                style={[styles.readerDisplayOptionsMenuItem, this.props.theme.readerDisplayOptionsMenuItem,
+                        {flex: 0, height: 40, paddingHorizontal: 12, marginHorizontal: 3, borderRadius: 5},
+                        selected ? this.props.theme.readerDisplayOptionsMenuItemSelected : null]}>
+                <Text style={[isHeb ? styles.he : langStyle, {fontSize: isHeb ? 18 : 14}, this.props.theme.secondaryText]}>{isHeb ? src.he : src.en}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
+    );
+  }
 
   render() {
     const icons = menuIconNames.reduce((accum, iconName) => {
@@ -124,6 +164,15 @@ class ReaderDisplayOptionsMenu extends React.Component {
         currVal: Math.max(this.props.vocalization, this.props.vowelToggleAvailable),
         parametrized: true,
       },
+      {
+        condition: !!this.props.splitViewAvailable && !!this.props.setSplitView,
+        label: strings.tabs.split_view,
+        onPress: this.props.setSplitView,
+        buttons: [true, false],
+        text: [strings.common.on, strings.common.off],
+        currVal: !!this.props.splitView,
+        parametrized: true,
+      },
     ];
     const alignments = [["left","right"],["left","center","right"]];
     let toggleSets = []; // two toggle sets per row
@@ -183,15 +232,16 @@ class ReaderDisplayOptionsMenu extends React.Component {
       {
         top: this._position.interpolate({
           inputRange: [0, 1],
-          outputRange: [-350, 0],
+          outputRange: [-600, 0],
           extrapolate: 'clamp',
         }),
       },
     ];
     return (
-      <View style={styles.readerDisplayOptionsMenuMask}>
+      <View style={[styles.readerDisplayOptionsMenuMask, this.props.topOffset ? {top: this.props.topOffset} : null]}>
         <Animated.View style={myStyles}>
             {rows}
+            {this.renderInlineSources()}
         </Animated.View>
       </View>
     );

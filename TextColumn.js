@@ -17,6 +17,7 @@ import styles, { SCROLL_PADDING_BOTTOM_FRACTION, makeScrollViewLayoutHandler } f
 import TextRange from './TextRange';
 import TextRangeContinuous from './TextRangeContinuous';
 import TextHeightMeasurer from './TextHeightMeasurer';
+import InlineCommentary from './reader/InlineCommentary';
 import { VOCALIZATION } from './VocalizationEnum';
 import { stringPair } from './LocalizedStrings';
 const ViewPort  = Dimensions.get('window');
@@ -75,6 +76,7 @@ class TextColumn extends React.PureComponent {
     biLayout:           PropTypes.oneOf(["stacked", "sidebyside", "sidebysiderev"]),
     textUnavailableAlert: PropTypes.func.isRequired,
     vowelToggleAvailable: PropTypes.oneOf([VOCALIZATION.TAAMIM_AND_NIKKUD, VOCALIZATION.NIKKUD, VOCALIZATION.NONE]),
+    inlineCommentary:   PropTypes.string,  // "show under each passage": source key (reader/inlineCommentaryPrefs.js) or null
   };
 
   constructor(props) {
@@ -564,6 +566,8 @@ class TextColumn extends React.PureComponent {
           isSheet={this.props.isSheet}
           setHighlightedWord={this.props.setHighlightedWord}
         />
+        {this.props.inlineCommentary && item.type === ROW_TYPES.SEGMENT && !this.props.isSheet ?
+          <InlineCommentary links={item.data.related?.links} sourceKey={this.props.inlineCommentary} /> : null}
       </View>
     );
   };
@@ -815,7 +819,7 @@ class TextColumn extends React.PureComponent {
               onEndReached={this.onEndReached}
               onEndReachedThreshold={2.0}
               onScroll={this.handleScroll}
-              extraData={this.props.fontSize}
+              extraData={`${this.props.fontSize}|${this.props.inlineCommentary}`}
               scrollEventThrottle={100}
               onViewableItemsChanged={this.onViewableItemsChanged}
               onScrollToIndexFailed={this.onScrollToIndexFailed}
