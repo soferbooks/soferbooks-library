@@ -1,0 +1,33 @@
+{
+ "kind": "Otzaria/wikiSource",
+ "versionTitle": "Otzaria (wikiSource)",
+ "versionSource": "Otzaria library, from wikiSource (https://github.com/Otzaria/otzaria-library)",
+ "license": "CC-BY-SA",
+ "author": "רבי פלוני",
+ "sections": [
+  {
+   "path": [
+    "פרק א"
+   ],
+   "paras": [
+    "טקסט אחר לגמרי שאינו דומה כלל לטקסט של הספר בדיקטה בשום מקום"
+   ]
+  },
+  {
+   "path": [
+    "פרק ב"
+   ],
+   "paras": [
+    "טקסט אחר לגמרי שאינו דומה כלל לטקסט של הספר בדיקטה בשום מקום"
+   ]
+  },
+  {
+   "path": [
+    "פרק ג"
+   ],
+   "paras": [
+    "טקסט אחר לגמרי שאינו דומה כלל לטקסט של הספר בדיקטה בשום מקום"
+   ]
+  }
+ ]
+}

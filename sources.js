@@ -27,7 +27,7 @@ export const SOURCES = [
     enabled: true,
     available: true,
   },
-  { id: 'dicta', name: 'Dicta', heName: 'דיקטה', baseUrl: null, layout: null, enabled: false, available: false },
+  { id: 'dicta', name: 'Dicta', heName: 'דיקטה', baseUrl: 'https://files.dicta.org.il', layout: 'extra', enabled: false, available: true, extra: true },
   // Extra sources (extras/): the reader turns each on in Settings; its books are listed in the
   // library and each is downloaded from the source's own server when opened, then converted on
   // the phone (layout 'extra': the source's module in extras/ does the work)

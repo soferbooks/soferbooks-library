@@ -303,11 +303,12 @@ describe('library sources', () => {
 
   test('the others are registered as coming soon', () => {
     expect(SOURCES.filter(s => !s.available).map(s => s.id))
-      .toEqual(['dicta', 'wikisource', 'soferbooks_extras']);
+      .toEqual(['wikisource', 'soferbooks_extras']);
   });
 
-  test('Otzaria is an extra source the reader turns on (extras/)', () => {
-    expect(SOURCES.filter(s => s.extra && s.available).map(s => s.id)).toEqual(['otzaria']);
+  test('Dicta and Otzaria are extra sources the reader turns on (extras/), off by default', () => {
+    expect(SOURCES.filter(s => s.extra && s.available).map(s => s.id)).toEqual(['dicta', 'otzaria']);
+    expect(SOURCES.filter(s => s.extra).every(s => !s.enabled)).toBe(true);
   });
 });
 

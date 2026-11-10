@@ -8,6 +8,8 @@
  *   catalogUrl, parseCatalog(text) -> [entry]   entry: {source, id, hash, heTitle,
  *                                                categories, heCategories, license, ...}
  *   bookUrl(entry) -> url of the book's file
+ *   (optional) fetchCatalog() -> [entry], fetchBook(entry) -> what toTree takes: for a source
+ *     whose catalogue or book is more than one file (extras/dicta.js)
  *   toTree(text, entry) -> [Node, author]        extras/tree.js
  *   isRestricted(text, entry) -> bool            the book's own notice forbids it
  *   versionOf(entry, text) -> {versionTitle, versionSource, license, librarySource, ...}
@@ -29,13 +31,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {zip} from 'react-native-zip-archive';
 import md5 from 'md5';
 import otzaria from './otzaria';
+import dicta from './dicta';
 import {bookFiles} from './schema7';
 import {chooseBooks, addToToc, categoryNames} from './catalog';
 import {bookLines} from '../localSearch';
 import {clearOfflineSearchCache} from '../offlineSearch';
 import * as shomer from '../shomer';
 
-export const EXTRA_SOURCES = {[otzaria.id]: otzaria};
+export const EXTRA_SOURCES = {[otzaria.id]: otzaria, [dicta.id]: dicta};
 export const ENABLED_KEY = 'extraSources';
 export const CATALOG_MAX_AGE = 7 * 24 * 3600 * 1000;   // a week, as Sefaria's own update check
 const LIBRARY_DIR = `${FileSystem.documentDirectory}library/`;
@@ -127,9 +130,14 @@ async function reloadToc() {
 
 export async function refreshCatalog(id) {
   const source = EXTRA_SOURCES[id];
-  const response = await fetch(source.catalogUrl);
-  if (!response.ok) { throw new Error(`${id} catalogue: HTTP ${response.status}`); }
-  const entries = source.parseCatalog(await response.text());
+  let entries;
+  if (source.fetchCatalog) {           // (a source whose catalogue needs more than one file)
+    entries = await source.fetchCatalog();
+  } else {
+    const response = await fetch(source.catalogUrl);
+    if (!response.ok) { throw new Error(`${id} catalogue: HTTP ${response.status}`); }
+    entries = source.parseCatalog(await response.text());
+  }
   catalogs[id] = {fetchedAt: Date.now(), entries};
   await writeJSON(catalogFile(id), catalogs[id]);
   return entries;
@@ -235,9 +243,14 @@ export async function downloadBook(title) {
   const entry = books[title];
   if (!entry) { throw new Error(`not an extra book: ${title}`); }
   const source = EXTRA_SOURCES[entry.source];
-  const response = await fetch(source.bookUrl(entry));
-  if (!response.ok) { throw new Error(`${entry.source}: HTTP ${response.status} for ${title}`); }
-  const text = await response.text();
+  let text;
+  if (source.fetchBook) {              // (a book that is more than one text file: Dicta's zip of pages)
+    text = await source.fetchBook(entry);
+  } else {
+    const response = await fetch(source.bookUrl(entry));
+    if (!response.ok) { throw new Error(`${entry.source}: HTTP ${response.status} for ${title}`); }
+    text = await response.text();
+  }
   if (source.isRestricted(text, entry)) {
     state.blocked[`${entry.source}|${entry.id}`] = 'the book\'s own notice';
     await saveState();

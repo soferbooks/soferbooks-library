@@ -261,6 +261,31 @@ node -r @babel/register tools\library-export\compare_otzaria.js C:\tmp\fid --qui
 2026-11-10: all 1,172 Otzaria books Sofer imported came out the same (sections, headings,
 paragraphs, author line), and the book-notice rule agreed on all 1,172.
 
+**Dicta** (`extras/dicta.js`): the catalogue is Dicta's official `books.json`
+(`raw.githubusercontent.com/Dicta-Israel-Center-for-Text-Analysis/Dicta-Library-Download/main`,
+linked from library.dicta.org.il's About page) plus Otzaria's `files_manifest.json` (its copies
+of Dicta's books); each book is its `textFileURL`, a zip of its pages on `files.dicta.org.il`,
+unzipped on the phone. Licence CC BY-SA 4.0 (the repository's README and the site's About page),
+credited to Dicta. Sofer's rules: Otzaria's layout of a Dicta book (DictaToOtzaria) is used when
+it has text (fetched from Otzaria's repository; then nothing is downloaded from Dicta), still
+Dicta's; where Dicta's own has no sections, another collection's copy that has them (with the
+app's collection licences). Dicta's computer-nikud editions (`nikudMetegFileURL`) are not offered.
+
+```powershell
+# expected results of the fixtures (__tests__/fixtures/dicta/*.sofer.json), by Sofer's import_dicta
+python tools\library-export\dicta_fixtures.py
+python tools\library-export\dicta_fixtures.py --take <fileName> <name>     # another real book
+# all Dicta books Sofer imported, through the phone's converter
+python tools\library-export\dicta_fidelity.py C:\tmp\dfid
+node --max-old-space-size=8000 -r @babel/register tools\library-export\compare_dicta.js C:\tmp\dfid --quiet [--app]
+```
+
+2026-11-10: all 1,154 Dicta books Sofer imported came out the same (choice of text, version
+name, source line, licence, sections, headings, paragraphs). With the app's collection licences
+(`--app`) two differ, by the app's licence table, not the converter: Eitz Hadar (wiki Jewish
+books, not offered by the app: Dicta's own text, one section) and Tevunah (National Library,
+now CC BY-NC-SA 4.0 in Otzaria's README: under that licence instead of Dicta's).
+
 ### Superseded: hosted extras packs
 
 **Can the phone use the sources' own releases?** No, not sensibly:
