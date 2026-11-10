@@ -94,8 +94,11 @@ def primary_versions(versions):
 
 
 def segments_for_section(z: zipfile.ZipFile, names: set, stem: str, ref: str,
-                         lang: str, version_title: str):
-    """The segment texts of one section in one version."""
+                         lang: str, version_title: str, corrections=None):
+    """The segment texts of one section in one version.
+
+    ``corrections``: {section file name without ".json": ops} (sofer_corrections.py),
+    applied before indexing so the search finds the text the reader shows."""
     name = f"{stem}.{version_hash(version_title)}.{lang}.json"
     if name not in names:
         # fall back on any file for this version/language (hash mismatch)
@@ -110,12 +113,16 @@ def segments_for_section(z: zipfile.ZipFile, names: set, stem: str, ref: str,
         payload = json.loads(z.read(name))
     except (ValueError, KeyError):
         return []
+    ops = (corrections or {}).get(name[: -len(".json")])
+    if ops:
+        from sofer_corrections import apply_ops
+        apply_ops(payload, ops)
     if isinstance(payload, dict):
         payload = payload.get("sections", {}).get(ref, payload.get("text"))
     return [clean(unit) for unit in text_units(payload)]
 
 
-def build_book(zip_path: Path, out_path: Path) -> int:
+def build_book(zip_path: Path, out_path: Path, corrections=None) -> int:
     """Write the search text of one book; returns the number of indexed lines."""
     lines = []
     with zipfile.ZipFile(zip_path) as z:
@@ -130,7 +137,8 @@ def build_book(zip_path: Path, out_path: Path) -> int:
                 continue
             for ref, he_ref, versions in section_entries(metadata):
                 for lang, version_title in primary_versions(versions):
-                    units = segments_for_section(z, names, stem, ref, lang, version_title)
+                    units = segments_for_section(z, names, stem, ref, lang, version_title,
+                                                 corrections)
                     for i, unit in enumerate(units, start=1):
                         if not unit:
                             continue

@@ -7,6 +7,7 @@ import {ERRORS} from "./errors";
 import {loadJSONFile} from "./DownloadControl";
 import {fileExists} from './DownloadControl';
 import * as shomer from './shomer';
+import {applyCorrections} from './corrections';
 
 /*
 PUBLIC INTERFACE
@@ -445,7 +446,18 @@ const loadOfflineSectionByVersion = async function(fileNameStem, lang, vtitle) {
      * We also already know the fileNameStem from loading of metadata
      */
     const jsonPath = _JSONSectionPath(fileNameStem, vtitle, lang);
-    return await _loadJSON(jsonPath);
+    const data = await _loadJSON(jsonPath);
+    // Sofer's text corrections (corrections.js), re-applied on every read, so they hold
+    // after each download and update of the book
+    return await applyCorrections(_titleForStem(fileNameStem), _sectionFileName(fileNameStem, vtitle, lang), data);
+};
+
+const _titleForStem = function(fileNameStem) {
+    try {
+        return Sefaria.textTitleForRef(fileNameStem);
+    } catch (e) {
+        return null;
+    }
 };
 
 const loadOfflineSectionMetadataWithCache = async function(ref) {
@@ -512,12 +524,16 @@ const _JSONMetadataPath = function(sectionRef) {
     return _JSONSourcePath(`${sectionRef}.metadata`);
 };
 
+const _sectionFileName = function(sectionRef, vtitle, lang) {
+    const vtitleHash = md5(vtitle).substring(0, 8);  // version title hash only uses the first 8 chars which is unique enough
+    return `${sectionRef}.${vtitleHash}.${lang}`;
+};
+
 const _JSONSectionPath = function(sectionRef, vtitle, lang) {
     /**
      * Return the file path for a section file that contains data for a given section / vtitle / lang triplet
      */
-    const vtitleHash = md5(vtitle).substring(0, 8);  // version title hash only uses the first 8 chars which is unique enough
-    return _JSONSourcePath(`${sectionRef}.${vtitleHash}.${lang}`);
+    return _JSONSourcePath(_sectionFileName(sectionRef, vtitle, lang));
 };
 
 const _JSONSourcePath = function(fileName) {

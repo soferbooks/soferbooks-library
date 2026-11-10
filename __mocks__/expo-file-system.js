@@ -99,12 +99,22 @@ const readDirectoryAsync = jest.fn(fileUri => {
 });
 
 const makeDirectoryAsync = jest.fn(() => Promise.resolve());
+// Downloads: tests register what a URL serves with setRemote(url, content[, status]).
+const remotes = {};
+const setRemote = jest.fn((url, content, status = 200) => { remotes[url] = {content, status}; });
+const downloadAsync = jest.fn((url, fileUri) => {
+  const remote = remotes[url];
+  if (!remote) { return Promise.resolve({status: 404, uri: fileUri}); }
+  if (remote.status >= 200 && remote.status < 300) { testCache[fileUri] = remote.content; }
+  return Promise.resolve({status: remote.status, uri: fileUri});
+});
 const setTimestamp = jest.fn((filename, timestamp) => {
   timeStamps[filename] = timestamp;
 });
 const clear = jest.fn(() => {
   Object.keys(testCache).forEach(x => { delete testCache[x]});
   Object.keys(timeStamps).forEach(x => { delete timeStamps[x]});
+  Object.keys(remotes).forEach(x => { delete remotes[x]});
 });
 const documentDirectory = '';
 const cacheDirectory = '';
@@ -140,5 +150,7 @@ export {
   cacheDirectory,
   bundleDirectory,
   readDirectoryAsync,
+  downloadAsync,
+  setRemote,
   File,
 }
