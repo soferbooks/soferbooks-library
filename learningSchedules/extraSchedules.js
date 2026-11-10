@@ -11,7 +11,9 @@
  *   Tehillim (Weekly)     the traditional 7-day division by day of the week
  *
  * Daily Rambam (1 and 3 chapters) come from Sefaria's calendar.json as they are.
- * Every item has the shape of Sefaria's calendar items: {title, refs, subs, category, order}.
+ * Every item has the shape of Sefaria's calendar items: {title, refs, subs, category, order}; an
+ * item may add `inlineCommentary: {book, key}`, a commentary to show under each passage of `book`
+ * when the item is opened (reader/inlineCommentaryPrefs.js, openScheduleRef).
  * Pure JavaScript, so it is unit-tested directly (__tests__/learningSchedules.test.js).
  */
 import { HDate, gematriya } from '@hebcal/core';
@@ -73,7 +75,7 @@ export function weeklyPsalms(date) {
 
 // ---------- Mishnah Berurah Yomi ----------
 
-const siman = s => String(s).split(':')[0];
+export const MB_BASE_TEXT = 'Shulchan Arukh, Orach Chayim';
 const heSeif = s => String(s).split(':').map(heNum).join(':');
 
 export function mishnahBerurah(date) {
@@ -87,9 +89,11 @@ export function mishnahBerurah(date) {
     title: TITLES.mishnahBerurah,
     category: 'Halakhah',
     order: 6.5,
-    // Sefaria's Mishnah Berurah is numbered by siman and se'if katan, the schedule by the
-    // Shulchan Arukh's siman and se'if: open the siman where the day's learning starts
-    refs: [`Mishnah Berurah ${siman(b)}`],
+    // The schedule is numbered by the Shulchan Arukh's siman and se'if (Sefaria's Mishnah Berurah
+    // goes by se'if katan): open the Shulchan Arukh at the se'if where the day's learning starts,
+    // with the Mishnah Berurah shown under each se'if (reader/inlineCommentaryPrefs.js)
+    refs: [`${MB_BASE_TEXT} ${b}`],
+    inlineCommentary: { book: MB_BASE_TEXT, key: 'Mishnah Berurah' },
     subs: [{
       en: `${review ? 'Review: ' : ''}Orach Chayim ${en}`,
       he: `${review ? 'חזרה: ' : ''}אורח חיים ${he}`,

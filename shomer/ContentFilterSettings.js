@@ -46,6 +46,7 @@ const GROUP_NAMES = {
   historical_apocrypha: ['filter.group_historical_apocrypha', 'filter.group_historical_apocrypha_short'],
   academic_orthodox: ['filter.group_academic_orthodox', 'filter.group_academic_orthodox_short'],
   community_sheets: ['filter.group_community_sheets', 'filter.group_community_sheets_short'],
+  women_authors: ['filter.group_women_authors', 'filter.group_women_authors_short'],
   religious_zionist_thought: ['filter.group_religious_zionist_thought', 'filter.group_religious_zionist_thought_short'],
 };
 const localized = (id, fallback) => (id && strings.getString(id)) || fallback;

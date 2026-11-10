@@ -475,6 +475,7 @@ describe('Content filter', () => {
         'filter.group_historical_apocrypha_short',
         'filter.group_academic_orthodox_short',
         'filter.group_community_sheets_short',
+        'filter.group_women_authors_short',
         'filter.group_religious_zionist_thought_short']);
   });
 
@@ -496,6 +497,7 @@ describe('Content filter', () => {
         'filter.group_historical_apocrypha',
         'filter.group_academic_orthodox',
         'filter.group_community_sheets',
+        'filter.group_women_authors',
         'filter.group_religious_zionist_thought']);
   });
 });

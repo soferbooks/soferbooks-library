@@ -1,3 +1,4 @@
+import { openScheduleRef } from '../reader/inlineCommentaryPrefs';
 import React from 'react';
 import {View, Text, SectionList} from "react-native";
 import Sefaria from "../sefaria";
@@ -105,7 +106,7 @@ const useOpenNthRefOrUrl = (n, calendarItem, openRef, openUri) => {
             }
             openUri(`${Sefaria.api._baseHost}${calendarItem.url}`);
         } else {
-            openRef(calendarItem.refs[n]);
+            openScheduleRef(calendarItem, n, openRef);
         }
     };
 };
