@@ -442,6 +442,8 @@
       "Gates of Prayer",
       "The Torah; A Women's Commentary",
       "The Torah: A Women's Commentary",
+      "The Torah, A Women's Commentary",
+      "A Women's Commentary",
       "Women of Reform Judaism",
       "CCAR Press",
       "התורה: פירושן של נשים"
@@ -972,6 +974,25 @@
     ]
   },
   {
+    "id": "feminist_translations",
+    "name": "Women's / feminist translations",
+    "hebrewName": "תרגומים פמיניסטיים",
+    "group": "feminist_translations",
+    "sefariaSlugs": [],
+    "keywords": [
+      "Dena Weiss",
+      "debra robbins",
+      "Debra J. Robbins",
+      "Jen Taylor Friedman"
+    ],
+    "reason": "Translations presented from a women's / feminist or non-Orthodox egalitarian setting: Hadar (Dena Weiss), a Reform rabbi's adaptation (Rabbi Debra Robbins), a woman scribe's project (Jen Taylor Friedman, HaSoferet). The book itself stays; only the translation is hidden, from RWMO up (2026-11).",
+    "exampleWorks": [
+      "Shemot Rabbah, Dena Weiss translation",
+      "Vayikra Rabbah, adapted by Debra Robbins",
+      "Keset HaSofer, trans. Jen Taylor Friedman"
+    ]
+  },
+  {
     "id": "women_authors",
     "name": "Works by women authors",
     "hebrewName": "חיבורים שכתבו נשים",
@@ -1042,39 +1063,23 @@
       "Tamara Cohn Eskenazi",
       "Judith Hauptman",
       "Judith Plaskow",
-      "Nechama Leibowitz",
-      "Nehama Leibowitz",
-      "Nechama Liebowitz",
-      "Nehama Liebowitz",
-      "נחמה ליבוביץ",
       "Gilyonot Nechama",
       "גליונות נחמה",
-      "Studies in Bereshit",
-      "Studies in Shemot",
-      "Studies in Vayikra",
-      "Studies in Bamidbar",
-      "Studies in Devarim",
-      "Dena Weiss",
       "Tziporah Lifshitz",
-      "debra robbins",
-      "Jen Taylor Friedman",
       "Ruth Morris",
       "Jessica Setbon",
       "Staalduine-Sulman",
       "Michal Ricardo",
       "Rachel Grundman",
-      "Nelly Altenburger",
-      "Esther Eshel",
-      "A Women's Commentary"
+      "Nelly Altenburger"
     ],
-    "reason": "Written, edited or translated by women. Hidden from the Yeshivish presets up; Sefaria's author data (sex, biography) and the version notes were checked by hand (2026-11).",
+    "reason": "Written by women, or translated by women where the translation merely happens to be by a woman (scholarly or commissioned). Hidden from the Yeshivish presets up. Not included: critical editions of the original text by women (e.g. the Eshels' Psalm 154), translations that use Nechama Leibowitz's work, and women's / feminist translations (their own group, hidden from RWMO up). Sefaria's author data and the version notes were checked by hand (2026-11).",
     "exampleWorks": [
       "Dirshuni",
       "Jewish Legal Writings by Women",
       "Torah of the Mothers",
       "Erica Brown, Return",
-      "Nechama Leibowitz, Studies in the Weekly Parasha",
-      "Keset HaSofer, trans. Jen Taylor Friedman"
+      "The Targum of Samuel, trans. E. van Staalduine-Sulman"
     ]
   }
 ]
