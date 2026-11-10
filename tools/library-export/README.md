@@ -166,6 +166,18 @@ release only re-downloads shards whose books changed. A shard bigger than `--par
 (1 GB of text, default) is split into parts; every asset stays far below GitHub's 2 GiB
 per-file limit.
 
+**Licence filter.** The release is public, so its search text and corrections cover only
+versions whose Sefaria licence (`license` in the zip's `<Title>_index.json`) is Public
+Domain/PD, CC0, CC-BY, CC-BY-SA, CC-BY-NC or CC-BY-NC-SA. Copyright, all rights reserved,
+`unknown`, CC-BY-NC-ND, a missing licence or a version the index does not list stay out
+(`<work>\excluded-versions.json` lists them; `manifest.json` `licences` has the counts).
+The trigram indexes still cover every version: they hold 16-bit trigram hashes -> book ids,
+no words or positions. The phone makes the excluded versions' search lines itself, from the
+zips Sefaria sent it (`localSearch.js`, books in `search.local_titles`, redone when a book's
+zip changes) into `local_search/<Title>_search.txt`, which `offlineSearch.js` searches with
+the hosted files. Check a build with
+`python tools\library-export\verify_release_licences.py --work <work>`.
+
 **Corrections** (`sofer_corrections.py`). Sofer never edits the downloaded files; he applies
 his corrections while an edition is read (`C:\Users\morde\Sofer\docs\BOOK_CORRECTIONS.md`).
 The builder runs Sofer's own functions on each section file of Sefaria's zips and records

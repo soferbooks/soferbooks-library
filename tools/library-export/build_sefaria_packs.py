@@ -23,6 +23,11 @@ The search files, the index format and the per-book text are the existing tools'
 (build_search.build_book, build_search_index.write_index); the corrections come from
 Sofer's own code (sofer_corrections.py) and are applied to the search text too.
 
+Licences: the release is public, so search text and corrections are hosted only for
+versions with an open Sefaria licence (see "licences" below); the phone builds the other
+versions' search lines from its own Sefaria zips (localSearch.js, manifest
+search.local_titles).  Check a build with verify_release_licences.py.
+
 Usage (a few books first; the full library downloads ~1.5 GB from Sefaria):
     python tools/library-export/build_sefaria_packs.py --work C:\\Users\\morde\\Soferia\\sefaria-packs --books "Genesis,Zohar"
     python tools/library-export/build_sefaria_packs.py --work C:\\Users\\morde\\Soferia\\sefaria-packs
@@ -113,6 +118,89 @@ def sync_zips(server: str, titles: list[str], dates: dict, zips_dir: Path, worke
     zips_dir.mkdir(parents=True, exist_ok=True)
     state_path.write_text(json.dumps(have, ensure_ascii=False), encoding="utf-8")
     return failed
+
+
+# ---------------------------------------------------------------- licences
+#
+# The release is public, so it may only carry text we are allowed to redistribute:
+# versions whose Sefaria licence (the "license" field of the versions in the book zip's
+# <Title>_index.json) is open.  Non-commercial is fine (free app, free hosting).  Anything
+# else - "Copyright: ...", all rights reserved, "unknown", CC-BY-NC-ND, a missing licence or
+# a version the index does not list - stays out of the hosted search text and corrections;
+# the phone builds those lines itself from the zip Sefaria sent it (localSearch.js).
+# The trigram indexes keep every version: they hold only 16-bit trigram hashes -> book ids.
+
+OPEN_LICENCES = {"public-domain", "pd", "cc0", "cc-by", "cc-by-sa", "cc-by-nc", "cc-by-nc-sa"}
+
+
+def licence_key(licence) -> str:
+    """'CC BY-SA 4.0' -> 'cc-by-sa', 'Public Domain' -> 'public-domain'."""
+    if not isinstance(licence, str):
+        return ""
+    key = re.sub(r"[\s_]+", "-", licence.strip().lower())
+    return re.sub(r"-\d+(\.\d+)*$", "", key)
+
+
+def licence_open(licence) -> bool:
+    """Mirrors localSearch.js isOpenLicense."""
+    return licence_key(licence) in OPEN_LICENCES
+
+
+def book_licences(z: zipfile.ZipFile) -> dict[tuple[str, str], object]:
+    """{(language, versionTitle): Sefaria's licence} from the zip's <Title>_index.json."""
+    out = {}
+    for name in z.namelist():
+        if name.endswith("_index.json") and "/" not in name:
+            try:
+                index = json.loads(z.read(name))
+            except ValueError:
+                continue
+            for v in index.get("versions") or []:
+                if v.get("language") and v.get("versionTitle"):
+                    out[(v["language"], v["versionTitle"])] = v.get("license")
+    return out
+
+
+def hosted_corrections(files: dict[str, list], open_versions: set) -> dict[str, list]:
+    """Only the patches of open versions (section file "<stem>.<vhash>.<lang>")."""
+    open_hashes = {(sofer_corrections.version_hash(vt), lang) for lang, vt in open_versions}
+    out = {}
+    for name, ops in files.items():
+        parts = name.rsplit(".", 2)
+        if len(parts) == 3 and (parts[1], parts[2]) in open_hashes:
+            out[name] = ops
+    return out
+
+
+def build_book(zp: Path, title: str, search_path: Path, hosted_path: Path,
+               corrections: bool = True) -> dict:
+    """One book: full search text (for the trigram index), the hosted copy (open versions
+    only) and the hosted corrections.  Returns counts and the excluded versions."""
+    with zipfile.ZipFile(zp) as z:
+        licences = book_licences(z)
+    open_versions = {k for k, lic in licences.items() if licence_open(lic)}
+    all_files = sofer_corrections.book_ops(zp, title) if corrections else {}
+    files = hosted_corrections(all_files, open_versions)
+    lines = build_search.build_book(zp, search_path, files)
+    hosted, excluded = [], {}
+    if search_path.is_file():
+        with search_path.open(encoding="utf-8") as fh:
+            for line in fh:
+                f = line.split("\t", 4)
+                if len(f) == 5 and (f[2], f[3]) in open_versions:
+                    hosted.append(line)
+                elif len(f) == 5:
+                    excluded[(f[2], f[3])] = excluded.get((f[2], f[3]), 0) + 1
+    hosted_path.parent.mkdir(parents=True, exist_ok=True)
+    with hosted_path.open("w", encoding="utf-8", newline="\n") as fh:
+        fh.writelines(hosted)
+    return {
+        "files": files,
+        "lines": lines,
+        "hosted_lines": len(hosted),
+        "excluded": {k: (licences.get(k), n) for k, n in excluded.items()},
+        "dropped_ops": sum(len(v) for v in all_files.values()) - sum(len(v) for v in files.values()),
+    }
 
 
 # ---------------------------------------------------------------- helpers
@@ -209,6 +297,7 @@ def main() -> int:
     work = Path(args.work)
     zips_dir, search_dir = work / "zips", work / "_search"
     corr_dir, release = work / "_corrections", work / "release"
+    hosted_dir = work / "_search_hosted"     # open versions only: what the release carries
     work.mkdir(parents=True, exist_ok=True)
 
     # 1. Sefaria's own core files
@@ -246,26 +335,55 @@ def main() -> int:
     release.mkdir(parents=True)
     if corr_dir.exists():
         shutil.rmtree(corr_dir)
+    if hosted_dir.exists():
+        shutil.rmtree(hosted_dir)
     t0 = time.time()
     n_ops = n_corrected = 0
-    lines = 0
+    lines = hosted_lines = dropped_ops = 0
+    excluded = {}            # (title, lang, versionTitle) -> (licence, lines)
     for i, title in enumerate(titles, 1):
         zp = zips_dir / f"{fs_name(title)}.zip"
-        files = {}
         try:
-            if not args.no_corrections:
-                files = sofer_corrections.book_ops(zp, title)
+            r = build_book(zp, title, search_dir / f"{fs_name(title)}.txt",
+                           hosted_dir / f"{fs_name(title)}.txt", not args.no_corrections)
+            files = r["files"]
             if files:
                 sofer_corrections.write_book_patch(corr_dir / f"{fs_name(title)}.json", title, files,
                                                    dates.get(title))
                 n_corrected += 1
                 n_ops += sum(len(v) for v in files.values())
-            lines += build_search.build_book(zp, search_dir / f"{fs_name(title)}.txt", files)
+            lines += r["lines"]
+            hosted_lines += r["hosted_lines"]
+            dropped_ops += r["dropped_ops"]
+            for (lang, vt), v in r["excluded"].items():
+                excluded[(title, lang, vt)] = v
         except (OSError, zipfile.BadZipFile, ValueError) as e:
             print(f"  ! {title}: {type(e).__name__}: {e}", flush=True)
         if i % 250 == 0 or i == len(titles):
-            print(f"  [{i}/{len(titles)}] {lines:,} search lines, {n_ops} corrections "
-                  f"in {n_corrected} books ({time.time() - t0:.0f}s)", flush=True)
+            print(f"  [{i}/{len(titles)}] {lines:,} search lines ({hosted_lines:,} hosted), "
+                  f"{n_ops} corrections in {n_corrected} books ({time.time() - t0:.0f}s)", flush=True)
+
+    local_titles = sorted({t for t, _l, _v in excluded})
+    by_licence = {}
+    for (_t, _l, _v), (lic, n) in excluded.items():
+        b = by_licence.setdefault(str(lic), {"versions": 0, "lines": 0})
+        b["versions"] += 1
+        b["lines"] += n
+    licence_report = {
+        "open": sorted(OPEN_LICENCES),
+        "excluded_versions": len(excluded),
+        "excluded_version_titles": len({v for _t, _l, v in excluded}),
+        "excluded_lines": lines - hosted_lines,
+        "excluded_correction_ops": dropped_ops,
+        "books_with_local_lines": len(local_titles),
+        "by_licence": dict(sorted(by_licence.items())),
+    }
+    (work / "excluded-versions.json").write_text(json.dumps(
+        {"summary": licence_report,
+         "versions": [{"title": t, "language": l, "versionTitle": v, "license": lic, "lines": n}
+                      for (t, l, v), (lic, n) in sorted(excluded.items())]},
+        ensure_ascii=False, indent=1), encoding="utf-8")
+    print(f"licence filter: {licence_report}", flush=True)
 
     # 4. corrections.zip
     corrections_asset = None
@@ -282,7 +400,7 @@ def main() -> int:
     shards = make_shards(packages, [t for t in all_titles if t in built])
     shard_out = {}
     for sid, shard in shards.items():
-        parts = write_shard(sid, shard["titles"], search_dir, release, args.part_size)
+        parts = write_shard(sid, shard["titles"], hosted_dir, release, args.part_size)
         if not parts:
             continue
         shard_out[sid] = {
@@ -290,8 +408,8 @@ def main() -> int:
             "books": len(shard["titles"]),
             # a book whose search file shows the shard is on the phone (after deletions too)
             "probe": next((t for t in shard["titles"]
-                           if (search_dir / f"{fs_name(t)}.txt").is_file()
-                           and (search_dir / f"{fs_name(t)}.txt").stat().st_size), None),
+                           if (hosted_dir / f"{fs_name(t)}.txt").is_file()
+                           and (hosted_dir / f"{fs_name(t)}.txt").stat().st_size), None),
             "sefaria_last_updated": max((dates.get(t) or "") for t in shard["titles"]),
             "assets": [asset(p) for p in parts],
         }
@@ -340,7 +458,11 @@ def main() -> int:
             "books": len(built),
         },
         "corrections": corrections_asset,
-        "search": {"shards": shard_out, "packages": package_out},
+        # licence filter: what the release leaves out; the phone builds the search lines of
+        # the excluded versions of "local_titles" from its own Sefaria zips (localSearch.js)
+        "licences": licence_report,
+        "search": {"shards": shard_out, "packages": package_out,
+                   "local_titles": [t for t in local_titles if t in built]},
     }
     (release / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=1),
                                            encoding="utf-8")
