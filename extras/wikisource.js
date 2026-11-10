@@ -23,11 +23,14 @@
  * is not taken twice): wikisource.fetch_book. Converted by extras/wikisourceParse.js as Sofer's
  * importer converts it. The editors' footnotes become a book of their own, "הערות המהדיר על
  * <book>", laid out like the book (the same sections, one entry for each paragraph), linked to
- * each paragraph as a commentary.
+ * each paragraph as a commentary. Opened on its own it lists only what has notes: the sections
+ * without any are left out (the others keep the book's keys, so the refs still meet), and the
+ * reader skips the empty entries (TextColumn).
  *
  * Licence: CC BY-SA (the site's texts); the edition names the page, the site, the date it was
  * fetched and the page history (the contributors), as the licence asks.
  */
+import md5 from 'md5';
 import {Node, safe} from './tree';
 import {bookFiles} from './schema7';
 import {wikiTree, wikiAuthor, wikiKeys, unquote, WikiNode} from './wikisourceParse';
@@ -176,13 +179,17 @@ const bare = html => html.replace(/<!--[\s\S]*?-->/g, '');      // (hidden notes
  * page links to them. {title, fetched, requests, pages: [{page, name, depth, revid, html}]}
  */
 export async function fetchPages(title, {client = apiClient(), skip = new Set(CATALOG.others || []),
-  maxDepth = MAX_DEPTH, onPage = null} = {}) {
+  maxDepth = MAX_DEPTH, onPage = null, job = null, expected = 0} = {}) {
   const pages = [];
   const done = new Set();
   const texts = new Set();
   const short = title.startsWith('ספר ') ? title.replace(/^ספר ה?/, '') : '';
+  // (the reader is shown pages done of the pages the list says the book has: extras/index.js job)
+  const report = () => { if (job) { job.progress(pages.length, Math.max(expected, pages.length), 'pages'); } };
+  report();
   const visit = async (page, name, depth) => {
     if (done.has(page)) { return; }
+    if (job) { job.check(); }          // (cancelled: no more requests)
     done.add(page);
     const {html, revid, title: real} = await pageHtml(client, page);
     const b = bare(html);
@@ -191,6 +198,7 @@ export async function fetchPages(title, {client = apiClient(), skip = new Set(CA
     texts.add(b);
     pages.push({page: real, name, depth, revid, html});
     if (onPage) { onPage(pages.length); }
+    report();
     if (depth < maxDepth) {
       let subs = subLinks(html, real, '', skip);
       if (!subs.length && depth === 0 && short) {
@@ -272,14 +280,16 @@ export function notesBook(tree, entry, {files, sections}, version) {
     base_text_titles: [entry.title],
   };
   const ntree = notesTree(tree);
-  const out = bookFiles(ntree, {...book, version, extra: {dependence: 'Commentary', base_text_titles: [entry.title],
-    sofer_notes: true}});
-  // (the two books' sections are the same, in the same order: link each paragraph to its notes)
-  sections.forEach((ref, i) => {
+  // (only the sections with notes; each keeps the book's key, so "<notes>, S2 5" is on "<book>, S2 5")
+  const out = bookFiles(ntree, {...book, version, onlyWithText: true,
+    extra: {dependence: 'Commentary', base_text_titles: [entry.title], sofer_notes: true}});
+  const hash = md5(version.versionTitle).substring(0, 8);
+  // (the two books are laid out alike: link each paragraph to its notes)
+  sections.forEach(ref => {
     const meta = files[`${ref}.metadata.json`];
-    const nref = out.sections[i];
+    const nref = ntitle + ref.slice(entry.title.length);
     const nmeta = out.files[`${nref}.metadata.json`];
-    const entries = out.files[Object.keys(out.files).find(n => n.startsWith(`${nref}.`) && n.endsWith('.he.json'))];
+    const entries = out.files[`${nref}.${hash}.he.json`];
     if (!meta || !nmeta || !entries) { return; }
     meta.links = entries.map((text, j) => (text ? [{
       sourceRef: `${nref} ${j + 1}`, sourceHeRef: `${nmeta.heRef} ${j + 1}`, category: 'Commentary', sourceHasEn: false,
@@ -343,7 +353,7 @@ export default {
   catalogUrl: null,
   parseCatalog: () => parseCatalog(),
   loadCatalog: installed => loadCatalog({installed}),
-  fetchBook: entry => fetchPages(entry.id),
+  fetchBook: (entry, job = null) => fetchPages(entry.id, {job, expected: entry.pageCount || 0}),
   bookUrl: entry => pageUrl(entry.id),
   toTree: book => [wikiTree(book), wikiAuthor(book)],
   isRestricted: () => false,           // (the site's texts are all CC BY-SA)

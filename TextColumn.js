@@ -256,8 +256,12 @@ class TextColumn extends React.PureComponent {
       for (let sectionIndex = 0; sectionIndex < data.length; sectionIndex++) {
         let rows = [];
         const sectionRef = props.sectionArray[sectionIndex];
+        const isEmpty = seg => !seg.text && !seg.he;
+        // (the first segment is kept, even empty, only when the whole section is: a book of notes
+        //  on another book, laid out like it, has no blank first row where that paragraph has none)
+        const keepFirst = data[sectionIndex].every(isEmpty);
         for (let segmentIndex = 0; segmentIndex < data[sectionIndex].length; segmentIndex++) {
-          if (segmentIndex !== 0 && !data[sectionIndex][segmentIndex].text && !data[sectionIndex][segmentIndex].he) { continue; } // Skip empty segments
+          if ((segmentIndex !== 0 || !keepFirst) && isEmpty(data[sectionIndex][segmentIndex])) { continue; } // Skip empty segments
           let rowID = props.sectionArray[sectionIndex] + ":" + data[sectionIndex][segmentIndex].segmentNumber;
           const relatedObj = relatedBySectionRef?.[sectionRef]?.[segmentIndex];
           const aliya = parashaDict[rowID];

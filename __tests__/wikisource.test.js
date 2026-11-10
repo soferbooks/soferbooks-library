@@ -110,12 +110,25 @@ describe('the editors\' notes: a book of their own, linked to the text', () => {
     });
     const index = notes.files[`${NOTES_PREFIX}ספר בדיקה_index.json`];
     expect(index).toMatchObject({dependence: 'Commentary', base_text_titles: ['ספר בדיקה'], sofer_notes: true});
-    expect(index.schema.nodes.map(n => n.heTitle)).toEqual(['הקדמה', 'פרק א', 'פרק ב']);
+    // only the sections with notes (the introduction has none), each under the book's own key
+    expect(index.schema.nodes.map(n => [n.key, n.heTitle])).toEqual([['S2', 'פרק א'], ['S3', 'פרק ב']]);
+    expect(index.schema.nodes.map(n => n.key)).toEqual(main.files['ספר בדיקה_index.json'].schema.nodes.slice(1).map(n => n.key));
+    expect(Object.keys(notes.files).some(n => n.startsWith(`${NOTES_PREFIX}ספר בדיקה, S1.`))).toBe(false);
+    expect(notes.firstSection).toBe(`${NOTES_PREFIX}ספר בדיקה, S2`);
+    const meta = name => notes.files[`${NOTES_PREFIX}ספר בדיקה, ${name}.metadata.json`];
+    expect([meta('S2').prev, meta('S2').next, meta('S3').next]).toEqual([null, `${NOTES_PREFIX}ספר בדיקה, S3`, null]);
     const he = name => Object.entries(notes.files).find(([n]) => n.startsWith(`${NOTES_PREFIX}ספר בדיקה, ${name}.`) && n.endsWith('.he.json'))[1];
-    // one entry for each of the book's paragraphs (empty where it has none)
+    // one entry for each of the book's paragraphs (empty where it has none: the numbers stay the book's)
     expect(he('S2')).toEqual(['הערה ראשונה', '', '(1) הערה שניה<br>(2) הערה שלישית']);
     expect(he('S3')).toEqual(['הערת המעתיק', '']);
     expect(noteEntry(['x'])).toBe('x');
+  });
+
+  test('a section whose notes are all on later paragraphs: no blank first row in the reader', () => {
+    // (TextColumn skips empty segments; the first is kept only when the whole section is empty)
+    const src = fs.readFileSync(path.join(__dirname, '..', 'TextColumn.js'), 'utf8');
+    expect(src).toMatch(/const keepFirst = data\[sectionIndex\]\.every\(isEmpty\);/);
+    expect(src).toMatch(/if \(\(segmentIndex !== 0 \|\| !keepFirst\) && isEmpty\(data\[sectionIndex\]\[segmentIndex\]\)\) \{ continue; \}/);
   });
 
   test('each paragraph with notes links to them (and back), as a commentary', () => {
@@ -321,7 +334,7 @@ describe('downloading a Wikisource book, its notes, and the update check', () =>
     const shelf = toc.find(c => c.category === 'Musar').contents.find(c => c.category === 'Wikitext');
     expect(shelf.contents.map(x => x.title || x.category)).toEqual([T, 'Notes']);
     expect(shelf.contents[1].contents[0]).toMatchObject({title: NOTES, dependence: 'Commentary', base_text_titles: [T],
-      firstSection: `${NOTES}, S1`});
+      firstSection: `${NOTES}, S2`});    // (its first section with notes)
 
     await extras.deleteBook(T);
     expect((await FileSystem.getInfoAsync(`library/${NOTES}.zip`)).exists).toBe(false);
@@ -340,6 +353,71 @@ describe('downloading a Wikisource book, its notes, and the update check', () =>
     // a part edited on the site
     calls = fakeSite(site, {revs: {...revs, [`${T}/ב`]: 2000}});
     expect(await extras.checkUpdates('wikisource')).toEqual([T]);
+  });
+
+  test('progress: pages done of the pages the list gives, told as they come; nothing left after', async () => {
+    fakeSite(site, {revs});
+    const seen = [];
+    const off = extras.subscribe(() => { const p = extras.downloadProgress(T); if (p) { seen.push(p); } });
+    const done = extras.downloadBook(T);
+    expect(extras.downloadsUnderWay()).toEqual([T]);
+    expect(extras.downloadBook(T)).toBe(done);          // (asked again: the same download)
+    await done;
+    off();
+    expect(seen[0]).toEqual({done: 0, total: 0, unit: null});                  // (started: nothing known yet)
+    expect(seen.slice(1).length).toBeGreaterThan(0);
+    expect(seen.slice(1).every(p => p.unit === 'pages' && p.total === 6)).toBe(true);   // (the list: 6 pages)
+    expect(seen[seen.length - 1].done).toBe(6);
+    expect(extras.downloadProgress(T)).toBeNull();
+    expect(extras.downloadsUnderWay()).toEqual([]);
+  });
+
+  test('Cancel: no more requests, nothing written, the book still to download', async () => {
+    const calls = fakeSite(site, {revs});
+    const real = global.fetch;
+    global.fetch = jest.fn(async (...a) => {           // (cancelled while the 3rd page is on its way)
+      if (real.mock.calls.length === 2) { extras.cancelDownload(T); }
+      return real(...a);
+    });
+    await expect(extras.downloadBook(T)).rejects.toBeInstanceOf(extras.DownloadCancelledError);
+    expect(calls).toHaveLength(3);
+    expect((await FileSystem.getInfoAsync(`library/${T}.zip`)).exists).toBe(false);
+    expect(extras.needsDownload(T)).toBe(true);
+    expect(extras.downloadProgress(T)).toBeNull();
+    // (and it can be downloaded again)
+    fakeSite(site, {revs});
+    expect(await extras.downloadBook(T)).toBe(`${T}, S1`);
+  });
+
+  test('Settings counts the books downloaded, not the notes books made with them', async () => {
+    fakeSite(site, {revs});
+    await extras.downloadBook(T);
+    expect(extras.installedTitles('wikisource').sort()).toEqual([T, NOTES].sort());
+    expect(extras.downloadedBooks('wikisource')).toEqual([T]);
+    const React = require('react');
+    const renderer = require('react-test-renderer');
+    const {Text} = require('react-native');
+    const strings = require('../LocalizedStrings').default;
+    const {ExtraSourceRow} = require('../shomer/ContentFilterSettings');
+    let inst;
+    renderer.act(() => {
+      inst = renderer.create(React.createElement(ExtraSourceRow, {source: SOURCES.find(s => s.id === 'wikisource'),
+        langStyle: {}, theme: {}, interfaceLanguage: 'english'}));
+    });
+    const texts = inst.root.findAllByType(Text).map(t => [].concat(t.props.children).join(''));
+    expect(texts).toContain([].concat(strings.formatString(strings.extras.downloaded_count, {count: 1})).join(''));
+    renderer.act(() => inst.unmount());
+  });
+
+  test('the progress as the reader sees it: pages for Wikisource, a share for a file, nothing when not known', () => {
+    const {progressText} = require('../ExtraDownloadProgress');
+    const strings = require('../LocalizedStrings').default;
+    const flat = x => [].concat(x).join('');
+    strings.setLanguage('en');
+    expect(flat(progressText({done: 12, total: 340, unit: 'pages'}))).toBe('12 of 340 pages');
+    expect(flat(progressText({done: 42, total: 100, unit: 'percent'}))).toBe('42% downloaded');
+    expect(progressText({done: 0, total: 0, unit: null})).toBeNull();
+    expect(progressText(null)).toBeNull();
   });
 
   test('"Report a mistake" on a Wikisource book goes to SoferBooks (the wiki has no address)', () => {

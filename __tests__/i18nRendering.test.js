@@ -1144,6 +1144,8 @@ describe('Strings with placeholders', () => {
     'extras.downloading': { title: 'זמרת הארץ' },
     'extras.license_line': { license: 'Public Domain' },
     'extras.not_downloaded_message': { title: 'זמרת הארץ', source: 'Otzaria' },
+    'extras.progress_pages': { done: 12, total: 340 },
+    'extras.progress_percent': { percent: 42 },
     'extras.turn_off_message': { count: 5 },
     'extras.updates_message': { count: 3 },
   };

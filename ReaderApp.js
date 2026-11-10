@@ -61,6 +61,7 @@ import {getSafeViewStyleAndStatusBarBackground} from "./getSafeViewStyles";
 import ContentFilterChooser from "./shomer/ContentFilterChooser";
 import {correctionEmail, versionOnScreen} from "./reportError";
 import * as extras from "./extras";
+import {ExtraDownloadModal} from "./ExtraDownloadProgress";
 import {SOURCES} from "./sources";
 import ReaderTabBar, { READER_TAB_BAR_HEIGHT } from "./tabs/ReaderTabBar";
 import {
@@ -1054,12 +1055,16 @@ class ReaderApp extends React.PureComponent {
     const isHe = this.props.interfaceLanguage === 'hebrew';
     return new Promise(resolve => {
       const download = async () => {
-        this.showToast(strings.formatString(strings.extras.downloading, {title: book?.heTitle || title}), Toast.durations.SHORT);
+        // (how far it is, and Cancel, over the reader while it downloads: ExtraDownloadModal)
+        this.setState({extraDownload: {title, name: (isHe ? book?.heTitle : book?.title) || title}});
         try {
           const firstSection = await extras.downloadBook(title);
+          this.setState({extraDownload: null});
           if (open) { await open(firstSection); }
           resolve(true);
         } catch (e) {
+          this.setState({extraDownload: null});
+          if (e instanceof extras.DownloadCancelledError) { resolve(false); return; }   // (the reader cancelled)
           const restricted = e instanceof extras.RestrictedBookError;
           Alert.alert(
             restricted ? strings.extras.not_offered_title : strings.download.download_error,
@@ -2687,6 +2692,14 @@ class ReaderApp extends React.PureComponent {
           />
           {/* content filter: first launch asks for a preset (null = loaded but not chosen yet) */}
           {this.props.contentFilter === null ? <ContentFilterChooser /> : null}
+          {this.state.extraDownload ? (
+            <ExtraDownloadModal
+              title={this.state.extraDownload.title}
+              name={this.state.extraDownload.name}
+              theme={this.props.theme}
+              langStyle={this.props.interfaceLanguage === 'hebrew' ? styles.heInt : styles.enInt}
+            />
+          ) : null}
         </View>
       </ReaderAppContext.Provider>
     );

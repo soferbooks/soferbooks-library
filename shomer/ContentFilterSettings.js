@@ -8,6 +8,7 @@ import styles from '../Styles';
 import { CHOICES, GROUPS, configForPreset, toggleGroup } from './presets';
 import { SOURCES } from '../sources';
 import * as extras from '../extras';
+import { ExtraDownloadStatus } from '../ExtraDownloadProgress';
 
 export const useSetContentFilter = () => {
   const dispatch = useContext(DispatchContext);
@@ -98,11 +99,18 @@ export const ExtraSourceRow = ({ source, langStyle, theme, interfaceLanguage }) 
   useEffect(() => extras.subscribe(() => setTick(t => t + 1)), []);
   const on = extras.isEnabled(source.id);
   const name = interfaceLanguage === 'hebrew' ? source.heName : source.name;
-  const downloaded = extras.installedTitles(source.id).length;
+  const downloaded = extras.downloadedBooks(source.id).length;   // (not the notes books made with them)
+  const underWay = extras.downloadsUnderWay().filter(t => (extras.extraBook(t) || {}).source === source.id);
+  const bookName = t => {
+    const b = extras.extraBook(t) || {};
+    return (interfaceLanguage === 'hebrew' ? b.heTitle : b.title) || t;
+  };
   const run = async (job) => {
     setBusy(true);
     try { await job(); } catch (e) {
-      Alert.alert(strings.download.download_error, strings.extras.download_failed_message, [{text: strings.common.ok}]);
+      if (!(e instanceof extras.DownloadCancelledError)) {      // (Cancel is not an error)
+        Alert.alert(strings.download.download_error, strings.extras.download_failed_message, [{text: strings.common.ok}]);
+      }
     } finally { setBusy(false); }
   };
   const toggle = value => {
@@ -136,9 +144,18 @@ export const ExtraSourceRow = ({ source, langStyle, theme, interfaceLanguage }) 
             {strings.formatString(strings.extras.downloaded_count, {count: downloaded})}
           </Text> : null}
         </View>
-        {busy ? <ActivityIndicator /> : null}
+        {busy && !underWay.length ? <ActivityIndicator /> : null}
         <Switch value={on} disabled={busy} onValueChange={toggle} accessibilityLabel={name} />
       </View>
+      {/* (the books of this source downloading now: how far, and Cancel) */}
+      {underWay.map(t => (
+        <View key={t}>
+          <Text style={[langStyle, theme.secondaryText, local.detail]}>
+            {strings.formatString(strings.extras.downloading, {title: bookName(t)})}
+          </Text>
+          <ExtraDownloadStatus title={t} theme={theme} langStyle={langStyle} />
+        </View>
+      ))}
       {on && downloaded ? (
         <TouchableOpacity onPress={checkUpdates} disabled={busy} accessibilityRole="button" style={local.link}>
           <Text style={[langStyle, theme.text, local.linkText]}>{strings.download.check_for_updates}</Text>

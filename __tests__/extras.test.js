@@ -458,11 +458,34 @@ describe('opening a book that is not downloaded', () => {
     expect(buttons.map(b => b.text)).toEqual([strings.common.cancel, strings.download.download]);
 
     app.openRef = jest.fn(async () => {});   // (the second open, after the download)
-    await act(async () => { await buttons[1].onPress(); });
+    const {ExtraDownloadModal, ExtraDownloadStatus} = require('../ExtraDownloadProgress');
+    let pending;
+    act(() => { pending = buttons[1].onPress(); });
+    // (while it downloads: the book's name, how far it is - a spinner, Otzaria's size not known - and Cancel)
+    expect(inst.root.findAllByType(ExtraDownloadModal)).toHaveLength(1);
+    expect(inst.root.findByType(ExtraDownloadModal).props.title).toBe('ספר בדיקה מקונן');
+    await act(async () => { await pending; });
     await opened;
+    expect(inst.root.findAllByType(ExtraDownloadModal)).toHaveLength(0);
     expect(ex.isDownloaded('ספר בדיקה מקונן')).toBe(true);
     expect(app.openRef).toHaveBeenCalledWith('ספר בדיקה מקונן, S0', 'navigation', undefined, true, false, false);
-    expect(app.showToast).toHaveBeenCalled();
+
+    // Cancel: the download stops, nothing opens, no error
+    await act(async () => { await ex.deleteBook('ספר בדיקה מקונן'); });
+    alert.mockClear();
+    app.openRef.mockClear();
+    const again = app.extraBookAlert('ספר בדיקה מקונן', app.openRef);
+    act(() => { pending = alert.mock.calls[0][2][1].onPress(); });
+    const status = inst.root.findByType(ExtraDownloadStatus);
+    const cancel = status.findAll(n => n.props.accessibilityRole === 'button' && typeof n.props.onPress === 'function')[0];
+    expect(cancel.findByType(require('react-native').Text).props.children).toBe(strings.common.cancel);
+    act(() => { cancel.props.onPress(); });
+    await act(async () => { await pending; });
+    expect(await again).toBe(false);
+    expect(app.openRef).not.toHaveBeenCalled();
+    expect(alert).toHaveBeenCalledTimes(1);               // (the warning only: no error after Cancel)
+    expect(ex.isDownloaded('ספר בדיקה מקונן')).toBe(false);
+    expect(inst.root.findAllByType(ExtraDownloadModal)).toHaveLength(0);
 
     // the same from anywhere a ref cannot be loaded (links, search results, history)
     alert.mockClear();

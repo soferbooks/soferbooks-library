@@ -23,8 +23,18 @@
  *     licence when at least 80% of Dicta's text is in it, under Dicta's licence (Tevunah).
  *     The collections and licences are the app's (extras/otzaria.js COLLECTIONS: Otzaria's
  *     README of 2026-11), so collections the app does not offer are never used.
- * Not included: Dicta's editions with nikud added by its computer program (nikudMetegFileURL,
- * the Nakdan's output) - left out for now (owner's decision, 2026-11-10).
+ *
+ * Nikud by default (owner's decision, 2026-11-10): Dicta also lists, for every book, its pages
+ * with nikud added by its computer program (nikudMetegFileURL, the Nakdan's output, on the same
+ * server). They are downloaded with the book and make a second edition of it, the one shown:
+ * "<edition> - with nikud (Dicta)", its notes saying the nikud was added by computer. The nikud
+ * pages are one line each (no line breaks: the plain pages' layout is not in them), so the
+ * vowelled words are put on the chosen text's own words (vowelize): every word of the book takes
+ * the vowel marks of the same word (the same letters) in Dicta's nikud pages, in order. Nothing
+ * but marks is added, so the edition is laid out exactly as the plain one - Dicta's own pages and
+ * Otzaria's layout of them alike. A book gets the edition when at least NIKUD_MIN of its words
+ * found theirs; not when its text is another collection's under its own licence (Eitz Hadar...:
+ * not Dicta's text). The plain edition stays, as the second.
  */
 import * as FileSystem from 'expo-file-system/legacy';
 import {unzip} from 'react-native-zip-archive';
@@ -37,7 +47,8 @@ export const ID = 'dicta';
 export const CATALOG_URL = 'https://raw.githubusercontent.com/Dicta-Israel-Center-for-Text-Analysis/Dicta-Library-Download/main/books.json';
 export const OTZARIA_MANIFEST_URL = 'https://raw.githubusercontent.com/Otzaria/otzaria-library/main/files_manifest.json';
 export const HOME_URL = 'https://library.dicta.org.il';
-export const CONVERTER_VERSION = 1;
+// (2: the edition with nikud; books converted by 1 are converted again, as an update)
+export const CONVERTER_VERSION = 2;
 
 // importers.DICTA_LICENSE / DICTA_SOURCE / OTZARIA_LAYOUT_NOTE / DICTA_IN_COPY
 export const LICENSE = 'CC-BY-SA';
@@ -126,12 +137,15 @@ export function parseCatalog(booksText, manifestText = null, rules = RULES) {
       author: pyStrip(String(b.author || '')),
       authorEnglish: pyStrip(String(b.authorEnglish || '')),
       printLocation: b.printLocationEnglish || '',
+      printLocationHe: pyStrip(String(b.printLocation || '')),
       printYear: b.printYear || '',
       textUrl: b.textFileURL,
+      nikudUrl: b.nikudMetegFileURL || null,
       otzaria: found.otzaria,
       copies: found.copies,
       // (a new file at Dicta, or a change in Otzaria's copies, is an update)
-      hash: md5(JSON.stringify([b.textFileURL, found.otzaria, found.copies.map(c => [c.path, c.hash])])).slice(0, 16),
+      hash: md5(JSON.stringify([b.textFileURL, found.otzaria, found.copies.map(c => [c.path, c.hash])]
+        .concat(b.nikudMetegFileURL ? [b.nikudMetegFileURL] : []))).slice(0, 16),
     });
   }
   return out;
@@ -274,17 +288,197 @@ export function versionTitle(entry, kind) {
   return parts.length ? `Dicta Library (${parts.join(', ')})` : 'Dicta Library';
 }
 
+/** The same name in Hebrew: "ספריית דיקטה (<מקום>, <שנה>)", or "אוצריא (<collection>)" */
+export function versionTitleHe(entry, kind) {
+  if (kind.startsWith('Otzaria/')) { return `אוצריא (${kind.slice('Otzaria/'.length)})`; }
+  const parts = [entry.printLocationHe || entry.printLocation, entry.printYear].filter(x => x).map(String);
+  return parts.length ? `ספריית דיקטה (${parts.join(', ')})` : 'ספריית דיקטה';
+}
+
 export function versionOf(entry, doc) {
   const c = choose(doc);
   const notes = c.librarySource === ID ? [CREDIT_HE_DICTA] : [];
   if (c.kind !== 'Dicta') { notes.push(CREDIT_HE); }
   return {
     versionTitle: versionTitle(entry, c.kind),
+    versionTitleInHebrew: versionTitleHe(entry, c.kind),
     versionSource: c.versionSource,
     license: c.license,
     versionNotesInHebrew: notes.join(' '),
     librarySource: c.librarySource,
   };
+}
+
+// ---------------------------------------------------------------- the edition with nikud
+
+export const NIKUD_MIN = 0.9;          // the share of the book's words that must find their nikud
+export const NIKUD_TITLE = ' - with nikud (Dicta)';
+export const NIKUD_TITLE_HE = ' - מנוקד (ניקוד ממוחשב של דיקטה)';
+export const NIKUD_NOTE = 'Nikud added by computer (Dicta): the vowel points of this edition were added by'
+  + ' Dicta\'s automatic vocalizer (the Nakdan), not taken from a printed edition, and may have mistakes.'
+  + ' The same text without nikud is the book\'s other edition.';
+export const NIKUD_NOTE_HE = 'ניקוד נוסף על ידי מחשב (דיקטה): הניקוד במהדורה זו נוסף בתוכנת הניקוד האוטומטית של דיקטה'
+  + ' (הנקדן), ולא נלקח מדפוס, וייתכנו בו טעויות. אותו טקסט ללא ניקוד הוא המהדורה האחרת של הספר.';
+
+// the marks the Nakdan adds (vowels, dagesh, shin/sin dots, meteg; and cantillation, should there be any)
+const MARK = /[֑-ׇֽֿׁׂׅׄ]/;
+const LETTER = /[א-ת]/;
+const TOKENS = new RegExp(`([${WS}]+)`);
+const keyOf = word => (word.match(LETTERS) || []).join('');
+
+/** Dicta's nikud pages as their words in order: [{key (the letters), word}] */
+export function nikudWords(pages) {
+  const out = [];
+  for (const page of pages || []) {
+    for (const word of String(page).replace(/^﻿/, '').split(SPLIT)) {
+      const key = keyOf(word);
+      if (key) { out.push({key, word}); }
+    }
+  }
+  return out;
+}
+
+/** `word` with the marks `vowelled` (a word of the same letters) has on each letter; all else kept */
+export function putMarks(word, vowelled) {
+  const marks = [];
+  for (const ch of vowelled) {
+    if (LETTER.test(ch)) { marks.push(''); } else if (MARK.test(ch) && marks.length) { marks[marks.length - 1] += ch; }
+  }
+  let i = 0;
+  let out = '';
+  for (const ch of word) {
+    out += ch;
+    if (LETTER.test(ch)) { out += marks[i++] || ''; }
+  }
+  return out;
+}
+
+const firstAtLeast = (list, n) => {     // (the first index of the sorted list whose value is >= n)
+  let lo = 0;
+  let hi = list.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (list[mid] < n) { lo = mid + 1; } else { hi = mid; }
+  }
+  return lo;
+};
+
+/**
+ * The tree with Dicta's nikud on its words: {tree (laid out as the given one, the same sections
+ * and paragraphs; only marks added), share (of its words that found their nikud)}.
+ * The words are matched in order: a word takes the next nikud word of the same letters; where the
+ * two texts differ (the running heads Dicta's pages have, a word Otzaria corrected, a passage one
+ * of them lacks, parts in another order) the next match is looked for: near ahead, confirmed by the
+ * next word; or, once out of step, where the next four words run the same (ahead first, else
+ * anywhere). The words between stay as they are.
+ * The headings are matched too (to keep in step) but not changed: they are the book's sections.
+ */
+export function vowelize(tree, words, {near = 80, lost = 12} = {}) {
+  const slots = [];                    // every word of the text, in reading order
+  const copy = node => {
+    const out = new Node(node.title);
+    if (node.title) {
+      node.title.split(TOKENS).forEach(t => { const key = keyOf(t); if (key) { slots.push({key, title: true}); } });
+    }
+    out.paras = node.paras.map(p => {
+      const parts = String(p).split(/(<[^>]*>)/);
+      const tokens = parts.map((part, i) => (i % 2 ? [part] : part.split(TOKENS)));
+      tokens.forEach((list, i) => {
+        if (i % 2) { return; }
+        list.forEach((t, j) => { const key = keyOf(t); if (key) { slots.push({key, list, j}); } });
+      });
+      return tokens;
+    });
+    out.children = node.children.map(copy);
+    return out;
+  };
+  const out = copy(tree);
+  const at = new Map();                // {key: [positions in words]}
+  const pairs = new Map();             // {"key key": [positions]}: two words running (finding the place again)
+  const add = (map, k, j) => { const l = map.get(k); if (l) { l.push(j); } else { map.set(k, [j]); } };
+  words.forEach((w, j) => {
+    add(at, w.key, j);
+    if (j + 1 < words.length) { add(pairs, `${w.key} ${words[j + 1].key}`, j); }
+  });
+  const agrees = (i, j, n) => {
+    for (let d = 1; d < n && i + d < slots.length; d++) {
+      if (!words[j + d] || words[j + d].key !== slots[i + d].key) { return false; }
+    }
+    return true;
+  };
+  const firstAgreeing = (list, from, to, i, n) => {
+    for (let k = firstAtLeast(list, from); k < list.length && list[k] < to; k++) {
+      if (agrees(i, list[k], n)) { return list[k]; }
+    }
+    return -1;
+  };
+  let pos = 0;
+  let misses = 0;
+  let total = 0;
+  let found = 0;
+  for (let i = 0; i < slots.length; i++) {
+    const s = slots[i];
+    let j = -1;
+    if (pos < words.length && words[pos].key === s.key) {
+      j = pos;
+    } else {
+      // near ahead, confirmed by the next word
+      j = firstAgreeing(at.get(s.key) || [], pos, pos + near + 1, i, 2);
+      if (j < 0 && misses >= lost && i + 1 < slots.length) {
+        // out of step (a passage one text lacks, or the two in another order): the place where the
+        // next four words run the same - ahead first, else anywhere
+        const list = pairs.get(`${s.key} ${slots[i + 1].key}`) || [];
+        j = firstAgreeing(list, pos, Infinity, i, 4);
+        if (j < 0) { j = firstAgreeing(list, 0, pos, i, 4); }
+      }
+    }
+    if (!s.title) { total += 1; }
+    if (j < 0) { misses += 1; continue; }
+    pos = j + 1;
+    misses = 0;
+    if (s.title) { continue; }
+    found += 1;
+    const word = s.list[s.j];
+    if (!MARK.test(word)) { s.list[s.j] = putMarks(word, words[j].word); }
+  }
+  const join = node => {
+    node.paras = node.paras.map(tokens => tokens.map(list => list.join('')).join(''));
+    node.children.forEach(join);
+  };
+  join(out);
+  return {tree: out, share: total ? found / total : 0};
+}
+
+/** The edition with nikud of the chosen text ({tree, share}), or null (none, or too few words found) */
+export function nikudEdition(doc) {
+  if (doc.nikudEdition !== undefined) { return doc.nikudEdition; }
+  const c = choose(doc);
+  let edition = null;
+  if (doc.nikud && doc.nikud.length && c.librarySource === ID) {
+    const v = vowelize(c.tree, nikudWords(doc.nikud));
+    if (v.share >= NIKUD_MIN) { edition = v; }
+  }
+  doc.nikudEdition = edition;
+  return edition;
+}
+
+/** The book's editions, the one shown first: with nikud (when it has one), then the plain text */
+export function versionsOf(entry, doc) {
+  const plain = versionOf(entry, doc);
+  const tree = choose(doc).tree;
+  const nikud = nikudEdition(doc);
+  if (!nikud) { return [{version: plain, tree}]; }
+  return [{
+    version: {
+      ...plain,
+      versionTitle: plain.versionTitle + NIKUD_TITLE,
+      versionTitleInHebrew: plain.versionTitleInHebrew + NIKUD_TITLE_HE,
+      versionSource: `${plain.versionSource}; nikud added by computer (Dicta)`,
+      versionNotes: NIKUD_NOTE,
+      versionNotesInHebrew: [NIKUD_NOTE_HE, plain.versionNotesInHebrew].filter(Boolean).join(' '),
+    },
+    tree: nikud.tree,
+  }, {version: plain, tree}];
 }
 
 // ---------------------------------------------------------------- downloading
@@ -295,16 +489,33 @@ async function getText(url) {
   return response.text();
 }
 
-/** Dicta's zip of a book's pages, downloaded, unzipped and read in order (then deleted) */
-export async function dictaPages(url) {
+/** The zip at url saved at path; share(0..1) as it comes (its size known); stopped by job's Cancel */
+async function download(url, path, job, share) {
+  if (!FileSystem.createDownloadResumable) { return FileSystem.downloadAsync(url, path); }
+  const transfer = FileSystem.createDownloadResumable(url, path, {}, p => {
+    if (share && p.totalBytesExpectedToWrite > 0) { share(Math.min(1, p.totalBytesWritten / p.totalBytesExpectedToWrite)); }
+  });
+  if (job) { job.onCancel(() => { transfer.cancelAsync().catch(() => {}); }); }
+  const res = await transfer.downloadAsync();
+  if (job) { job.check(); }
+  if (!res) { throw new Error(`dicta: the download of ${url} stopped`); }
+  return res;
+}
+
+/**
+ * Dicta's zip of a book's pages, downloaded, unzipped and read in order (then deleted).
+ * job: extras/index.js's (Cancel); share(0..1): how much of the zip has come.
+ */
+export async function dictaPages(url, {job = null, share = null} = {}) {
   const dir = `${FileSystem.cacheDirectory}extras/`;
   const base = `${dir}dicta-${md5(url)}`;
   const zipPath = `${base}.zip`;
   const pagesDir = `${base}/`;
   await FileSystem.makeDirectoryAsync(dir, {intermediates: true}).catch(() => {});
   try {
-    const res = await FileSystem.downloadAsync(url, zipPath);
+    const res = await download(url, zipPath, job, share);
     if (res.status < 200 || res.status >= 300) { throw new Error(`dicta: HTTP ${res.status} for ${url}`); }
+    if (share) { share(1); }
     await FileSystem.makeDirectoryAsync(pagesDir, {intermediates: true}).catch(() => {});
     await unzip(zipPath, pagesDir);
     const names = (await FileSystem.readDirectoryAsync(pagesDir)).filter(n => n.endsWith('.txt')).sort();
@@ -320,19 +531,41 @@ export async function dictaPages(url) {
 }
 
 /**
- * What the book is made from, fetched as needed: Otzaria's layout of it if usable (then nothing
- * of Dicta's is needed), else Dicta's pages, and the other copies only when those have no sections.
+ * What the book is made from, fetched as needed: Otzaria's layout of it if usable (then Dicta's
+ * plain pages are not needed), else Dicta's pages, and the other copies only when those have no
+ * sections; then Dicta's pages with nikud, for the edition with nikud (when the text is Dicta's).
+ * job (extras/index.js): the share of Dicta's zips done so far, and Cancel.
  */
-export async function fetchBook(entry) {
-  const doc = {otzaria: null, pages: null, copies: []};
+export async function fetchBook(entry, job = null) {
+  const doc = {otzaria: null, pages: null, copies: [], nikud: null};
+  const check = () => { if (job) { job.check(); } };
+  if (job) { job.progress(0, 100, 'percent'); }
   if (entry.otzaria) {
     doc.otzaria = await getText(bookUrlForPath(entry.otzaria.path));
-    if (otzariaLayout(doc.otzaria)) { return doc; }
+    check();
   }
-  doc.pages = await dictaPages(entry.textUrl);
-  if ((entry.copies || []).length && dictaTreeOf(doc).children.length < 2) {
-    for (const c of entry.copies) {
-      doc.copies.push({...c, text: await getText(bookUrlForPath(c.path))});
+  const own = !(entry.otzaria && otzariaLayout(doc.otzaria));
+  const zips = (own ? 1 : 0) + (entry.nikudUrl ? 1 : 0);
+  let done = 0;
+  const part = () => {                 // (each zip an equal part of the whole)
+    const before = done++;
+    return f => { if (job) { job.progress(Math.round((100 * (before + f)) / zips), 100, 'percent'); } };
+  };
+  if (own) {
+    doc.pages = await dictaPages(entry.textUrl, {job, share: part()});
+    if ((entry.copies || []).length && dictaTreeOf(doc).children.length < 2) {
+      for (const c of entry.copies) {
+        doc.copies.push({...c, text: await getText(bookUrlForPath(c.path))});
+        check();
+      }
+    }
+  }
+  if (entry.nikudUrl && choose(doc).librarySource === ID) {
+    try {
+      doc.nikud = await dictaPages(entry.nikudUrl, {job, share: part()});
+    } catch (e) {
+      if (job && job.cancelled) { throw e; }
+      console.log('dicta: the edition with nikud could not be downloaded', e);   // (the plain one still is)
     }
   }
   return doc;
@@ -350,4 +583,5 @@ export default {
   // (Dicta's own text has no notice; Otzaria's copies are checked when chosen)
   isRestricted: () => false,
   versionOf,
+  versionsOf,
 };

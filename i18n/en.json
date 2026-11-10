@@ -116,6 +116,8 @@
     "extras.not_downloaded_title": "Download to read",
     "extras.not_offered_message": "This book's own notice limits its use (personal study only, or all rights reserved), so the app does not offer it.",
     "extras.not_offered_title": "Not offered",
+    "extras.progress_pages": "{done} of {total} pages",
+    "extras.progress_percent": "{percent}% downloaded",
     "extras.source_detail": "Its books are listed in the library. Each is downloaded from the source's own server when you open it.",
     "extras.turn_off_message": "Turn this source off? Its {count} downloaded books will be deleted from the phone.",
     "extras.up_to_date": "The downloaded books are up to date.",

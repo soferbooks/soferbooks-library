@@ -116,6 +116,8 @@
     "extras.not_downloaded_title": "יש להוריד את הספר",
     "extras.not_offered_message": "ההודעה שבספר עצמו מגבילה את השימוש בו (ללימוד אישי בלבד, או כל הזכויות שמורות), ולכן האפליקציה אינה מציעה אותו.",
     "extras.not_offered_title": "הספר אינו מוצע",
+    "extras.progress_pages": "{done} מתוך {total} דפים",
+    "extras.progress_percent": "הורדו {percent}%",
     "extras.source_detail": "ספריו מופיעים בספרייה. כל ספר יורד מהשרת של המקור כשפותחים אותו.",
     "extras.turn_off_message": "לכבות את המקור? {count} הספרים שהורדו ממנו יימחקו מהטלפון.",
     "extras.up_to_date": "הספרים שהורדו מעודכנים.",

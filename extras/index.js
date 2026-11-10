@@ -8,11 +8,14 @@
  *   catalogUrl, parseCatalog(text) -> [entry]   entry: {source, id, hash, heTitle,
  *                                                categories, heCategories, license, ...}
  *   bookUrl(entry) -> url of the book's file
- *   (optional) fetchCatalog() -> [entry], fetchBook(entry) -> what toTree takes: for a source
- *     whose catalogue or book is more than one file (extras/dicta.js)
+ *   (optional) fetchCatalog() -> [entry], fetchBook(entry, job) -> what toTree takes: for a source
+ *     whose catalogue or book is more than one file (extras/dicta.js). job: the download's
+ *     progress(done, total, unit) and Cancel (check(), onCancel(fn)) - see jobFor below
  *   toTree(text, entry) -> [Node, author]        extras/tree.js
  *   isRestricted(text, entry) -> bool            the book's own notice forbids it
  *   versionOf(entry, text) -> {versionTitle, versionSource, license, librarySource, ...}
+ *   (optional) versionsOf(entry, text, tree) -> [{version, tree}]  more than one edition of the
+ *     book, laid out alike, the one shown first (Dicta's with nikud, then the plain text)
  * and, for a source whose book is not one file (extras/wikisource.js):
  *   loadCatalog(installedRecords) -> [entry]     in place of catalogUrl + parseCatalog
  *   fetchBook(entry) -> text                     in place of fetching bookUrl (any value toTree takes)
@@ -74,6 +77,8 @@ export const needsDownload = title => isExtraTitle(title) && !isDownloaded(title
 export const isEnabled = id => !!enabled[id];
 export const installedTitles = (source = null) => Object.keys(state.installed)
   .filter(t => !source || state.installed[t].source === source);
+/** The books downloaded (not counting the books made with them: Wikisource's editors' notes) */
+export const downloadedBooks = (source = null) => installedTitles(source).filter(t => !state.installed[t].companionOf);
 export const firstSectionOf = title => (state.installed[title] || {}).firstSection || null;
 export const getBooks = () => books;
 
@@ -232,7 +237,8 @@ export function convertBook(entry, text) {
     categories: entry.categories,
     heCategories: entry.heCategories,
     authors: author ? [{he: author, en: ''}] : null,
-    version: source.versionOf(entry, text),
+    // (a source with more than one edition of the book - Dicta's with nikud - gives them all)
+    ...(source.versionsOf ? {versions: source.versionsOf(entry, text, tree)} : {version: source.versionOf(entry, text)}),
   });
   const companions = source.companions ? source.companions(tree, entry, {files, sections}, text) : [];
   return {files, firstSection, companions};
@@ -271,25 +277,90 @@ export async function searchLines(files) {
 }
 
 export class RestrictedBookError extends Error {}
+export class DownloadCancelledError extends Error {}
+
+// ---------------------------------------------------------------- downloads under way
+// {title: {done, total, unit, cancelled, hooks, promise}}: what the reader is shown (pages done of
+// all, or a share of the bytes) and the Cancel. unit: 'pages' (Wikisource's pages), 'percent'
+// (a file whose size is known: Dicta's zips), null (not known: a spinner).
+const downloads = {};
+const PROGRESS_EVERY = 250;          // ms between two progress notices
+let lastNotice = 0;
+
+/** {done, total, unit} of a book being downloaded now (total 0: not known yet), else null */
+export function downloadProgress(title) {
+  const d = downloads[title];
+  return d ? {done: d.done, total: d.total, unit: d.unit} : null;
+}
+export const downloadsUnderWay = () => Object.keys(downloads);
+
+/** Cancel a download under way: it stops at its next step and leaves nothing behind */
+export function cancelDownload(title) {
+  const d = downloads[title];
+  if (!d || d.cancelled) { return; }
+  d.cancelled = true;
+  d.hooks.forEach(fn => { try { fn(); } catch (e) { console.log('extras: cancel', e); } });
+  notify();
+}
+
+/**
+ * What a source's fetchBook is given: job.progress(done, total, unit) as it goes; job.check()
+ * (throws once cancelled) between steps; job.onCancel(fn) to stop a transfer at once.
+ */
+function jobFor(title) {
+  const d = downloads[title];
+  return {
+    progress(done, total, unit = 'pages') {
+      Object.assign(d, {done, total, unit});
+      const now = Date.now();
+      if (now - lastNotice >= PROGRESS_EVERY || (total && done >= total)) { lastNotice = now; notify(); }
+    },
+    get cancelled() { return d.cancelled; },
+    check() { if (d.cancelled) { throw new DownloadCancelledError(title); } },
+    onCancel(fn) { d.hooks.push(fn); },
+  };
+}
 
 /**
  * Download one book from its source, convert it and put it in the library.
  * Returns its first section's ref. Throws RestrictedBookError when the book's own notice
- * forbids it (it is then left out of the library).
+ * forbids it (it is then left out of the library), DownloadCancelledError when cancelled
+ * (cancelDownload). While it runs, downloadProgress(title) tells how far it is.
  */
-export async function downloadBook(title) {
+export function downloadBook(title) {
+  if (downloads[title]) { return downloads[title].promise; }     // (already under way)
+  downloads[title] = {done: 0, total: 0, unit: null, cancelled: false, hooks: []};
+  const promise = fetchAndInstall(title, jobFor(title)).then(first => {
+    delete downloads[title];
+    notify();
+    return first;
+  }, e => {
+    const cancelled = downloads[title] && downloads[title].cancelled;
+    delete downloads[title];
+    notify();
+    throw cancelled && !(e instanceof RestrictedBookError) ? new DownloadCancelledError(title) : e;
+  });
+  downloads[title].promise = promise;
+  notify();
+  return promise;
+}
+
+async function fetchAndInstall(title, job) {
   await loadExtras();
   const entry = books[title];
   if (!entry) { throw new Error(`not an extra book: ${title}`); }
   const source = EXTRA_SOURCES[entry.source];
   let text;
   if (source.fetchBook) {              // (a book that is more than one text file: Dicta's zip of pages)
-    text = await source.fetchBook(entry);
+    text = await source.fetchBook(entry, job);
   } else {
-    const response = await fetch(source.bookUrl(entry));
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    if (controller) { job.onCancel(() => controller.abort()); }
+    const response = await fetch(source.bookUrl(entry), controller ? {signal: controller.signal} : undefined);
     if (!response.ok) { throw new Error(`${entry.source}: HTTP ${response.status} for ${title}`); }
     text = await response.text();
   }
+  job.check();
   if (source.isRestricted(text, entry)) {
     state.blocked[`${entry.source}|${entry.id}`] = 'the book\'s own notice';
     await saveState();
@@ -297,6 +368,7 @@ export async function downloadBook(title) {
     throw new RestrictedBookError(title);
   }
   const {files, firstSection, companions} = convertBook(entry, text);
+  job.check();                         // (the last moment to cancel: nothing is written yet)
   await writeBook(title, files);
   const at = new Date().toISOString();
   state.installed[title] = {
@@ -352,5 +424,6 @@ export function _reset(next = {}) {
   catalogs = next.catalogs || {};
   state = {installed: {}, blocked: {}, ...(next.state || {})};
   books = next.books || {};
+  Object.keys(downloads).forEach(t => { delete downloads[t]; });
   loaded = next.loaded === false ? null : Promise.resolve();
 }
