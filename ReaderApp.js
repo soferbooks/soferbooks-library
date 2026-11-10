@@ -79,6 +79,8 @@ import { loadTabs, makeDebouncedTabSaver } from "./tabs/tabStorage";
 import SplitTabPane from "./reader/SplitTabPane";
 import {
   getInlineCommentary,
+  effectiveInlineCommentary,
+  clearSessionInlineCommentary,
   setInlineCommentary,
   loadInlineCommentaryPrefs,
   saveInlineCommentaryPrefs,
@@ -2142,6 +2144,7 @@ class ReaderApp extends React.PureComponent {
   /* ---------- "show under each passage" ---------- */
 
   setInlineCommentaryForBook = key => {
+    clearSessionInlineCommentary(this.state.textTitle);  // the reader's own pick replaces a schedule's
     const inlineCommentaryPrefs = setInlineCommentary(this.state.inlineCommentaryPrefs, this.state.textTitle, key);
     this.setState({ inlineCommentaryPrefs });
     saveInlineCommentaryPrefs(inlineCommentaryPrefs);
@@ -2260,7 +2263,7 @@ class ReaderApp extends React.PureComponent {
     const splitViewAvailable = this._isSplitViewAvailable() && !isSheet;
     const showSplit = splitViewAvailable && this.state.splitView;
     const inlineCommentary = (!isSheet && this.state.textFlow !== 'continuous') ?
-      getInlineCommentary(this.state.inlineCommentaryPrefs, this.state.textTitle) : null;
+      effectiveInlineCommentary(this.state.inlineCommentaryPrefs, this.state.textTitle) : null;
     return (
         <Animated.View
           style={[styles.container, this.props.theme.container]}

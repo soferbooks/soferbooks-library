@@ -2,6 +2,9 @@ import {
   monthlyPsalms, weeklyPsalms, psalmsItem, mishnahBerurah, chokLeYisrael, shnayimMikra,
   withExtraSchedules, WEEKLY_PSALMS, TITLES,
 } from '../learningSchedules/extraSchedules';
+import {
+  openScheduleRef, effectiveInlineCommentary, clearSessionInlineCommentary,
+} from '../reader/inlineCommentaryPrefs';
 import { rowSubtitle } from '../learningSchedules/LearningSchedulesBox';
 import CHOK from '../learningSchedules/data/chokLeYisrael.json';
 
@@ -50,10 +53,11 @@ describe('Tehillim', () => {
 
 describe('Mishnah Berurah Yomi (Dirshu Daf HaYomi B\'Halacha, from @hebcal/learning)', () => {
   // expected values from @hebcal/learning 6.13.1 dirshuDafHalacha()
-  test('a weekday: one amud, opening the siman in the Mishnah Berurah', () => {
+  test('a weekday: one amud, opening the Shulchan Arukh at the se’if, Mishnah Berurah beside it', () => {
     expect(mishnahBerurah(day(2026, 11, 10))).toMatchObject({
       title: TITLES.mishnahBerurah,
-      refs: ['Mishnah Berurah 447'],
+      refs: ['Shulchan Arukh, Orach Chayim 447:11'],
+      inlineCommentary: { book: 'Shulchan Arukh, Orach Chayim', key: 'Mishnah Berurah' },
       subs: [{ en: 'Orach Chayim 447:11-447:12', he: 'אורח חיים תמז:יא-תמז:יב' }],
     });
     expect(mishnahBerurah(day(2027, 1, 3)).subs[0].en).toBe('Orach Chayim 453:5');
@@ -62,6 +66,24 @@ describe('Mishnah Berurah Yomi (Dirshu Daf HaYomi B\'Halacha, from @hebcal/learn
   test('Friday and Shabbat review the week', () => {
     expect(mishnahBerurah(day(2026, 11, 13)).subs[0].en).toBe('Review: Orach Chayim 447:9-448:3');
     expect(mishnahBerurah(day(2026, 11, 14)).subs[0].he).toBe('חזרה: אורח חיים תמז:ט-תמח:ג');
+  });
+
+  test('opening the item shows the Mishnah Berurah under each se’if for this session only', () => {
+    const prefs = { 'Shulchan Arukh, Orach Chayim': "Ba'er Hetev" };
+    const item = mishnahBerurah(day(2026, 11, 10));
+    const openRef = jest.fn();
+    clearSessionInlineCommentary(item.inlineCommentary.book);
+    expect(effectiveInlineCommentary(prefs, 'Shulchan Arukh, Orach Chayim')).toBe("Ba'er Hetev");
+    openScheduleRef(item, 0, openRef);
+    expect(openRef).toHaveBeenCalledWith('Shulchan Arukh, Orach Chayim 447:11');
+    expect(effectiveInlineCommentary(prefs, 'Shulchan Arukh, Orach Chayim')).toBe('Mishnah Berurah');
+    expect(effectiveInlineCommentary({}, 'Mishnah Berurah')).toBeNull();
+    expect(prefs).toEqual({ 'Shulchan Arukh, Orach Chayim': "Ba'er Hetev" });  // saved choice untouched
+    clearSessionInlineCommentary('Shulchan Arukh, Orach Chayim');  // the reader picks in the menu
+    expect(effectiveInlineCommentary(prefs, 'Shulchan Arukh, Orach Chayim')).toBe("Ba'er Hetev");
+    // other items open as before
+    openScheduleRef({ refs: ['Psalms 1-29'] }, 0, openRef);
+    expect(openRef).toHaveBeenLastCalledWith('Psalms 1-29');
   });
 
   test('ends with the transcribed luach (31 August 2027)', () => {

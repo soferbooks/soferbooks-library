@@ -1,3 +1,4 @@
+import { openScheduleRef } from '../reader/inlineCommentaryPrefs';
 import React from 'react';
 import {View} from "react-native";
 import {
@@ -105,7 +106,7 @@ export const rowSubtitle = calendarItem => {
 const LearningScheduleRow = ({ calendarItem, openRef }) => {
     const { theme, interfaceLanguage } = useGlobalState();
     const hasRef = !!(calendarItem.refs && calendarItem.refs.length);
-    const onPress = () => { if (hasRef) { openRef(calendarItem.refs[0]); } };
+    const onPress = () => { if (hasRef) { openScheduleRef(calendarItem, 0, openRef); } };
     const displayTitle = calendarItem.title.en === "Parashat Hashavua" ? stringPair('common.torah') : calendarItem.title
     const { en, he } = rowSubtitle(calendarItem);
     return (

@@ -140,6 +140,8 @@
     "filter.group_religious_zionist_thought_short": "הרב קוק, הרב סולובייצ'יק, נחמה ליבוביץ",
     "filter.group_sefarim_chitzoniim": "ספרים חיצוניים",
     "filter.group_sefarim_chitzoniim_short": "ספרים חיצוניים",
+    "filter.group_women_authors": "חיבורים שכתבו נשים",
+    "filter.group_women_authors_short": "חיבורי נשים",
     "filter.groups_header": "הסתר את הקבוצות האלה",
     "filter.hidden_message": "{title} מוסתר על ידי מסנן התוכן שלכם ({reason}). אפשר לשנות את המסנן בהגדרות.",
     "filter.hidden_title": "מוסתר על ידי המסנן",

@@ -34,6 +34,7 @@ export const GROUPS = [
   { id: 'historical_apocrypha', short: 'Ben Sira & Maccabees', level: 3, name: 'Ben Sira & Maccabees', examples: 'Ben Sira, Books of the Maccabees, Megillat Antiochus' },
   { id: 'academic_orthodox', short: 'Mishnat Eretz Yisrael', level: 3, name: 'Academic Orthodox scholarship', examples: 'Mishnat Eretz Yisrael (the Safrais)' },
   { id: 'community_sheets', short: 'community sheets', level: 3, name: 'Community source sheets', examples: 'Sheets by anyone, except from known Orthodox sources' },
+  { id: 'women_authors', short: 'works by women', level: 3, name: 'Works by women authors', examples: 'Dirshuni, Jewish Legal Writings by Women, Nechama Leibowitz, Torah of the Mothers, translations by women' },
 
   { id: 'religious_zionist_thought', short: 'Rav Kook, Rav Soloveitchik, Nechama Leibowitz', level: 4, name: 'Religious Zionist & Modern Orthodox thought', examples: "Rav Kook's Orot, Rav J. B. Soloveitchik's Halakhic Man, Nechama Leibowitz" },
 ];

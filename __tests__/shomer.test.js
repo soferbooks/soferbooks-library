@@ -318,9 +318,11 @@ describe('"Off"', () => {
 describe('rule fixes (checked against Sefaria\'s real toc.json, 2026-11)', () => {
   const visible = (presetId, entry) => bookMatch(cfg(presetId), entry) === null;
 
-  test('"Jewish Legal Writings by Women" is not Haskalah: visible under every preset', () => {
+  test('"Jewish Legal Writings by Women" is not Haskalah: hidden only as a work by women (Yeshivish up)', () => {
     const book = { title: 'Jewish Legal Writings by Women', heTitle: 'נשים בדיון הלכתי' };
-    for (const p of PRESETS) { expect(visible(p.id, book)).toBe(true); }
+    expect(visible('centrist_mo', book)).toBe(true);
+    expect(visible('rwmo', book)).toBe(true);
+    expect(bookMatch(cfg('yeshivish'), book)).toMatchObject({ group: 'women_authors' });
   });
 
   test('the Haskalah rule still hides what it should from RWMO up', () => {
@@ -369,8 +371,72 @@ describe('rule fixes (checked against Sefaria\'s real toc.json, 2026-11)', () =>
   });
 
   test('ordinary Orthodox works stay visible under Strict Charedi', () => {
-    for (const title of ['Mishnah Berurah', 'Kuzari', 'Torah of the Mothers', 'Gray Matter I', "Peninei Halakhah, Women's Prayer"]) {
+    for (const title of ['Mishnah Berurah', 'Kuzari', 'Gray Matter I', "Peninei Halakhah, Women's Prayer"]) {
       expect(visible('strict_charedi', { title })).toBe(true);
     }
+  });
+});
+
+describe('works by women authors (owner, 2026-11: hidden from Yeshivish up; borderline stays visible)', () => {
+  const visible = (presetId, entry) => bookMatch(cfg(presetId), entry) === null;
+  const books = [
+    { title: 'Dirshuni I', heTitle: 'דרשוני כרך א' }, { title: 'Dirshuni II' },
+    { title: 'Jewish Legal Writings by Women' }, { title: 'Torah of the Mothers' },
+    { title: "She Is Life; Halakha and Women at Life's Crossroads" }, { title: 'Karati Bekhol Lev' },
+    { title: 'Moses; A Human Life' }, { title: 'Learning to Read Midrash' },
+    { title: 'A Lifetime Companion to the Laws of Jewish Family Life' },
+    { title: 'Return; Daily Inspiration for the Days of Awe' }, { title: 'Nishmat HaBayit' }, { title: 'Tribal Lands' },
+    { title: 'x', heTitle: 'דרשוני כרך ב' },
+  ];
+
+  test('the group sits at Yeshivish on the ladder, with English and Hebrew names', () => {
+    expect(GROUPS.find(g => g.id === 'women_authors')).toMatchObject({ level: 3 });
+    expect(RULES_JSON.find(r => r.id === 'women_authors').group).toBe('women_authors');
+    expect(groupsFor('rwmo').women_authors).toBe(false);
+    expect(groupsFor('yeshivish').women_authors).toBe(true);
+  });
+
+  test('hidden at Yeshivish and Strict Charedi, visible at RWMO, Centrist MO and Off', () => {
+    for (const book of books) {
+      for (const p of ['off', 'centrist_mo', 'rwmo']) { expect(visible(p, book)).toBe(true); }
+      for (const p of ['yeshivish', 'strict_charedi']) { expect(visible(p, book)).toBe(false); }
+    }
+    expect(filterToc(cfg('yeshivish'), [{ category: 'Modern', contents: books }]))
+      .toEqual([]);
+  });
+
+  test('Nechama Leibowitz: hidden from Yeshivish up (no longer only by Strict Charedi)', () => {
+    expect(match(cfg('rwmo'), 'Studies in Shemot, Nechama Leibowitz')).toBeNull();
+    expect(match(cfg('yeshivish'), 'Studies in Shemot, Nechama Leibowitz')).toMatchObject({ group: 'women_authors' });
+    expect(versionMatch(cfg('yeshivish'), { versionTitle: 'Nehama Leibowitz' })).not.toBeNull();
+    expect(versionMatch(cfg('yeshivish'), { versionTitle: 'Nechama Liebowitz' })).not.toBeNull();
+    expect(match(cfg('strict_charedi'), 'Nechama Leibowitz')).not.toBeNull();
+  });
+
+  test('translations by women are hidden as versions; the book itself stays', () => {
+    const byWomen = ['Dena Weiss translation', 'Keset HaSofer, trans. Jen Taylor Friedman',
+      'The Targum of Samuel; trans. E. van Staalduine-Sulman. Leiden: Brill, 2002',
+      'Translated from German by Ruth Morris, Jerusalem, 2013', 'Dr. Tziporah Lifshitz'];
+    for (const versionTitle of byWomen) {
+      expect(versionMatch(cfg('rwmo'), { versionTitle })).toBeNull();
+      expect(versionMatch(cfg('yeshivish'), { versionTitle })).toMatchObject({ group: 'women_authors' });
+    }
+    for (const title of ['Shemot Rabbah', 'Keset HaSofer', 'Targum Jonathan on I Samuel']) {
+      expect(visible('strict_charedi', { title })).toBe(true);
+    }
+    const versions = [{ versionTitle: 'Dena Weiss translation' }, { versionTitle: 'The Sefaria Midrash Rabbah, 2022' }];
+    expect(filterVersions(cfg('yeshivish'), versions)).toEqual([versions[1]]);
+  });
+
+  test('borderline books stay visible under every preset (lenient)', () => {
+    const borderline = ['Cassuto on Genesis', 'Cassuto on Exodus', 'Jewish Women in Time and Torah', 'Tenai BeNissuin Uveget',
+      'Rabbi Sacks on Siddur', 'The Jonathan Sacks Haggadah', 'Reshimot Shiurim on Berakhot', 'Shabbat HaAretz',
+      'The Midrash of Philo', 'The Antiquities of the Jews', 'Against Apion', "Peninei Halakhah, Women's Prayer",
+      'Mishnah Berurah', 'Kuzari'];
+    for (const title of borderline) {
+      for (const p of CHOICES) { expect(visible(p.id, { title })).toBe(true); }
+    }
+    // a co-edited Sefaria translation with women copy-editors is not a translation by women
+    expect(versionMatch(cfg('strict_charedi'), { versionTitle: 'The Sefaria Midrash Rabbah, 2022' })).toBeNull();
   });
 });

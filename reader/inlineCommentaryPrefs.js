@@ -32,6 +32,33 @@ export const setInlineCommentary = (prefs, bookTitle, key) => {
   return next;
 };
 
+/* ---------- a choice for this session only (from a learning schedule) ---------- */
+
+// A learning schedule item can ask for a commentary beside its text (Mishnah Berurah Yomi opens the
+// Shulchan Arukh with the Mishnah Berurah under each se'if). That choice lasts until the app is
+// closed or the reader picks something else for the book in the display menu; the reader's saved
+// per-book choice is not changed.
+const sessionChoices = {};
+
+export const setSessionInlineCommentary = (bookTitle, key) => {
+  if (!bookTitle) { return; }
+  if (key) { sessionChoices[bookTitle] = key; } else { delete sessionChoices[bookTitle]; }
+};
+
+export const clearSessionInlineCommentary = bookTitle => setSessionInlineCommentary(bookTitle, null);
+
+/** What is shown under each passage of `bookTitle`: this session's choice, else the saved one. */
+export const effectiveInlineCommentary = (prefs, bookTitle) => (
+  (bookTitle && sessionChoices[bookTitle]) || getInlineCommentary(prefs, bookTitle)
+);
+
+/** Open a calendar item's nth ref, first applying the item's inline commentary, if any. */
+export const openScheduleRef = (calendarItem, n, openRef) => {
+  const ic = calendarItem && calendarItem.inlineCommentary;
+  if (ic && ic.book && ic.key) { setSessionInlineCommentary(ic.book, ic.key); }
+  return openRef(calendarItem.refs[n]);
+};
+
 export const loadInlineCommentaryPrefs = async () => {
   try {
     const raw = await AsyncStorage.getItem(INLINE_COMMENTARY_STORAGE_KEY);
