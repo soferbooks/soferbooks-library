@@ -1,4 +1,6 @@
 module.exports = {
+    // Agent worktrees live under .claude/; their copies of __mocks__ and tests must not be picked up.
+    "modulePathIgnorePatterns": ["<rootDir>/.claude/"],
     "preset": "react-native",
     "setupFiles": [
         "<rootDir>/jest.setup.js"
@@ -8,7 +10,8 @@ module.exports = {
     // It is not a jest suite and must not be collected by the root unit-test run.
     "testPathIgnorePatterns": [
         "/node_modules/",
-        "<rootDir>/automatic-e2e-tests/"
+        "<rootDir>/automatic-e2e-tests/",
+        "<rootDir>/.claude/"
     ],
     // Expo and React Native packages ship untranspiled ESM/TS, so they must
     // not be excluded from Babel transformation or importing them throws
