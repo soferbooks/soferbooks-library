@@ -40,9 +40,9 @@ export const GROUPS = [
   { id: 'religious_zionist_thought', short: 'Rav Kook, Rav Soloveitchik, Nechama Leibowitz', level: 4, name: 'Religious Zionist & Modern Orthodox thought', examples: "Rav Kook's Orot, Rav J. B. Soloveitchik's Halakhic Man, Nechama Leibowitz" },
 ];
 
-// "Off": nothing is hidden. Not on the ladder (PRESETS); offered beside it, first.
+// "Off": nothing is hidden. Not on the ladder (PRESETS); offered beside it, last (owner's choice).
 export const OFF = { id: 'off', level: 0, name: 'Off' };
-export const CHOICES = [OFF, ...PRESETS];
+export const CHOICES = [...PRESETS, OFF];
 
 export const presetById = id => CHOICES.find(p => p.id === id);
 

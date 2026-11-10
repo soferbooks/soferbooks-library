@@ -94,7 +94,6 @@
     "download.update_later": "Update Later",
     "download.update_library": "Library Updates",
     "download.updates_available_message": "{count} text update(s).\nWould you like to download now?",
-    "download.using_online_library": "Using Online Library",
     "errors.connect_to_search_message": "Connect to the internet to search.",
     "errors.connect_to_versions_message": "Connect to the internet to read other versions.",
     "errors.failed_to_load_text": "(Failed to load text)",

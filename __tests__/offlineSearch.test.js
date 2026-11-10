@@ -184,3 +184,76 @@ test('books missing from an index are still searched', async () => {
   expect(result.hits.total).toBe(1);
   expect(result.hits.hits[0]._source.ref.startsWith('Siddur Ashkenaz')).toBe(true);
 });
+
+describe('ranking, exact matches and the content filter', () => {
+  const RASHI = [
+    LINE('Rashi on Genesis 1:1:1', 'רש"י על בראשית א׳:א׳:א׳', 'he', 'merged', 'בראשית ברא - אין המקרא הזה אומר אלא דרשני'),
+    LINE('Rashi on Genesis 1:1:2', 'רש"י על בראשית א׳:א׳:ב׳', 'he', 'merged', 'ברא את השמים, לבראשית'),
+  ].join('\n');
+  const BOOKS = {
+    'Genesis': {cats: ['Tanakh', 'Torah', 'Genesis']},
+    'Rashi on Genesis': {cats: ['Tanakh', 'Rishonim on Tanakh', 'Rashi', 'Torah'], dependence: 'Commentary'},
+    'Siddur Ashkenaz': {cats: ['Temple', 'Siddur']},
+  };
+  let saved;
+  beforeEach(async () => {
+    saved = global.Sefaria;
+    global.Sefaria = {
+      // Rashi comes first in this TOC: the main text must still win
+      booksDict: {'Rashi on Genesis': 1, 'Genesis': 1, 'Siddur Ashkenaz': 1},
+      categoriesForTitle: t => (BOOKS[t] || {}).cats,
+      index: t => BOOKS[t],
+    };
+    // the phrase also in a later verse (file order: 10 before 2), the words apart in another
+    await write('Genesis_search.txt', [
+      LINE('Genesis 10:1', 'בראשית י׳:א׳', 'he', 'merged', 'בְּרֵאשִׁית בָּרָא שוב'),
+      LINE('Genesis 2:4', 'בראשית ב׳:ד׳', 'he', 'merged', 'בְּהִבָּרְאָם וגו בְּרֵאשִׁית'),
+      GENESIS,
+    ].join('\n'));
+    await write('Rashi on Genesis_search.txt', RASHI);
+  });
+  afterEach(() => { global.Sefaria = saved; });
+
+  test('exact phrase first, main texts before commentaries, then canonical order', async () => {
+    const r = await executeOfflineQuery({query: 'בראשית ברא', type: 'text', size: 10, start: 0});
+    expect(r.hits.hits.map(h => h._source.ref)).toEqual([
+      'Genesis 1:1', 'Genesis 10:1', 'Rashi on Genesis 1:1:1',   // the phrase
+      'Genesis 2:4', 'Rashi on Genesis 1:1:2',                    // both words, apart
+    ]);
+    expect(r.hits.total).toBe(5);
+  });
+
+  test('"Exact matches only" keeps the exact phrase only, and the counts follow', async () => {
+    const r = await executeOfflineQuery({query: 'בראשית ברא', type: 'text', size: 10, start: 0, field: 'exact', exact: true});
+    expect(r.hits.hits.map(h => h._source.ref)).toEqual(['Genesis 1:1', 'Genesis 10:1', 'Rashi on Genesis 1:1:1']);
+    expect(r.hits.total).toBe(3);
+    expect(r.aggregations.path.buckets.find(b => b.key === 'Tanakh').doc_count).toBe(3);
+    expect(r.hits.hits[0].highlight.exact).toBeTruthy();   // ReaderApp reads highlight[field]
+    const broad = await executeOfflineQuery({query: 'בראשית ברא', type: 'text', size: 10, start: 0});
+    expect(broad.hits.total).toBe(5);
+  });
+
+  test('exact English is whole words', async () => {
+    expect((await executeOfflineQuery({query: 'heave', type: 'text', exact: true})).hits.total).toBe(0);
+    expect((await executeOfflineQuery({query: 'heaven', type: 'text', exact: true})).hits.total).toBe(1);
+  });
+
+  test('lines of versions and books the content filter hides are left out', async () => {
+    await write('Genesis_search.txt', [
+      LINE('Genesis 1:6', 'בראשית א׳:ו׳', 'en', 'THE JPS TANAKH: Gender-Sensitive Edition', 'Let there be an expanse'),
+      LINE('Genesis 1:6', 'בראשית א׳:ו׳', 'en', 'The Koren Jerusalem Bible', 'Let there be a firmament'),
+      LINE('Genesis 1:7', 'בראשית א׳:ז׳', 'en', 'THE JPS TANAKH: Gender-Sensitive Edition', 'Let there be a firmament'),
+    ].join('\n'));
+    global.Sefaria.shomer = {
+      isActive: () => true,
+      getConfig: () => ({preset: 'yeshivish'}),
+      isBookHidden: t => t === 'Rashi on Genesis',
+      isVersionHidden: v => /Gender-Sensitive/.test(v.versionTitle),
+    };
+    const r = await executeOfflineQuery({query: 'firmament', type: 'text'});
+    expect(r.hits.hits.map(h => [h._source.ref, h._source.version])).toEqual([['Genesis 1:6', 'The Koren Jerusalem Bible']]);
+    expect(r.hits.total).toBe(1);
+    expect((await executeOfflineQuery({query: 'ברא', type: 'text'})).hits.hits
+      .some(h => h._source.ref.startsWith('Rashi'))).toBe(false);
+  });
+});

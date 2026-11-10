@@ -301,21 +301,15 @@ class ReaderApp extends React.PureComponent {
 
           this.openMenu("settings")
         };
-        const onCancel = () => {
-          Alert.alert(
-            strings.download.using_online_library,
-            strings.download.how_to_download_library_message,
-            [
-              {text: strings.common.ok}
-            ]);
-        };
+        // One prompt only (QA): it already says how to download later, so "Not now" just
+        // closes it instead of opening a second "Using Online Library" alert.
         const showWelcomeAlert = () => {
           Alert.alert(
             strings.common.welcome,
-            strings.download.download_library_recommended_message,
+            `${strings.download.download_library_recommended_message}\n\n${strings.download.how_to_download_library_message}`,
             [
               {text: strings.download.open_settings, onPress: onDownload},
-              {text: strings.common.not_now, onPress: onCancel}
+              {text: strings.common.not_now, style: 'cancel'}
             ]
           );
         };
@@ -775,6 +769,11 @@ class ReaderApp extends React.PureComponent {
             this.setCurrVersionObjects(sectionRef);
             resolve();
           });
+        }).catch(error => {
+          // no index anywhere (offline and not readable): still load the section's
+          // translations and related texts rather than leaving them empty
+          console.warn(`Could not load the index of ${title}`, error);
+          resolve();
         });
       });
     });

@@ -46,14 +46,39 @@ function escapeRegExp(text) {
  * Hebrew letters may carry vowel points in the text ("בְּרֵאשִׁית"), so the
  * vowel points are allowed between every two letters of the word.
  */
-export function wordRegExp(word) {
-  const letters = Array.from(normalizeQueryWord(word));
-  if (!letters.length) { return null; }
+function wordSource(word) {
   let source = '';
-  for (const letter of letters) {
+  for (const letter of Array.from(word)) {
     source += escapeRegExp(letter);
     if (HEBREW_LETTER.test(letter)) { source += '[\\u0591-\\u05C7]*'; }
   }
+  return source;
+}
+
+// a word's letters (Hebrew with its points) and what may stand between two words of a phrase
+const WORD_CHAR = 'A-Za-z0-9\\u05D0-\\u05EA\\u0591-\\u05C7';
+const BETWEEN_WORDS = `[^${WORD_CHAR}]+`;
+
+/**
+ * The query as an exact phrase: these words, whole (no Hebrew prefixes, no longer English
+ * word), one after the other.  `whole` false: the first word may carry a prefix and the
+ * last may go on ("ברא" in "בראשית") - still the words next to each other.
+ */
+export function phraseRegExp(words, whole = true) {
+  const parts = words.map(normalizeQueryWord).filter(Boolean);
+  if (!parts.length) { return null; }
+  const body = parts.map(wordSource).join(BETWEEN_WORDS);
+  const hebrew = parts.some(w => HEBREW_LETTER.test(w));
+  if (!whole) {
+    return hebrew ? new RegExp(body) : new RegExp(`(^|\\W)${body}`, 'i');
+  }
+  return new RegExp(`(^|[^${WORD_CHAR}])${body}(?![${WORD_CHAR}])`, hebrew ? '' : 'i');
+}
+
+export function wordRegExp(word) {
+  const letters = Array.from(normalizeQueryWord(word));
+  if (!letters.length) { return null; }
+  const source = wordSource(letters.join(''));
   const isHebrew = letters.some(letter => HEBREW_LETTER.test(letter));
   // English words match at a word start ("begin" finds "beginning") but not
   // in the middle of a word; Hebrew has prefixes attached, so it is a plain
@@ -132,6 +157,79 @@ function passesFilters(title, filters) {
   const path = bookPath(title);
   return filters.some(filter => path === filter || path.startsWith(`${filter}/`)
       || filter.startsWith(`${path}/`));
+}
+
+// ------------------------------------------------------------- content filter + ranking
+
+function shomer() {
+  const s = global.Sefaria && global.Sefaria.shomer;
+  return s && typeof s.isActive === 'function' ? s : null;
+}
+
+/** Books and versions the reader's content filter hides (shomer/index.js). */
+function contentFilter() {
+  const s = shomer();
+  if (!s || !s.isActive()) { return {key: 'off', bookHidden: () => false, versionHidden: () => false}; }
+  const memo = new Map();
+  return {
+    key: JSON.stringify(s.getConfig()),
+    bookHidden: title => { try { return s.isBookHidden(title); } catch (e) { return false; } },
+    versionHidden: (lang, versionTitle) => {
+      const k = `${lang}|${versionTitle}`;
+      if (!memo.has(k)) {
+        let hidden = false;
+        try { hidden = !!s.isVersionHidden({language: lang, versionTitle}); } catch (e) { hidden = false; }
+        memo.set(k, hidden);
+      }
+      return memo.get(k);
+    },
+  };
+}
+
+/**
+ * Where a book goes in the results: main texts before commentaries (and other texts that
+ * depend on a base text), then the library's own order (the TOC, as Sefaria.booksDict
+ * keeps it).
+ */
+function bookRanks() {
+  const order = new Map();
+  try {
+    Object.keys((global.Sefaria && global.Sefaria.booksDict) || {}).forEach((t, i) => order.set(t, i));
+  } catch (e) { /* no TOC: alphabetical */ }
+  const cache = new Map();
+  return title => {
+    if (cache.has(title)) { return cache.get(title); }
+    let dependent = 0;
+    try {
+      const index = global.Sefaria.index && global.Sefaria.index(title);
+      const cats = global.Sefaria.categoriesForTitle(title) || [];
+      if ((index && index.dependence) || cats.some(c => /Commentar/.test(c))) { dependent = 1; }
+    } catch (e) { /* unknown: main */ }
+    const rank = [dependent, order.has(title) ? order.get(title) : order.size];
+    cache.set(title, rank);
+    return rank;
+  };
+}
+
+/** "Genesis 10:2" after "Genesis 2:5": numbers compared as numbers. */
+function compareRefs(a, b) {
+  const re = /(\d+)|(\D+)/g;
+  const pa = a.match(re) || [];
+  const pb = b.match(re) || [];
+  for (let i = 0; i < Math.min(pa.length, pb.length); i++) {
+    if (pa[i] === pb[i]) { continue; }
+    const na = /^\d/.test(pa[i]);
+    const nb = /^\d/.test(pb[i]);
+    if (na && nb) { return Number(pa[i]) - Number(pb[i]); }
+    return pa[i] < pb[i] ? -1 : 1;
+  }
+  return pa.length - pb.length;
+}
+
+/** Best first: exact phrase, then the words next to each other, then anywhere. */
+function compareHits(a, b) {
+  return (a.tier - b.tier) || (a.rank[0] - b.rank[0]) || (a.rank[1] - b.rank[1])
+      || compareRefs(a.hit._source.ref, b.hit._source.ref) || (a.seq - b.seq);
 }
 
 // ------------------------------------------------------------- search index
@@ -370,8 +468,13 @@ async function readSearchFile(uri) {
   }
 }
 
-/** Scan a single file, appending matches.  Returns the new hit count. */
+/**
+ * Scan a single file, appending matches.  Returns the new hit count.
+ * Exact mode: only lines with the exact phrase.  Otherwise every line with all the words
+ * matches, ranked by how close it is to the phrase (compareHits).
+ */
 function scanFile(content, terms, state) {
+  const { phrase, nearPhrase, exact, filter } = state;
   const lines = content.split('\n');
   for (const line of lines) {
     if (!line) { continue; }
@@ -379,28 +482,45 @@ function scanFile(content, terms, state) {
     if (fields.length < 5) { continue; }
     const text = fields[4];
     let firstIndex = -1;
-    let matched = true;
-    for (const term of terms) {
-      const m = term.regexp.exec(text);
-      if (!m) { matched = false; break; }
-      if (firstIndex === -1) { firstIndex = m.index; }
+    let tier = 2;
+    const p = phrase.exec(text);
+    if (p) {
+      tier = 0;
+      firstIndex = p.index + p[1].length;
+    } else if (exact) {
+      continue;
+    } else {
+      let matched = true;
+      for (const term of terms) {
+        const m = term.regexp.exec(text);
+        if (!m) { matched = false; break; }
+        if (firstIndex === -1) { firstIndex = m.index; }
+      }
+      if (!matched) { continue; }
+      const n = terms.length > 1 && nearPhrase.exec(text);
+      if (n) { tier = 1; firstIndex = n.index; }
     }
-    if (!matched) { continue; }
+    const [ref, heRef, lang, versionTitle] = fields;
+    if (filter.versionHidden(lang, versionTitle)) { continue; }  // the reader does not show it
 
     state.total += 1;
     state.addBucket(bookPath(state.title));
     if (state.hits.length < MAX_RESULTS) {
-      const [ref, heRef, lang, versionTitle] = fields;
+      const snippet = [snippetAround(text, Math.max(0, firstIndex), 0)];
       state.hits.push({
-        _id: `${ref}${lang === 'he' ? '[he]' : ''}`,
-        _source: {
-          ref,
-          heRef,
-          version: versionTitle,
-          version_priority: 0,
-        },
-        highlight: {
-          naive_lemmatizer: [snippetAround(text, Math.max(0, firstIndex), 0)],
+        tier,
+        rank: state.rank,
+        seq: state.hits.length,
+        hit: {
+          _id: `${ref}${lang === 'he' ? '[he]' : ''}`,
+          _source: {
+            ref,
+            heRef,
+            version: versionTitle,
+            version_priority: 0,
+          },
+          // the reader reads the highlight of the field searched (naive_lemmatizer / exact)
+          highlight: { naive_lemmatizer: snippet, exact: snippet },
         },
       });
     }
@@ -439,6 +559,7 @@ function rememberScan(key, entry) {
 /**
  * Run a text query against the downloaded books.
  * Returns null when there is nothing to search (the caller then uses the API).
+ * args.exact (or args.field === 'exact'): "Exact matches only".
  */
 export async function executeOfflineQuery(args) {
   if (args.type && args.type !== 'text') { return null; }
@@ -450,16 +571,18 @@ export async function executeOfflineQuery(args) {
   const start = args.start || 0;
   const size = args.size || 20;
   const filters = args.applied_filters || [];
+  const exact = !!(args.exact || args.field === 'exact');
+  const filter = contentFilter();
   const indexes = await loadIndexes();
   const indexTag = indexes.map(index => index.cacheKey).join(',');
-  const key = `${cacheKey(terms, filters)}|${files.length}|${indexTag}`;
+  const key = `${cacheKey(terms, filters)}|${exact ? 'exact' : 'broad'}|${filter.key}|${files.length}|${indexTag}`;
 
   const cached = scanCache.get(key);
   if (cached) {
     return cachedResult(cached, start, size);
   }
 
-  const hits = [];
+  const found = [];
   const buckets = new Map();
   let total = 0;
 
@@ -472,9 +595,16 @@ export async function executeOfflineQuery(args) {
     }
   };
 
+  const words = terms.map(term => term.word);
+  const phrase = phraseRegExp(words, true);
+  const nearPhrase = phraseRegExp(words, false);
+  const rankOf = bookRanks();
   const allowed = await candidateTitles(indexes, files, terms);
+  // main texts first, in the library's order, so the cap keeps the most relevant books
   const scanFiles = files.filter(([title]) => passesFilters(title, filters)
-      && (!allowed || allowed.has(title)));
+      && (!allowed || allowed.has(title)) && !filter.bookHidden(title))
+      .map(([title, uri]) => [title, uri, rankOf(title)])
+      .sort((a, b) => (a[2][0] - b[2][0]) || (a[2][1] - b[2][1]) || a[0].localeCompare(b[0]));
 
   let stoppedAtCap = false;
   for (let i = 0; i < scanFiles.length; i += READ_CONCURRENCY) {
@@ -485,14 +615,17 @@ export async function executeOfflineQuery(args) {
       const content = contents[j];
       if (!content) { continue; }
       if (!mayContainAll(content, terms)) { continue; }
-      const state = { title: batch[j][0], hits, addBucket, total };
+      const state = {
+        title: batch[j][0], rank: batch[j][2], hits: found, addBucket, total,
+        phrase, nearPhrase, exact, filter,
+      };
       total = scanFile(content, terms, state);
       if (total >= MAX_RESULTS) { stoppedAtCap = true; break; }
     }
   }
 
   const entry = {
-    hits,
+    hits: found.sort(compareHits).map(f => f.hit),
     buckets,
     total,
     complete: !stoppedAtCap,

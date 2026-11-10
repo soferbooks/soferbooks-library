@@ -94,7 +94,6 @@
     "download.update_later": "לעדכן אחר כך",
     "download.update_library": "עדכונים לספריה הבלתי מקוונת",
     "download.updates_available_message": "{count} עדכונים לטקסטים.\nהאם תרצו להוריד כעת?",
-    "download.using_online_library": "האפליקציה במצב מקוון בלבד",
     "errors.connect_to_search_message": "התחברו לאינטרנט כדי לבצע חיפוש",
     "errors.connect_to_versions_message": "התחברו לאינטרנט כדי לקרוא עוד גרסאות",
     "errors.failed_to_load_text": "(תקלה בטעינת טקסט)",

@@ -968,13 +968,10 @@ describe('Alerts', () => {
           app._libraryPromptStarted = false;  // shown once per app run; each language asks again
           app.promptLibraryDownload();
           await flushPromises();
-          // "Not now" opens the second alert explaining how to download later.
-          pressAlertButton('common.not_now');
         },
+        // one alert: it says how to download later itself ("Not now" opens nothing more)
         ['common.welcome', 'download.download_library_recommended_message',
-         'download.open_settings', 'common.not_now',
-         'download.using_online_library', 'download.how_to_download_library_message',
-         'common.ok']
+         'download.open_settings', 'common.not_now', 'download.how_to_download_library_message']
       );
     });
   });

@@ -10,7 +10,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {unzip} from 'react-native-zip-archive';
 import md5 from 'md5';
 import {
-  isOpenLicense, bookLines, syncLocalSearch, localSearchPath, STATE_KEY,
+  isOpenLicense, bookLines, syncLocalSearch, localSearchPath, STATE_KEY, watchContentFilter,
 } from '../localSearch';
 import {executeOfflineQuery, clearOfflineSearchCache} from '../offlineSearch';
 
@@ -108,7 +108,7 @@ test('an unchanged zip is not redone; a Sefaria update regenerates its lines', a
   expect((await syncLocalSearch(['Genesis'])).built).toEqual(['Genesis']);
   const text = await FileSystem.readAsStringAsync(localSearchPath('Genesis'));
   expect(text).toBe(`Genesis 1:1\tבראשית א:1\ten\t${CLOSED}\tA new translation of the beginning\n`);
-  expect(JSON.parse(await AsyncStorage.getItem(STATE_KEY)).Genesis).toBe('200:5');
+  expect(JSON.parse(await AsyncStorage.getItem(STATE_KEY)).Genesis.stamp).toBe('200:5');
 });
 
 test('deleted, hidden or no longer listed books lose their local file', async () => {
@@ -121,4 +121,79 @@ test('deleted, hidden or no longer listed books lose their local file', async ()
   await syncLocalSearch(['Genesis']);
   expect((await syncLocalSearch([])).removed).toEqual(['Genesis']);
   expect((await FileSystem.getInfoAsync(localSearchPath('Genesis'))).exists).toBe(false);
+});
+
+describe('a hosted (primary) version the content filter hides', () => {
+  const JPS = 'THE JPS TANAKH: Gender-Sensitive Edition';
+  const KOREN = 'The Koren Jerusalem Bible';
+  const METSUDAH = 'Metsudah Chumash';
+  const hideJps = v => v.versionTitle === JPS;
+
+  /** Genesis as Sefaria sends it: JPS (open, hosted) first, then Koren (closed) and Metsudah. */
+  function tanakhZip() {
+    const versions = [{versionTitle: JPS, language: 'en'}, {versionTitle: KOREN, language: 'en'},
+      {versionTitle: METSUDAH, language: 'en'}, {versionTitle: OPEN, language: 'he'}];
+    return {
+      'Genesis_index.json': JSON.stringify({versions: [
+        {versionTitle: JPS, language: 'en', license: 'CC-BY-NC'},
+        {versionTitle: KOREN, language: 'en', license: 'Copyright: Koren'},
+        {versionTitle: METSUDAH, language: 'en', license: 'CC-BY'},
+        {versionTitle: OPEN, language: 'he', license: 'Public Domain'},
+      ]}),
+      'Genesis 1.metadata.json': JSON.stringify({ref: 'Genesis 1', heRef: 'בראשית א', versions}),
+      [vfile('Genesis 1', JPS, 'en')]: JSON.stringify(['an expanse']),
+      [vfile('Genesis 1', KOREN, 'en')]: JSON.stringify(['a firmament']),
+      [vfile('Genesis 1', METSUDAH, 'en')]: JSON.stringify(['a sky']),
+      [vfile('Genesis 1', OPEN, 'he')]: JSON.stringify(['רָקִיעַ']),
+    };
+  }
+
+  beforeEach(async () => {
+    global.Sefaria.shomer = {
+      isActive: () => true, getConfig: () => ({preset: 'yeshivish'}),
+      isBookHidden: () => false, isVersionHidden: v => hideJps(v),
+    };
+    await FileSystem.writeAsStringAsync('library/Genesis_search.txt', [
+      `Genesis 1:1\tבראשית א:1\ten\t${JPS}\tan expanse`,
+      `Genesis 1:1\tבראשית א:1\the\t${OPEN}\tרָקִיעַ`,
+    ].join('\n'));
+    await putZip('Genesis', tanakhZip(), 100);
+  });
+  afterEach(() => { delete global.Sefaria.shomer; });
+
+  test('bookLines gives the version the reader shows instead (even an open one)', async () => {
+    const zip = tanakhZip();
+    expect(await bookLines(Object.keys(zip), async n => zip[n], {isVersionHidden: hideJps}))
+      .toEqual([`Genesis 1:1\tבראשית א:1\ten\t${KOREN}\ta firmament`]);
+    const both = v => v.versionTitle === JPS || v.versionTitle === KOREN;
+    expect(await bookLines(Object.keys(zip), async n => zip[n], {isVersionHidden: both}))
+      .toEqual([`Genesis 1:1\tבראשית א:1\ten\t${METSUDAH}\ta sky`]);
+  });
+
+  test('a book not in local_titles gets local lines, and search shows them instead', async () => {
+    expect((await syncLocalSearch([], {isVersionHidden: hideJps})).built).toEqual(['Genesis']);
+    const r = await executeOfflineQuery({query: 'firmament', type: 'text'});
+    expect(r.hits.hits.map(h => h._source.version)).toEqual([KOREN]);
+    expect((await executeOfflineQuery({query: 'expanse', type: 'text'})).hits.total).toBe(0);
+    // same filter: nothing to redo; filter off: the local file goes
+    expect((await syncLocalSearch([], {isVersionHidden: hideJps})).built).toEqual([]);
+    expect(unzip).toHaveBeenCalledTimes(1);
+    expect((await syncLocalSearch([], {isVersionHidden: () => false})).removed).toEqual(['Genesis']);
+  });
+
+  test('a filter change (the real shomer rules) re-runs it with the last titles', async () => {
+    const shomer = require('../shomer');
+    await syncLocalSearch([]);   // filter not chosen yet: nothing hidden, nothing to build
+    expect((await FileSystem.getInfoAsync(localSearchPath('Genesis'))).exists).toBe(false);
+    const stop = watchContentFilter({startupDelay: null});
+    try {
+      shomer.setConfig({preset: 'yeshivish'});   // hides the gender-sensitive JPS
+      await syncLocalSearch(null);   // merged with the background run; resolves once it is done
+      await syncLocalSearch(null);
+      expect(await FileSystem.readAsStringAsync(localSearchPath('Genesis'))).toContain(KOREN);
+    } finally {
+      stop();
+      shomer.setConfig(null);
+    }
+  });
 });

@@ -281,8 +281,8 @@ describe('library sources', () => {
 });
 
 describe('"Off"', () => {
-  test('is offered beside the four presets, first, and hides nothing', () => {
-    expect(CHOICES.map(p => p.id)).toEqual(['off', 'centrist_mo', 'rwmo', 'yeshivish', 'strict_charedi']);
+  test('is offered beside the four presets, last, and hides nothing', () => {
+    expect(CHOICES.map(p => p.id)).toEqual(['centrist_mo', 'rwmo', 'yeshivish', 'strict_charedi', 'off']);
     const off = cfg('off');
     expect(off).toMatchObject({ preset: 'off', active: false });
     expect(Object.values(off.groups).some(Boolean)).toBe(false);

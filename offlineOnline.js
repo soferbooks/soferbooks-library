@@ -134,11 +134,20 @@ export const textToc = function(title) {
         if (title in _textToc) {
             resolve(_textToc[title]);
         } else {
-            loadTextIndexOffline(title)
+            // loadTextIndexOffline answers null (not an error) when the index cannot be read;
+            // that used to throw inside resolver, fall back to the API, and - offline - leave
+            // this promise pending forever, so the reader never loaded the section's
+            // translations and related texts (QA: "Translations (0)", no related texts).
+            // Try the offline index twice (a book can be mid-unzip), then the API; settle either way.
+            const offlineIndex = () => loadTextIndexOffline(title).then(index => {
+                if (!index) { throw new Error(`no offline index for ${title}`); }
+                return index;
+            });
+            offlineIndex()
+                .catch(() => new Promise(r => setTimeout(r, 300)).then(offlineIndex))
                 .then(resolver)
-                .catch(()=>{
-                    api._request(title, 'index', true, {}).then(resolver)
-                });
+                .catch(() => api._request(title, 'index', true, {}, true).then(resolver))
+                .catch(reject);
         }
     });
 };
