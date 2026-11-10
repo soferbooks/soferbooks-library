@@ -1,5 +1,6 @@
 import { openScheduleRef } from '../reader/inlineCommentaryPrefs';
-import React from 'react';
+import React, { useContext } from 'react';
+import ReaderAppContext from '../context';
 import {View, Text, SectionList} from "react-native";
 import Sefaria from "../sefaria";
 import {
@@ -99,6 +100,7 @@ const useOpenNthRefOrUrl = (n, calendarItem, openRef, openUri) => {
     /**
      * Returns function to either open the nth ref of calendarItem or its url (there can only be one url).
      */
+    const { openScheduleItem } = useContext(ReaderAppContext);
     return () => {
         if (typeof calendarItem.refs == 'undefined') {
             if (n > 0) {
@@ -106,7 +108,7 @@ const useOpenNthRefOrUrl = (n, calendarItem, openRef, openUri) => {
             }
             openUri(`${Sefaria.api._baseHost}${calendarItem.url}`);
         } else {
-            openScheduleRef(calendarItem, n, openRef);
+            openScheduleRef(calendarItem, n, openRef, openScheduleItem);
         }
     };
 };
@@ -155,10 +157,11 @@ const LearningScheduleTitleRow = ({ calendarItem, openRef, openUri }) => {
 const LearningScheduleSubtitleRow = ({ calendarItem, openRef, openUri }) => {
     const subtitles = calendarItem.title.en === "Parashat Hashavua" ? [{en: calendarItem.refs, he: calendarItem.heRef}] : calendarItem.subs;
     return (
-        <FlexFrame dir={"row"} flexWrap={"wrap"}>
+        <FlexFrame dir={"row"}>
             <Icon name={"book"} length={16} />
-            <View style={{marginHorizontal: 8}}>
-                <FlexFrame dir={"row"}>
+            {/* flex: 1 + wrap: a day with many readings (Chok LeYisrael) wraps instead of running off the screen */}
+            <View style={{marginHorizontal: 8, flex: 1}}>
+                <FlexFrame dir={"row"} flexWrap={"wrap"}>
                     { subtitles.map((subtitle, n) => (
                         <LearningScheduleSubtitle
                             key={subtitle.en}
@@ -184,7 +187,7 @@ const LearningScheduleSubtitle = ({ n, subtitle, calendarItem, openRef, openUri 
         displaySubtitle.he = `, ${displaySubtitle.he}`;
     }
     return (
-        <View style={{marginTop: interfaceLanguage === "hebrew" ? -5 : 0}}>
+        <View style={{marginTop: interfaceLanguage === "hebrew" ? -5 : 0, maxWidth: '100%'}}>
             <SefariaPressable onPress={onPress}>
                 <ContentTextWithFallback {...displaySubtitle} extraStyles={[theme.tertiaryText]}/>
             </SefariaPressable>

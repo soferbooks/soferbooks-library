@@ -52,10 +52,15 @@ export const effectiveInlineCommentary = (prefs, bookTitle) => (
   (bookTitle && sessionChoices[bookTitle]) || getInlineCommentary(prefs, bookTitle)
 );
 
-/** Open a calendar item's nth ref, first applying the item's inline commentary, if any. */
-export const openScheduleRef = (calendarItem, n, openRef) => {
+/**
+ * Open a calendar item's nth ref, first applying the item's inline commentary, if any.
+ * openScheduleItem(calendarItem, n), when given (ReaderApp, via ReaderAppContext), opens it in the
+ * schedule's own tab (learningSchedules/scheduleSequence.js); otherwise openRef(ref) is used.
+ */
+export const openScheduleRef = (calendarItem, n, openRef, openScheduleItem = null) => {
   const ic = calendarItem && calendarItem.inlineCommentary;
   if (ic && ic.book && ic.key) { setSessionInlineCommentary(ic.book, ic.key); }
+  if (openScheduleItem) { return openScheduleItem(calendarItem, n); }
   return openRef(calendarItem.refs[n]);
 };
 

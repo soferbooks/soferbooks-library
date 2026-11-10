@@ -14,8 +14,9 @@ import { tabLabel } from './ReaderTabBar';
  * Home page strip of the reader's open tabs, most recently used first. Tapping one opens the
  * reader on that tab at its place. Renders nothing when no tabs are open.
  * Data and the open handler come from ReaderApp through ReaderAppContext.
+ * `Header`: the heading component (the home page passes its own section heading, in Cinzel).
  */
-const OpenTabsStrip = () => {
+const OpenTabsStrip = ({ Header = null }) => {
   const { readerTabs, openReaderTab } = useContext(ReaderAppContext);
   const { theme, menuLanguage } = useGlobalState();
   const tabs = readerTabs?.tabs || [];
@@ -24,7 +25,8 @@ const OpenTabsStrip = () => {
   const ordered = [...tabs].sort((a, b) => (b.lastUsed || 0) - (a.lastUsed || 0));
   return (
     <View style={styles.homeSection}>
-      <Text style={[styles.homeSectionHeader, theme.brandColorText, isHeb ? localStyles.heHeader : null]}>{strings.tabs.open_tabs}</Text>
+      {Header ? <Header /> :
+        <Text style={[styles.homeSectionHeader, theme.brandColorText, isHeb ? localStyles.heHeader : null]}>{strings.tabs.open_tabs}</Text>}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={isHeb ? localStyles.rtl : null}>
         {ordered.map(tab => (
           <TouchableOpacity key={tab.id} onPress={() => openReaderTab(tab.id)} style={[localStyles.card, theme.lighterGreyBorder, theme.mainTextPanel]}>

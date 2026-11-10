@@ -8,6 +8,10 @@ import {
   availableInlineSources,
   refsForSource,
 } from '../reader/inlineCommentaryPrefs';
+import {
+  createAnchor, isAnchorActive, anchorCorrection, renderedIndexRange, ANCHOR_TOP_INSET, ANCHOR_MAX_MS,
+} from '../reader/scrollAnchor';
+import { loadCommentTexts, _clearInlineCommentaryCache } from '../reader/InlineCommentary';
 import { panelFlexForTouch, panelReleaseAction, loadPanelFlexPreference, savePanelFlexPreference, DEFAULT_PANEL_FLEX } from '../reader/panelLayout';
 
 const link = (category, textTitle, sourceRef, collectiveTitle = null, heCollectiveTitle = null) =>
@@ -99,5 +103,64 @@ describe('connections panel divider', () => {
     expect(await loadPanelFlexPreference()).toBe(DEFAULT_PANEL_FLEX);
     await savePanelFlexPreference(0.42);
     expect(await loadPanelFlexPreference()).toBeCloseTo(0.42);
+  });
+});
+
+describe('the reader keeps the opened passage in place while the list settles', () => {
+  test('the anchor segment is scrolled back to its spot when content above it changes height', () => {
+    // opened at 447:11, whose top is at y=5000: the list sits ANCHOR_TOP_INSET above it
+    expect(anchorCorrection({ cellY: 5000, currentY: 5000 - ANCHOR_TOP_INSET })).toBeNull();
+    // the inline Mishnah Berurah above arrived and pushed it down 1200px: follow it
+    expect(anchorCorrection({ cellY: 6200, currentY: 4900 })).toEqual({ offset: 6100, seek: false });
+    // sub-pixel noise is ignored
+    expect(anchorCorrection({ cellY: 5001, currentY: 4900 })).toBeNull();
+    // near the top of the text
+    expect(anchorCorrection({ cellY: 40, currentY: 300 })).toEqual({ offset: 0, seek: false });
+  });
+
+  test('when the target is not rendered, it moves towards it', () => {
+    const base = { cellY: null, currentY: 3000, viewportHeight: 1000 };
+    expect(anchorCorrection({ ...base, targetIndex: 5, renderedRange: [10, 20] })).toEqual({ offset: 2200, seek: true });
+    expect(anchorCorrection({ ...base, targetIndex: 30, renderedRange: [10, 20] })).toEqual({ offset: 3800, seek: true });
+    expect(anchorCorrection({ ...base, targetIndex: 15, renderedRange: [10, 20] })).toBeNull();
+    expect(anchorCorrection({ ...base, targetIndex: 15, renderedRange: null })).toBeNull();
+  });
+
+  test('rendered range and expiry', () => {
+    const map = new Map([['A 1', 0], ['A 1:1', 1], ['A 1:2', 2], ['A 1:3', 3]]);
+    expect(renderedIndexRange(new Set(['A 1:2', 'A 1:1', 'unknown']), map)).toEqual([1, 2]);
+    expect(renderedIndexRange(new Set(), map)).toBeNull();
+    const a = createAnchor('A 1:3', 1000);
+    expect(isAnchorActive(a, 1000 + ANCHOR_MAX_MS - 1)).toBe(true);
+    expect(isAnchorActive(a, 1000 + ANCHOR_MAX_MS)).toBe(false);
+    expect(createAnchor(null)).toBeNull();
+    expect(isAnchorActive(null)).toBe(false);
+  });
+});
+
+describe('inline commentary loads in batches', () => {
+  beforeEach(() => _clearInlineCommentaryCache());
+
+  test("a segment's comments resolve together, each ref loaded once, a few at a time", async () => {
+    let running = 0;
+    let maxRunning = 0;
+    const load = jest.fn(ref => {
+      running++;
+      maxRunning = Math.max(maxRunning, running);
+      return new Promise(resolve => setTimeout(() => { running--; resolve({ result: { he: ref + ' he', en: [ref + ' en'] } }); }, 1));
+    });
+    const refs = Array.from({ length: 12 }, (_, i) => `Mishnah Berurah 447:${i + 1}`);
+    const [a, b] = await Promise.all([loadCommentTexts(refs, load), loadCommentTexts(refs.slice(0, 3), load)]);
+    expect(a.map(t => t.en)).toEqual(refs.map(r => r + ' en'));
+    expect(b.map(t => t.he)).toEqual(refs.slice(0, 3).map(r => r + ' he'));
+    expect(load).toHaveBeenCalledTimes(12);
+    expect(maxRunning).toBeLessThanOrEqual(3);
+    await loadCommentTexts(refs, load);  // cached
+    expect(load).toHaveBeenCalledTimes(12);
+  });
+
+  test('a failed load shows nothing rather than failing the segment', async () => {
+    const texts = await loadCommentTexts(['Bad 1'], () => Promise.reject(new Error('x')));
+    expect(texts).toEqual([{ he: '', en: '' }]);
   });
 });

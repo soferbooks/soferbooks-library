@@ -1,5 +1,6 @@
 import { openScheduleRef } from '../reader/inlineCommentaryPrefs';
-import React from 'react';
+import React, { useContext } from 'react';
+import ReaderAppContext from '../context';
 import {View} from "react-native";
 import {
     ContentTextWithFallback,
@@ -105,8 +106,11 @@ export const rowSubtitle = calendarItem => {
 
 const LearningScheduleRow = ({ calendarItem, openRef }) => {
     const { theme, interfaceLanguage } = useGlobalState();
+    const { openScheduleItem } = useContext(ReaderAppContext);
     const hasRef = !!(calendarItem.refs && calendarItem.refs.length);
-    const onPress = () => { if (hasRef) { openScheduleRef(calendarItem, 0, openRef); } };
+    // opens the first reading in the schedule's own tab; a day with several readings (Chok
+    // LeYisrael) shows them there as a sequence (learningSchedules/scheduleSequence.js)
+    const onPress = () => { if (hasRef) { openScheduleRef(calendarItem, 0, openRef, openScheduleItem); } };
     const displayTitle = calendarItem.title.en === "Parashat Hashavua" ? stringPair('common.torah') : calendarItem.title
     const { en, he } = rowSubtitle(calendarItem);
     return (

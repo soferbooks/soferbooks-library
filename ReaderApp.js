@@ -71,12 +71,18 @@ import {
   restoreArchivedTab,
   removeArchivedTab,
   clearArchivedTabs,
+  restoreRecentlyClosedTab,
+  removeRecentlyClosedTab,
+  clearRecentlyClosedTabs,
   findTab,
   findTabForBook,
+  findTabForSchedule,
   tabResumeRef,
 } from "./tabs/tabState";
 import { loadTabs, makeDebouncedTabSaver } from "./tabs/tabStorage";
 import SplitTabPane from "./reader/SplitTabPane";
+import { makeScheduleSequence, sequenceAt, currentReading, hasSequence } from "./learningSchedules/scheduleSequence";
+import ScheduleSequenceBar from "./learningSchedules/ScheduleSequenceBar";
 import {
   getInlineCommentary,
   effectiveInlineCommentary,
@@ -1992,7 +1998,8 @@ class ReaderApp extends React.PureComponent {
       this.openRef(ref, 'tab', versions, false, false, !!(target && target.loadNewVersions)).then(() => {
         if (!Sefaria.textTitleForRef(ref)) {
           // the book is no longer available (e.g. hidden by the content filter): drop the tab
-          this.setState(prev => ({ readerTabs: closeTab(prev.readerTabs, id) }));
+          // (not offered under "Recently closed": it could not be reopened)
+          this.setState(prev => ({ readerTabs: removeRecentlyClosedTab(closeTab(prev.readerTabs, id), id) }));
           this.openNav(false);
         }
         resolve();
@@ -2051,6 +2058,46 @@ class ReaderApp extends React.PureComponent {
     }));
   };
 
+  /**
+   * Open reading `n` of a learning schedule item (home page "Today's learning", the schedules page)
+   * in the schedule's own tab (learningSchedules/scheduleSequence.js). A tab the reader opened for
+   * the same book keeps its place: Chok's Genesis 25:29 no longer takes over a Genesis 1 tab. The
+   * schedule's tab is reused for it (and moves to the new reading); a day with several readings
+   * shows them in a bar above the text.
+   */
+  openScheduleItem = (calendarItem, n = 0) => this._openScheduleSequence(makeScheduleSequence(calendarItem, n));
+
+  _openScheduleSequence = seq => {
+    const reading = currentReading(seq);
+    if (!reading) { return Promise.resolve(); }
+    const ref = reading.ref;
+    const title = Sefaria.textTitleForRef(ref);
+    if (!title) {
+      this.textUnavailableAlert(ref);
+      return Promise.resolve();
+    }
+    const inReader = !this.state.menuOpen;
+    if (!inReader) { this.modifyHistory({ dir: "forward", state: this.state }); }  // back returns to the page it came from
+    const existing = findTabForSchedule(this.state.readerTabs, seq.key);
+    if (existing) {
+      const baseTabs = updateTabPlace(this.state.readerTabs, existing.id, { schedule: seq });
+      return this.switchToTab(existing.id, { ref }, { keepHistory: true, baseTabs });
+    }
+    if (inReader) { this._saveSnapshotForActiveTab(); }
+    const readerTabs = openTab(this.state.readerTabs, { title, heTitle: Sefaria.index(title)?.heTitle || null, ref, schedule: seq });
+    this._pruneSnapshots(readerTabs);
+    return new Promise(resolve => this.setState({ readerTabs, loaded: false, ReaderDisplayOptionsMenuVisible: false }, () => {
+      this.openRef(ref, 'tab', undefined, false).then(resolve, resolve);
+    }));
+  };
+
+  /** The schedule sequence bar: go to reading `index` of the active tab's schedule. */
+  goToScheduleReading = index => {
+    const tab = findTab(this.state.readerTabs, this.state.readerTabs.activeTabId);
+    const seq = tab && sequenceAt(tab.schedule, index);
+    if (seq) { this._openScheduleSequence(seq); }
+  };
+
   /** Home page strip: open a tab, with "back" returning to the home page. */
   openReaderTabFromHome = id => {
     this.modifyHistory({ dir: "forward", state: this.state });
@@ -2097,6 +2144,22 @@ class ReaderApp extends React.PureComponent {
 
   clearArchivedReaderTabs = () => {
     this.setState(prev => ({ readerTabs: clearArchivedTabs(prev.readerTabs) }));
+  };
+
+  /** Reopen a tab from "Recently closed", at the place it was closed. */
+  restoreRecentlyClosedReaderTab = closedId => {
+    if (!this.state.menuOpen) { this._saveSnapshotForActiveTab(); }
+    const next = restoreRecentlyClosedTab(this.state.readerTabs, closedId);
+    if (next === this.state.readerTabs) { return; }
+    this.switchToTab(next.activeTabId, null, { baseTabs: next, skipSnapshot: true, keepHistory: !!this.state.menuOpen });
+  };
+
+  removeRecentlyClosedReaderTab = closedId => {
+    this.setState(prev => ({ readerTabs: removeRecentlyClosedTab(prev.readerTabs, closedId) }));
+  };
+
+  clearRecentlyClosedReaderTabs = () => {
+    this.setState(prev => ({ readerTabs: clearRecentlyClosedTabs(prev.readerTabs) }));
   };
 
   /* ---------- tablet split view ---------- */
@@ -2159,6 +2222,7 @@ class ReaderApp extends React.PureComponent {
         openURLInNewTab: this.openURLInNewTab,
         readerTabs: this.state.readerTabs,
         openReaderTab: this.openReaderTabFromHome,
+        openScheduleItem: this.openScheduleItem,
       };
     }
     return this._contextValue;
@@ -2260,6 +2324,8 @@ class ReaderApp extends React.PureComponent {
     const vowelToggleAvailable = Sefaria.vowelToggleAvailability(this.state.data[this.state.sectionIndexRef]);
     const { readerTabs } = this.state;
     const showTabBar = readerTabs.tabs.length > 0;
+    const activeTab = findTab(readerTabs, readerTabs.activeTabId);
+    const activeSchedule = !isSheet && activeTab && hasSequence(activeTab.schedule) ? activeTab.schedule : null;
     const splitViewAvailable = this._isSplitViewAvailable() && !isSheet;
     const showSplit = splitViewAvailable && this.state.splitView;
     const inlineCommentary = (!isSheet && this.state.textFlow !== 'continuous') ?
@@ -2280,6 +2346,10 @@ class ReaderApp extends React.PureComponent {
                 onRestoreArchived={this.restoreArchivedReaderTab}
                 onRemoveArchived={this.removeArchivedReaderTab}
                 onClearArchived={this.clearArchivedReaderTabs}
+                recentlyClosed={readerTabs.recentlyClosed || []}
+                onRestoreClosed={this.restoreRecentlyClosedReaderTab}
+                onRemoveClosed={this.removeRecentlyClosedReaderTab}
+                onClearClosed={this.clearRecentlyClosedReaderTabs}
               /> : null}
             <CategoryColorLine category={Sefaria.primaryCategoryForTitle(this.state.textTitle, isSheet)} />
             <ReaderControls
@@ -2294,6 +2364,7 @@ class ReaderApp extends React.PureComponent {
               getHistoryObject={this.getHistoryObject}
               showToast={this.showToast}
             />
+            {activeSchedule ? <ScheduleSequenceBar sequence={activeSchedule} onGo={this.goToScheduleReading} /> : null}
 
             <View style={{flex: 1, flexDirection: 'row'}}>
             <View style={{flex: 1}} ref={this._getReaderBodyRef} onLayout={this._measureReaderBody} collapsable={false}>

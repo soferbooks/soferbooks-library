@@ -3,9 +3,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import PropTypes from 'prop-types';
 import {
-  FlatList,
   Modal,
   ScrollView,
+  SectionList,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -61,6 +61,7 @@ const TabChip = ({ tab, active, isHeb, onSelect, onClose, onLongPress, theme }) 
 const ReaderTabBar = ({
   tabs, activeTabId, archived, onSelect, onClose, onCloseOthers, onNewTab,
   onRestoreArchived, onRemoveArchived, onClearArchived,
+  recentlyClosed = [], onRestoreClosed, onRemoveClosed, onClearClosed,
 }) => {
   const { theme, menuLanguage } = useGlobalState();
   const isHeb = menuLanguage === 'hebrew';
@@ -87,7 +88,7 @@ const ReaderTabBar = ({
       options.push({ label: strings.tabs.close_other_tabs, onPress: () => onCloseOthers(activeTabId) });
     }
     options.push({
-      label: strings.formatString(strings.tabs.archived_tabs_count, { count: archived.length }),
+      label: strings.formatString(strings.tabs.archived_tabs_count, { count: archived.length + recentlyClosed.length }),
       onPress: () => setArchiveOpen(true),
     });
     showOptions(options);
@@ -127,6 +128,10 @@ const ReaderTabBar = ({
         onRestore={id => { setArchiveOpen(false); onRestoreArchived(id); }}
         onRemove={onRemoveArchived}
         onClear={onClearArchived}
+        recentlyClosed={recentlyClosed}
+        onRestoreClosed={id => { setArchiveOpen(false); onRestoreClosed && onRestoreClosed(id); }}
+        onRemoveClosed={onRemoveClosed}
+        onClearClosed={onClearClosed}
       />
     </View>
   );
@@ -142,47 +147,72 @@ ReaderTabBar.propTypes = {
   onRestoreArchived: PropTypes.func.isRequired,
   onRemoveArchived:  PropTypes.func.isRequired,
   onClearArchived:   PropTypes.func.isRequired,
+  recentlyClosed:    PropTypes.array,
+  onRestoreClosed:   PropTypes.func,
+  onRemoveClosed:    PropTypes.func,
+  onClearClosed:     PropTypes.func,
 };
 
-export const ArchivedTabsModal = ({ visible, archived, isHeb, theme, onClose, onRestore, onRemove, onClear }) => (
-  <Modal visible={visible} animationType={'slide'} transparent onRequestClose={onClose}>
-    <View style={localStyles.modalMask}>
-      <View style={[localStyles.modalBox, theme.mainTextPanel]}>
-        <View style={[localStyles.modalHeader, theme.lighterGreyBorder, isHeb ? localStyles.rtl : null]}>
-          <Text style={[localStyles.modalTitle, theme.text]}>{strings.tabs.archived_tabs}</Text>
-          <View style={[localStyles.row, isHeb ? localStyles.rtl : null]}>
-            {archived.length ? (
-              <TouchableOpacity onPress={onClear} style={localStyles.headerButton}>
-                <Text style={theme.tertiaryText}>{strings.tabs.clear_archived}</Text>
-              </TouchableOpacity>
-            ) : null}
+const noop = () => {};
+
+/**
+ * The tab archive, in two sections: "Archived" (tabs moved out when more than 10 were open) and
+ * "Recently closed" (tabs the user closed, newest first, like Chrome). Tapping an entry reopens it
+ * at its place; × removes it; each section has its own "Clear all".
+ */
+export const ArchivedTabsModal = ({
+  visible, archived, isHeb, theme, onClose, onRestore, onRemove, onClear,
+  recentlyClosed = [], onRestoreClosed = noop, onRemoveClosed = noop, onClearClosed = noop,
+}) => {
+  const sections = [
+    { key: 'archived', title: strings.tabs.archived_section, empty: strings.tabs.no_archived_tabs,
+      data: archived, onRestore, onRemove, onClear },
+    { key: 'closed', title: strings.tabs.recently_closed, empty: strings.tabs.no_recently_closed,
+      data: recentlyClosed, onRestore: onRestoreClosed, onRemove: onRemoveClosed, onClear: onClearClosed },
+  ];
+  return (
+    <Modal visible={visible} animationType={'slide'} transparent onRequestClose={onClose}>
+      <View style={localStyles.modalMask}>
+        <View style={[localStyles.modalBox, theme.mainTextPanel]}>
+          <View style={[localStyles.modalHeader, theme.lighterGreyBorder, isHeb ? localStyles.rtl : null]}>
+            <Text style={[localStyles.modalTitle, theme.text]}>{strings.tabs.archived_tabs}</Text>
             <TouchableOpacity onPress={onClose} style={localStyles.headerButton} accessibilityLabel={strings.common.cancel}>
               <Text style={[localStyles.moreText, theme.tertiaryText]}>{'×'}</Text>
             </TouchableOpacity>
           </View>
-        </View>
-        {archived.length ? (
-          <FlatList
-            data={archived}
-            keyExtractor={item => item.id}
-            renderItem={({ item }) => (
+          <SectionList
+            sections={sections}
+            keyExtractor={(item, index) => `${item.id}|${index}`}
+            stickySectionHeadersEnabled={false}
+            renderSectionHeader={({ section }) => (
+              <View>
+                <View style={[localStyles.sectionHeader, theme.lighterGreyBorder, isHeb ? localStyles.rtl : null]}>
+                  <Text style={[localStyles.sectionTitle, theme.secondaryText]}>{section.title}</Text>
+                  {section.data.length ? (
+                    <TouchableOpacity onPress={section.onClear} style={localStyles.headerButton}>
+                      <Text style={theme.tertiaryText}>{strings.tabs.clear_archived}</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+                {section.data.length ? null : <Text style={[localStyles.empty, theme.secondaryText]}>{section.empty}</Text>}
+              </View>
+            )}
+            renderItem={({ item, section }) => (
               <View style={[localStyles.archivedRow, theme.lighterGreyBorder, isHeb ? localStyles.rtl : null]}>
-                <TouchableOpacity style={localStyles.archivedLabel} onPress={() => onRestore(item.id)}>
+                <TouchableOpacity style={localStyles.archivedLabel} onPress={() => section.onRestore(item.id)}>
                   <Text numberOfLines={1} style={[localStyles.archivedText, theme.text, isHeb ? localStyles.heText : null]}>{tabLabel(item, isHeb)}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => onRemove(item.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityLabel={strings.tabs.close_tab}>
+                <TouchableOpacity onPress={() => section.onRemove(item.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityLabel={strings.tabs.close_tab}>
                   <Text style={[localStyles.close, theme.secondaryText]}>{'×'}</Text>
                 </TouchableOpacity>
               </View>
             )}
           />
-        ) : (
-          <Text style={[localStyles.empty, theme.secondaryText]}>{strings.tabs.no_archived_tabs}</Text>
-        )}
+        </View>
       </View>
-    </View>
-  </Modal>
-);
+    </Modal>
+  );
+};
 
 const localStyles = StyleSheet.create({
   bar: { height: READER_TAB_BAR_HEIGHT, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1 },
@@ -205,6 +235,8 @@ const localStyles = StyleSheet.create({
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 14, borderBottomWidth: 1 },
   modalTitle: { fontSize: 17, fontWeight: 'bold' },
   headerButton: { paddingHorizontal: 10 },
+  sectionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingTop: 14, paddingBottom: 6, borderBottomWidth: 1 },
+  sectionTitle: { fontSize: 14, fontWeight: "bold", textTransform: "uppercase" },
   archivedRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1 },
   archivedLabel: { flex: 1 },
   archivedText: { fontSize: 16 },

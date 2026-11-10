@@ -54,10 +54,11 @@ const useCategoryButtonProps = (tocItem, setCategories) => {
 }
 
 /**
- * "Open tabs" strip: a horizontal strip of the reader's open tabs at the very top of the home
- * page (tabs/OpenTabsStrip.js). It renders nothing when no tabs are open.
+ * "Open tabs" strip: a horizontal strip of the reader's open tabs, just below the logo, with the
+ * same heading as the other home sections (tabs/OpenTabsStrip.js). Nothing when no tabs are open.
  */
-const OpenTabsSlot = () => <OpenTabsStrip />;
+const OpenTabsHeader = () => <HomeSectionHeader titleKey={"tabs.open_tabs"} />;
+const OpenTabsSlot = () => <OpenTabsStrip Header={OpenTabsHeader} />;
 
 // Home-page headings are set in Cinzel in English; Hebrew keeps the interface font (Cinzel is
 // Latin-only). Cinzel is bundled as an Android asset font only, so iOS keeps the interface font.
@@ -146,11 +147,11 @@ const LibraryHeader = () => {
 
 const HomePageHeader = ({ openRef, openHistory, openLearningSchedules }) => (
     <View>
-        <OpenTabsSlot />
         <FlexFrame dir={"row"} justifyContent={"space-between"} alignItems={"center"}>
             <HomeLogo />
             <LanguageToggleButton />
         </FlexFrame>
+        <OpenTabsSlot />
         <ContinueReading openRef={openRef} openHistory={openHistory} />
         <TodaysLearning openRef={openRef} openLearningSchedules={openLearningSchedules} />
         <PageHeader><LibraryHeader /></PageHeader>

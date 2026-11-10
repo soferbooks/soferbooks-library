@@ -60,6 +60,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import ActionSheet from 'react-native-action-sheet';
 import ReaderTabBar, { ArchivedTabsModal } from '../tabs/ReaderTabBar';
 import OpenTabsStrip from '../tabs/OpenTabsStrip';
+import ScheduleSequenceBar from '../learningSchedules/ScheduleSequenceBar';
 import SplitTabPane from '../reader/SplitTabPane';
 import ReaderAppContext from '../context';
 import NetInfo from '@react-native-community/netinfo';
@@ -1109,6 +1110,7 @@ describe('Strings with placeholders', () => {
     'topics.this_source_is_connected_to': { title: 'Passover', sources: '4 sources' },
     'versions.merged_from': { sources: 'two editions' },
     'tabs.archived_tabs_count': { count: 4 },
+    'learning_schedules.reading_n_of_m': { n: 2, m: 7 },
   };
 
   test('the list below is every string in the table that has a placeholder', () => {
@@ -1563,6 +1565,29 @@ describe('Reader tabs', () => {
     expectScreenLocalizes(wrap(ArchivedTabsModal, modalProps),
       ['tabs.archived_tabs', 'tabs.clear_archived', 'tabs.close_tab', 'common.cancel']);
     expectScreenLocalizes(wrap(ArchivedTabsModal, { ...modalProps, archived: [] }), ['tabs.no_archived_tabs']);
+  });
+
+  test('the archive shows its Archived and Recently closed sections in both languages', () => {
+    const modalProps = { visible: true, archived, isHeb: false, theme: {}, onClose: noop, onRestore: noop, onRemove: noop, onClear: noop };
+    const closed = [{ id: 'y', title: 'Leviticus', ref: 'Leviticus 1:3', heRef: 'ויקרא א:ג', closedAt: 2 }];
+    expectScreenLocalizes(wrap(ArchivedTabsModal, { ...modalProps, recentlyClosed: closed }),
+      ['tabs.archived_section', 'tabs.recently_closed']);
+    expectScreenLocalizes(wrap(ArchivedTabsModal, modalProps), ['tabs.no_recently_closed']);
+  });
+
+  test('the schedule readings bar renders in both languages', () => {
+    const sequence = {
+      key: 'Chok LeYisrael', title: { en: 'Chok LeYisrael', he: 'חק לישראל' }, index: 1,
+      items: [
+        { ref: 'Genesis 25:19-26', en: 'Genesis 25:19-26', he: 'בראשית כ״ה:י״ט-כ״ו', section: 'Torah' },
+        { ref: 'Malachi 1:1-5', en: 'Malachi 1:1-5', he: 'מלאכי א׳:א׳-ה׳', section: 'Prophets' },
+        { ref: 'Proverbs 4:1-5', en: 'Proverbs 4:1-5', he: 'משלי ד׳:א׳-ה׳', section: 'Writings' },
+      ],
+    };
+    expectScreenLocalizes(wrap(ScheduleSequenceBar, { sequence, onGo: noop }), [
+      'learning_schedules.previous_reading', 'learning_schedules.next_reading',
+      'learning_schedules.reading_n_of_m', 'learning_schedules.todays_readings',
+    ]);
   });
 
   test('the home page strip of open tabs renders in both languages', () => {

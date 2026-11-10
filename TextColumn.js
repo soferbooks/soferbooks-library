@@ -1,6 +1,6 @@
 'use strict';
 import PropTypes from 'prop-types';
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import TextRange from './TextRange';
 import TextRangeContinuous from './TextRangeContinuous';
 import TextHeightMeasurer from './TextHeightMeasurer';
 import InlineCommentary from './reader/InlineCommentary';
+import { createAnchor, isAnchorActive, anchorCorrection, renderedIndexRange, ANCHOR_MAX_SEEKS } from './reader/scrollAnchor';
 import { VOCALIZATION } from './VocalizationEnum';
 import { stringPair } from './LocalizedStrings';
 const ViewPort  = Dimensions.get('window');
@@ -105,6 +106,11 @@ class TextColumn extends React.PureComponent {
       scrollViewHeight: ViewPort.height,
     };
     this._onScrollViewLayout = makeScrollViewLayoutHandler(this);
+    // keeping the opened passage in place while the list settles (see reader/scrollAnchor.js)
+    this._anchor = null;
+    this._cellY = {};             // ref -> y of the rendered cell in the list content
+    this._mountedCells = new Set();
+    this._reanchorScheduled = false;
   }
   componentDidMount() {
     this._isMounted = true;
@@ -116,7 +122,61 @@ class TextColumn extends React.PureComponent {
   }
   componentWillUnmount() {
     this._isMounted = false;
+    this._anchor = null;
   }
+
+  /* ---------- anchoring the opened passage (reader/scrollAnchor.js) ---------- */
+
+  _anchorActive = () => {
+    if (this._anchor && !isAnchorActive(this._anchor)) { this._releaseAnchor(); }
+    return !!this._anchor;
+  };
+
+  /** The user took over (scrolled or tapped): stop correcting, resume normal place tracking. */
+  _releaseAnchor = () => {
+    if (!this._anchor) { return; }
+    this._anchor = null;
+    if (this.viewableSectionData) { this.updateTitle(this.viewableSectionData); }
+  };
+
+  _scheduleReanchor = () => {
+    if (this._reanchorScheduled || !this._anchor) { return; }
+    this._reanchorScheduled = true;
+    requestAnimationFrame(() => {
+      this._reanchorScheduled = false;
+      this._reanchor();
+    });
+  };
+
+  _reanchor = () => {
+    // (itemLayoutList is set while the initial jump is still scrolling to its measured offset)
+    if (!this._isMounted || !this._anchorActive() || !this.sectionListRef || this.state.jumpState.jumping || this.state.itemLayoutList) { return; }
+    if (this._seekWait) { return; }  // a seek step is waiting for the cells at its offset to render
+    const ref = this._anchor.ref;
+    const rendered = this._mountedCells.has(ref);
+    const correction = anchorCorrection({
+      cellY: rendered && typeof this._cellY[ref] === 'number' ? this._cellY[ref] : null,
+      currentY: this.currentY,
+      targetIndex: this.state.jumpInfoMap ? this.state.jumpInfoMap.get(ref) : undefined,
+      renderedRange: renderedIndexRange(this._mountedCells, this.state.jumpInfoMap),
+      viewportHeight: this.state.scrollViewHeight,
+    });
+    if (!correction) { return; }
+    if (correction.seek) {
+      if (++this._anchor.seeks > ANCHOR_MAX_SEEKS) { this._releaseAnchor(); return; }
+      this._seekWait = true;
+      // look again once the cells around the new offset have rendered
+      setTimeout(() => { this._seekWait = false; this._scheduleReanchor(); }, 60);
+    }
+    this.currentY = correction.offset;
+    try {
+      this.sectionListRef._wrapperListRef._listRef.scrollToOffset({ offset: correction.offset, animated: false });
+    } catch (e) {
+      this._releaseAnchor();
+    }
+  };
+
+  _onScrollBeginDrag = () => { this._releaseAnchor(); };
   generateDataSource = (props, gonnaJump) => {
     // Returns data representing sections and rows to be passed into ListView.DataSource.cloneWithSectionsAndRows
     // Takes `props` as an argument so it can generate data with `nextProps`.
@@ -289,6 +349,7 @@ class TextColumn extends React.PureComponent {
   };
 
   textSegmentPressed = (section, segment, segmentRef, onlyOpen) => {
+    this._releaseAnchor();  // the user chose a segment
     if (!this.props.textListVisible) {
       if (this.props.textFlow === 'continuous') {
         const targetY = this.rowYHash[segmentRef] + this.state.itemLayoutList[this.state.jumpInfoMap.get(this.props.sectionArray[section])].offset;
@@ -442,6 +503,11 @@ class TextColumn extends React.PureComponent {
   handleScroll = (e) => {
     const previousY = this.currentY;
     this.currentY = e.nativeEvent.contentOffset.y;
+    if (this._anchorActive()) {
+      // the list is still settling around the opened passage: these scrolls are ours, not reading
+      this._scheduleReanchor();
+      return;
+    }
     if (this.viewableSectionData) {
       if (Math.abs(previousY - this.currentY) > 80) {
         return;
@@ -494,11 +560,9 @@ class TextColumn extends React.PureComponent {
 
   onViewableItemsChanged = ({viewableItems, changed}) => {
     let secData = this.getViewableSectionData(viewableItems);
-    if (this.props.textFlow == 'continuous') {
-
-    }
-    this.updateTitle(secData);
     this.viewableSectionData = secData;
+    if (this._anchorActive()) { return; }  // title follows the passage once the list has settled
+    this.updateTitle(secData);
   };
 
   /******************
@@ -708,7 +772,7 @@ class TextColumn extends React.PureComponent {
 
   onScrollToLocation = () => {
     this.onTopReaching = false;
-    this.setState({itemLayoutList: null});
+    this.setState({itemLayoutList: null}, this._scheduleReanchor);
   }
 
   callOnEndReachedWhenContentIsShort = (itemLayoutList) => {
@@ -757,6 +821,8 @@ class TextColumn extends React.PureComponent {
             console.log("FAILED to find targetIndex", targetRef, targetIndex, jumpInfoMap, this.state.itemLayoutList);
             this.onScrollToLocation();
           } else {
+            // opening at a passage (not loading the previous section above the reader): keep it in place
+            this._anchor = this.onTopReaching ? null : createAnchor(targetRef);
             this.targetScrollIndex = targetIndex-1;
             this.waitForScrollToLocation(0, this.getItemLayout(null, targetIndex).offset - 100, animated);
           }
@@ -784,13 +850,23 @@ class TextColumn extends React.PureComponent {
 
   _onSegmentLayout = (ref, y) => {
     this.rowYHash[ref] = y;
+    this._cellY[ref] = y.y;
+    // a cell moved or changed size (measured for real, inline commentary arrived...): keep the passage put
+    this._scheduleReanchor();
   }
+  _onCellMount = ref => { if (ref) { this._mountedCells.add(ref); } };
+  _onCellUnmount = ref => { this._mountedCells.delete(ref); delete this._cellY[ref]; };
   _renderCell = props => {
+    const ref = props.item?.ref;
     const onLayoutOuter = useCallback(event => {
       const { height, width, y, x } = event.nativeEvent.layout;
-      this._onSegmentLayout(props.item.ref, {y, height});
+      this._onSegmentLayout(ref, {y, height});
       props.onLayout(event);
-    }, [props.onLayout, props.item.ref]);
+    }, [props.onLayout, ref]);
+    useEffect(() => {
+      this._onCellMount(ref);
+      return () => this._onCellUnmount(ref);
+    }, [ref]);
     return (
       <View style={props.style} onLayout={onLayoutOuter}>
         { props.children }
@@ -819,6 +895,8 @@ class TextColumn extends React.PureComponent {
               onEndReached={this.onEndReached}
               onEndReachedThreshold={2.0}
               onScroll={this.handleScroll}
+              onScrollBeginDrag={this._onScrollBeginDrag}
+              onContentSizeChange={this._scheduleReanchor}
               extraData={`${this.props.fontSize}|${this.props.inlineCommentary}`}
               scrollEventThrottle={100}
               onViewableItemsChanged={this.onViewableItemsChanged}

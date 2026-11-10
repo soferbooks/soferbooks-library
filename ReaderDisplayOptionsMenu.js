@@ -9,7 +9,6 @@ import {
   View,
   Image,
   Animated,
-  ScrollView,
 } from 'react-native';
 import styles from './Styles.js';
 import strings from './LocalizedStrings';
@@ -75,8 +74,8 @@ class ReaderDisplayOptionsMenu extends React.Component {
     return (
       <View style={{marginTop: 4, marginBottom: 8}}>
         <Text style={[langStyle, {textAlign: "center"}, this.props.theme.secondaryText]}>{strings.reader.under_each_passage}</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={{paddingHorizontal: 10, paddingTop: 6, flexDirection: isHeb ? 'row-reverse' : 'row'}}>
+        {/* wraps onto more lines (a horizontal strip cut long names such as "Targum Jonathan on Genesis" off at the edge) */}
+        <View style={{paddingHorizontal: 10, paddingTop: 6, flexDirection: isHeb ? 'row-reverse' : 'row', flexWrap: 'wrap', justifyContent: 'center'}}>
           {choices.map(src => {
             const selected = (this.props.inlineCommentary || null) === src.key;
             return (
@@ -85,13 +84,13 @@ class ReaderDisplayOptionsMenu extends React.Component {
                 onPress={() => this.props.setInlineCommentary(src.key)}
                 accessibilityState={{selected}}
                 style={[styles.readerDisplayOptionsMenuItem, this.props.theme.readerDisplayOptionsMenuItem,
-                        {flex: 0, height: 40, paddingHorizontal: 12, marginHorizontal: 3, borderRadius: 5},
+                        {flex: 0, height: undefined, minHeight: 40, maxWidth: '100%', paddingHorizontal: 12, paddingVertical: 4, marginHorizontal: 3, marginVertical: 3, borderRadius: 5},
                         selected ? this.props.theme.readerDisplayOptionsMenuItemSelected : null]}>
-                <Text style={[isHeb ? styles.he : langStyle, {fontSize: isHeb ? 18 : 14}, this.props.theme.secondaryText]}>{isHeb ? src.he : src.en}</Text>
+                <Text numberOfLines={2} style={[isHeb ? styles.he : langStyle, {fontSize: isHeb ? 18 : 14, flexShrink: 1, textAlign: 'center'}, this.props.theme.secondaryText]}>{isHeb ? src.he : src.en}</Text>
               </TouchableOpacity>
             );
           })}
-        </ScrollView>
+        </View>
       </View>
     );
   }

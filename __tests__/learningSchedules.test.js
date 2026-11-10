@@ -7,6 +7,9 @@ import {
 } from '../reader/inlineCommentaryPrefs';
 import { rowSubtitle } from '../learningSchedules/LearningSchedulesBox';
 import CHOK from '../learningSchedules/data/chokLeYisrael.json';
+import {
+  makeScheduleSequence, stepSequence, sequenceAt, hasSequence, currentReading, scheduleKey,
+} from '../learningSchedules/scheduleSequence';
 
 const day = (y, m, d) => new Date(y, m - 1, d);
 
@@ -150,5 +153,50 @@ describe('Shnayim Mikra and the merged list', () => {
   test('the home row shows every reading of a multi-part item, or its summary', () => {
     expect(rowSubtitle(sefariaItems[2]).en).toBe('Neighbors 13-14, Agents and Partners 1');
     expect(rowSubtitle(chokLeYisrael(day(2026, 11, 10), sefariaItems)).en).toBe('Toldot, Tuesday');
+  });
+});
+
+describe("a day's readings as a sequence (Chok LeYisrael)", () => {
+  const chok = () => chokLeYisrael(day(2026, 11, 10), sefariaItems);
+
+  test('every reading of the day is in the sequence, in order, starting at the one opened', () => {
+    const item = chok();
+    const seq = makeScheduleSequence(item, 0);
+    expect(seq.key).toBe('Chok LeYisrael');
+    expect(scheduleKey(item)).toBe('Chok LeYisrael');
+    expect(seq.items.map(i => i.ref)).toEqual(item.refs);
+    expect(seq.items.length).toBeGreaterThan(1);
+    expect(hasSequence(seq)).toBe(true);
+    expect(currentReading(seq).ref).toBe(item.refs[0]);
+    expect(seq.items[0].section).toBe(item.subs[0].section);
+    expect(makeScheduleSequence(item, 2).index).toBe(2);
+    expect(makeScheduleSequence(item, 99).index).toBe(item.refs.length - 1);
+  });
+
+  test('next and previous walk through the readings and stop at the ends', () => {
+    const seq = makeScheduleSequence(chok(), 0);
+    expect(stepSequence(seq, -1)).toBeNull();
+    let s = seq;
+    for (let i = 1; i < seq.items.length; i++) {
+      s = stepSequence(s, 1);
+      expect(currentReading(s).ref).toBe(seq.items[i].ref);
+    }
+    expect(stepSequence(s, 1)).toBeNull();
+    expect(sequenceAt(seq, 1).index).toBe(1);
+    expect(sequenceAt(seq, seq.items.length)).toBeNull();
+  });
+
+  test('a single-reading schedule has no sequence bar', () => {
+    expect(hasSequence(makeScheduleSequence({ title: { en: 'Daf Yomi' }, refs: ['Berakhot 2a'], subs: [] }))).toBe(false);
+    expect(makeScheduleSequence({ title: { en: 'x' }, refs: [] })).toBeNull();
+  });
+
+  test("schedule rows open through the reader's schedule-tab opener when it is available", () => {
+    const openRef = jest.fn();
+    const openScheduleItem = jest.fn();
+    const item = chok();
+    openScheduleRef(item, 0, openRef, openScheduleItem);
+    expect(openScheduleItem).toHaveBeenCalledWith(item, 0);
+    expect(openRef).not.toHaveBeenCalled();
   });
 });

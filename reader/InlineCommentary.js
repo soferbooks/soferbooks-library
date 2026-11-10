@@ -3,25 +3,32 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import { StyleSheet, Text, View } from 'react-native';
+import pLimit from 'p-limit';
 import { useGlobalState } from '../Hooks';
 import { loadText } from '../offlineOnline';
 import Sefaria from '../sefaria';
+import { CSS_CLASS_STYLES } from '../Misc';
 import { refsForSource } from './inlineCommentaryPrefs';
 
 // ref -> {he, en}; shared by every segment so scrolling back does not reload.
 const _cache = new Map();
 const CACHE_LIMIT = 1500;
 const _inFlight = new Map();
+// A section of e.g. Shulchan Arukh with Mishnah Berurah asks for hundreds of comment refs at once.
+// Loading a few at a time lets the first load of a commentary section fill the offline cache
+// before the rest ask for it (instead of hundreds of parallel reads of the same file), and keeps
+// the JS thread free for the reader's own rendering.
+const _limit = pLimit(3);
 
 const plain = html => (typeof html === 'string' ? Sefaria.util.stripHtml(html.replace(/<br\s*\/?>/gi, ' ')) : '');
 
 const flatten = x => (Array.isArray(x) ? x.flat(Infinity).filter(s => typeof s === 'string').join(' ') : x);
 
-const loadCommentText = ref => {
+export const loadCommentText = (ref, load = loadText) => {
   if (_cache.has(ref)) { return Promise.resolve(_cache.get(ref)); }
   if (_inFlight.has(ref)) { return _inFlight.get(ref); }
   // failSilently: a missing commentary must not pop the "no internet" alert for every line
-  const p = loadText(ref, false, null, true, true)
+  const p = _limit(() => load(ref, false, null, true, true))
     .then(({ result }) => ({ he: plain(flatten(result?.he)), en: plain(flatten(result?.en)) }))
     .catch(() => ({ he: '', en: '' }))
     .then(texts => {
@@ -33,6 +40,11 @@ const loadCommentText = ref => {
   _inFlight.set(ref, p);
   return p;
 };
+
+/** All of a segment's comment texts, resolved together so the row re-renders (and changes height) once. */
+export const loadCommentTexts = (refs, load = loadText) => Promise.all(refs.map(r => loadCommentText(r, load)));
+
+export const _clearInlineCommentaryCache = () => { _cache.clear(); _inFlight.clear(); };
 
 /**
  * The chosen commentary/targum for one segment, shown under it like a translation.
@@ -47,18 +59,10 @@ const InlineCommentary = ({ links, sourceKey }) => {
 
   useEffect(() => {
     let alive = true;
-    setTexts(refs.map(r => _cache.get(r) || null));
-    refs.forEach((ref, i) => {
-      if (_cache.has(ref)) { return; }
-      loadCommentText(ref).then(t => {
-        if (!alive) { return; }
-        setTexts(prev => {
-          const next = [...prev];
-          next[i] = t;
-          return next;
-        });
-      });
-    });
+    const cached = refs.map(r => _cache.get(r) || null);
+    setTexts(cached);
+    if (cached.every(Boolean)) { return undefined; }
+    loadCommentTexts(refs).then(loaded => { if (alive) { setTexts(loaded); } });
     return () => { alive = false; };
   }, [refsKey]);
 
@@ -89,8 +93,9 @@ InlineCommentary.propTypes = {
 
 const localStyles = StyleSheet.create({
   box: { marginHorizontal: 32, marginBottom: 10, paddingTop: 4, borderTopWidth: 1 },
-  he: { writingDirection: 'rtl', textAlign: 'right', fontFamily: 'Taamey Frank Taamim Fix' },
-  en: { textAlign: 'left', marginTop: 2 },
+  he: { writingDirection: 'rtl', textAlign: 'right', fontFamily: CSS_CLASS_STYLES.hebrew.fontFamily },
+  // the reader's own English text font (serif, as in the main text), not the system sans
+  en: { textAlign: 'left', marginTop: 2, fontFamily: CSS_CLASS_STYLES.english.fontFamily },
 });
 
 export default React.memo(InlineCommentary);
