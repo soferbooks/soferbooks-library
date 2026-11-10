@@ -76,6 +76,9 @@ def main() -> int:
     for ex, vts in sorted(examples.items()):
         print(f"  hosted version titles containing {ex!r}: {sorted(vts)}")
 
+    # (some version titles are junk or common words - "hi", "\\", "Introduction" - so only
+    #  distinctive ones are looked for)
+    long_titles = [vt for vt in never_open if len(vt.strip()) >= 20]
     bad_ops = bad_titles = 0
     corr = release / "corrections.zip"
     if corr.is_file():
@@ -89,7 +92,7 @@ def main() -> int:
                     if len(parts) != 3 or (parts[1], parts[2]) not in ok:
                         bad_ops += 1
                         print(f"  ! corrections {data['title']}: {name}")
-                for vt in never_open:
+                for vt in long_titles:
                     if vt in raw:
                         bad_titles += 1
                         print(f"  ! corrections {data['title']} mentions {vt!r}")
