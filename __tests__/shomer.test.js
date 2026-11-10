@@ -405,27 +405,68 @@ describe('works by women authors (owner, 2026-11: hidden from Yeshivish up; bord
       .toEqual([]);
   });
 
-  test('Nechama Leibowitz: hidden from Yeshivish up (no longer only by Strict Charedi)', () => {
-    expect(match(cfg('rwmo'), 'Studies in Shemot, Nechama Leibowitz')).toBeNull();
-    expect(match(cfg('yeshivish'), 'Studies in Shemot, Nechama Leibowitz')).toMatchObject({ group: 'women_authors' });
-    expect(versionMatch(cfg('yeshivish'), { versionTitle: 'Nehama Leibowitz' })).not.toBeNull();
-    expect(versionMatch(cfg('yeshivish'), { versionTitle: 'Nechama Liebowitz' })).not.toBeNull();
-    expect(match(cfg('strict_charedi'), 'Nechama Leibowitz')).not.toBeNull();
+  test('translations that use Nechama Leibowitz\'s work are not works by women (owner, 2026-11)', () => {
+    // Sefaria's real versions: Ramban on Genesis, Shemot Rabbah
+    const versions = [{ versionTitle: 'Nehama Leibowitz', versionSource: 'New Studies in Bereshit' },
+      { versionTitle: 'Nechama Liebowitz', versionSource: 'book' }, { versionTitle: 'x', versionSource: 'New Studies in Shemot' }];
+    for (const v of versions) {
+      for (const p of ['off', 'centrist_mo', 'rwmo', 'yeshivish']) { expect(versionMatch(cfg(p), v)).toBeNull(); }
+      const m = versionMatch(cfg('strict_charedi'), v);
+      expect(m === null || m.group === 'religious_zionist_thought').toBe(true);  // never as a work by women
+    }
+    // her own thought stays with the Religious Zionist group at Strict Charedi
+    expect(match(cfg('strict_charedi'), 'Nechama Leibowitz')).toMatchObject({ group: 'religious_zionist_thought' });
   });
 
-  test('translations by women are hidden as versions; the book itself stays', () => {
-    const byWomen = ['Dena Weiss translation', 'Keset HaSofer, trans. Jen Taylor Friedman',
-      'The Targum of Samuel; trans. E. van Staalduine-Sulman. Leiden: Brill, 2002',
-      'Translated from German by Ruth Morris, Jerusalem, 2013', 'Dr. Tziporah Lifshitz'];
-    for (const versionTitle of byWomen) {
-      expect(versionMatch(cfg('rwmo'), { versionTitle })).toBeNull();
-      expect(versionMatch(cfg('yeshivish'), { versionTitle })).toMatchObject({ group: 'women_authors' });
+  test('Psalm 154: the Eshels\' edition and translation are not works by women', () => {
+    const versions = [
+      { versionTitle: 'Qumran composition of Ps. 154; recon. by Hanan and Esther Eshel; vocalized by Isaac Mayer ', language: 'he' },
+      { versionTitle: 'Translated by Hanan and Esther Eshel', versionSource: 'the Journal of Biblical Literature', language: 'en' },
+    ];
+    for (const p of CHOICES) {
+      for (const v of versions) { expect(versionMatch(cfg(p.id), v)).toBeNull(); }
     }
-    for (const title of ['Shemot Rabbah', 'Keset HaSofer', 'Targum Jonathan on I Samuel']) {
+    // the book itself is a sefer chitzoni (its own rule, every preset); with that group switched off it shows at every level
+    expect(bookMatch(cfg('centrist_mo'), { title: 'Psalm 154' })).toMatchObject({ group: 'sefarim_chitzoniim' });
+    const lenient = toggleGroup(cfg('strict_charedi'), 'sefarim_chitzoniim', false);
+    expect(bookMatch(lenient, { title: 'Psalm 154', heTitle: 'תהלים קנ"ד' })).toBeNull();
+    expect(filterVersions(lenient, versions)).toEqual(versions);
+  });
+
+  test('women\'s / feminist translations are hidden from RWMO up; the book itself stays', () => {
+    expect(GROUPS.find(g => g.id === 'feminist_translations')).toMatchObject({ level: 2, translation: true });
+    const feminist = ['Dena Weiss translation', 'debra robbins adapted vayikra rabba 2;7 first paragraph',
+      'Keset HaSofer, trans. Jen Taylor Friedman'];
+    for (const versionTitle of feminist) {
+      for (const p of ['off', 'centrist_mo']) { expect(versionMatch(cfg(p), { versionTitle })).toBeNull(); }
+      for (const p of ['rwmo', 'yeshivish', 'strict_charedi']) {
+        expect(versionMatch(cfg(p), { versionTitle })).toMatchObject({ group: 'feminist_translations', translation: true });
+      }
+    }
+    for (const title of ['Shemot Rabbah', 'Vayikra Rabbah', 'Keset HaSofer']) {
       expect(visible('strict_charedi', { title })).toBe(true);
     }
     const versions = [{ versionTitle: 'Dena Weiss translation' }, { versionTitle: 'The Sefaria Midrash Rabbah, 2022' }];
-    expect(filterVersions(cfg('yeshivish'), versions)).toEqual([versions[1]]);
+    expect(filterVersions(cfg('rwmo'), versions)).toEqual([versions[1]]);
+    // The Torah: A Women's Commentary (Women of Reform Judaism) is Reform: hidden at every preset, also as a siddur version
+    expect(versionMatch(cfg('centrist_mo'), { versionTitle: "The Torah, A Women's Commentary JPS" })).toMatchObject({ group: 'reform' });
+  });
+
+  test('neutral translations that happen to be by women are hidden from Yeshivish up only', () => {
+    const byWomen = ['The Targum of Samuel; trans. E. van Staalduine-Sulman. Leiden: Brill, 2002',
+      'Translated from German by Ruth Morris, Jerusalem, 2013', 'Dr. Tziporah Lifshitz',
+      'From Sinai to Ethiopia, the halakhic and conceptual world of Ethiopian Jewry. Dr. Sharon Shalom. Trans. by Jessica Setbon. Jerusalem, Gefen, 2016',
+      'Idra Zuta, The Small Gathering, trans. Michal Ricardo', 'Translated by Vital Transformation and Michal Ricardo, 2023',
+      'Translated by Vital Transformation and Rachel Grundman, Spanish Edition, 2023 [es]', 'Nelly Altenburger'];
+    for (const versionTitle of byWomen) {
+      for (const p of ['off', 'centrist_mo', 'rwmo']) { expect(versionMatch(cfg(p), { versionTitle })).toBeNull(); }
+      for (const p of ['yeshivish', 'strict_charedi']) {
+        expect(versionMatch(cfg(p), { versionTitle })).toMatchObject({ group: 'women_authors' });
+      }
+    }
+    for (const title of ['Targum Jonathan on I Samuel', 'What is the Talmud', 'Idra Zuta', 'Rashi on Berakhot']) {
+      expect(visible('strict_charedi', { title })).toBe(true);
+    }
   });
 
   test('borderline books stay visible under every preset (lenient)', () => {

@@ -42,6 +42,7 @@ const GROUP_NAMES = {
   non_orthodox_translations: ['filter.group_non_orthodox_translations', 'filter.group_non_orthodox_translations_short'],
   open_orthodox: ['filter.group_open_orthodox', 'filter.group_open_orthodox_short'],
   haskalah_secular: ['filter.group_haskalah_secular', 'filter.group_haskalah_secular_short'],
+  feminist_translations: ['filter.group_feminist_translations', 'filter.group_feminist_translations_short'],
   jps_1917: ['filter.group_jps_1917', 'filter.group_jps_1917_short'],
   historical_apocrypha: ['filter.group_historical_apocrypha', 'filter.group_historical_apocrypha_short'],
   academic_orthodox: ['filter.group_academic_orthodox', 'filter.group_academic_orthodox_short'],

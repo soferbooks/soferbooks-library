@@ -29,12 +29,13 @@ export const GROUPS = [
   { id: 'non_orthodox_translations', short: 'non-Orthodox translations', level: 2, name: 'Non-Orthodox Tanakh translations', examples: 'Gender-sensitive JPS (Contemporary Torah), JPS 1985, Robert Alter, Everett Fox', translation: true },
   { id: 'open_orthodox', short: 'Open Orthodoxy', level: 2, name: 'Open Orthodoxy', examples: 'Yeshivat Maharat, partnership minyanim' },
   { id: 'haskalah_secular', short: 'Haskalah', level: 2, name: 'Haskalah & secular authors', examples: 'Bialik, Nachman Krochmal, Yeshayahu Leibowitz, Shinan, Wessely' },
+  { id: 'feminist_translations', short: 'feminist translations', level: 2, name: "Women's / feminist translations", examples: 'Hadar (Dena Weiss), Rabbi Debra Robbins, Jen Taylor Friedman', translation: true },
 
   { id: 'jps_1917', short: 'JPS 1917', level: 3, name: 'JPS 1917 translation', examples: 'The Holy Scriptures: A New Translation (JPS 1917)', translation: true },
   { id: 'historical_apocrypha', short: 'Ben Sira & Maccabees', level: 3, name: 'Ben Sira & Maccabees', examples: 'Ben Sira, Books of the Maccabees, Megillat Antiochus' },
   { id: 'academic_orthodox', short: 'Mishnat Eretz Yisrael', level: 3, name: 'Academic Orthodox scholarship', examples: 'Mishnat Eretz Yisrael (the Safrais)' },
   { id: 'community_sheets', short: 'community sheets', level: 3, name: 'Community source sheets', examples: 'Sheets by anyone, except from known Orthodox sources' },
-  { id: 'women_authors', short: 'works by women', level: 3, name: 'Works by women authors', examples: 'Dirshuni, Jewish Legal Writings by Women, Nechama Leibowitz, Torah of the Mothers, translations by women' },
+  { id: 'women_authors', short: 'works by women', level: 3, name: 'Works by women authors', examples: 'Dirshuni, Jewish Legal Writings by Women, Torah of the Mothers, Erica Brown, translations by women' },
 
   { id: 'religious_zionist_thought', short: 'Rav Kook, Rav Soloveitchik, Nechama Leibowitz', level: 4, name: 'Religious Zionist & Modern Orthodox thought', examples: "Rav Kook's Orot, Rav J. B. Soloveitchik's Halakhic Man, Nechama Leibowitz" },
 ];
