@@ -143,56 +143,6 @@
     "group": "christian_translations"
   },
   {
-    "id": "ben_sira",
-    "name": "Wisdom of Ben Sira (Sirach)",
-    "hebrewName": "חכמת בן סירא",
-    "sefariaSlugs": [
-      "ben-sira",
-      "sirach",
-      "wisdom-of-ben-sira"
-    ],
-    "keywords": [
-      "Ben Sira",
-      "Sirach",
-      "Chakhmat Ben Sira",
-      "בן סירא"
-    ],
-    "reason": "Quoted extensively throughout the Talmud (e.g. Sanhedrin 100b, Chagigah 13a, Bava Batra 98b, Yevamot 63b) and cited by Rishonim.",
-    "exampleWorks": [
-      "The Wisdom of Ben Sira",
-      "Ecclesiasticus (Sirach)"
-    ],
-    "group": "historical_apocrypha"
-  },
-  {
-    "id": "maccabees",
-    "name": "Books of the Maccabees (1 & 2 Maccabees / Megillat Antiochus)",
-    "hebrewName": "ספרי המקבים / מגילת אנטיוכוס",
-    "sefariaSlugs": [
-      "maccabees",
-      "1-maccabees",
-      "2-maccabees",
-      "megillat-antiochus",
-      "megillat-hashmonaim"
-    ],
-    "keywords": [
-      "Maccabees",
-      "1 Maccabees",
-      "2 Maccabees",
-      "Megillat Antiochus",
-      "Megillat Hashmonaim",
-      "מקבים",
-      "מגילת אנטיוכוס"
-    ],
-    "reason": "Standard historical narrative of the Chanukah revolt and Hashmonaim, referenced in classical Halakhic traditions.",
-    "exampleWorks": [
-      "1 Maccabees",
-      "2 Maccabees",
-      "Megillat Antiochus"
-    ],
-    "group": "historical_apocrypha"
-  },
-  {
     "id": "jubilees_enoch",
     "name": "Pseudepigrapha (Book of Jubilees, 1 & 2 Enoch)",
     "hebrewName": "ספר היובלים וספר חנוך (ספרים חיצוניים)",
@@ -218,7 +168,7 @@
       "Testaments of the Twelve Patriarchs",
       "צוואות השבטים"
     ],
-    "reason": "Promotes non-Rabbinic sectarian theology and solar calendars conflicting directly with Halakhic lunar calendar; excluded under traditional Sefarim Chitzonim prohibitions (Sanhedrin 100b).",
+    "reason": "Promotes non-Rabbinic sectarian theology and solar calendars conflicting directly with the Halakhic lunar calendar; sefarim chitzoniim (Sanhedrin 100b), hidden from the Yeshivish preset up (2026-11).",
     "exampleWorks": [
       "Book of Jubilees",
       "1 Enoch (Ethiopic)",
@@ -726,7 +676,7 @@
       "תהלים קנ\"ד",
       "תוספות למגלת אסתר"
     ],
-    "reason": "Sefarim chitzoniim excluded under the traditional prohibition (Sanhedrin 100b); kept distinct from Ben Sira and Maccabees, which are allowed in RWMO.",
+    "reason": "Sefarim chitzoniim (Sanhedrin 100b); hidden from the Yeshivish preset up (2026-11). Ben Sira and the Books of the Maccabees are not in this rule and are shown at every preset.",
     "exampleWorks": [
       "Book of Judith",
       "Book of Tobit",
@@ -985,7 +935,7 @@
       "Debra J. Robbins",
       "Jen Taylor Friedman"
     ],
-    "reason": "Translations presented from a women's / feminist or non-Orthodox egalitarian setting: Hadar (Dena Weiss), a Reform rabbi's adaptation (Rabbi Debra Robbins), a woman scribe's project (Jen Taylor Friedman, HaSoferet). The book itself stays; only the translation is hidden, from RWMO up (2026-11).",
+    "reason": "Translations presented from a women's / feminist or non-Orthodox egalitarian setting: Hadar (Dena Weiss), a Reform rabbi's adaptation (Rabbi Debra Robbins), a woman scribe's project (Jen Taylor Friedman, HaSoferet). The book itself stays; only the translation is hidden, at every preset (2026-11).",
     "exampleWorks": [
       "Shemot Rabbah, Dena Weiss translation",
       "Vayikra Rabbah, adapted by Debra Robbins",

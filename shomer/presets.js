@@ -23,16 +23,15 @@ export const GROUPS = [
   { id: 'conservative', short: 'Conservative', level: 1, name: 'Conservative movement', examples: 'Etz Hayim, CJLS, Dr. Joshua Kulp / Daf Shevui, Louis Jacobs' },
   { id: 'biblical_criticism', short: 'Bible criticism', level: 1, name: 'Academic Bible criticism', examples: 'Documentary Hypothesis, Anchor Bible, Hermeneia' },
   { id: 'christian_translations', short: 'Christian translations', level: 1, name: 'Christian Bible translations', examples: 'King James, American Standard, Douay-Rheims', translation: true },
-  { id: 'sefarim_chitzoniim', short: 'Sefarim Chitzoniim', level: 1, name: 'Sefarim Chitzoniim', examples: 'Jubilees, Enoch, Judith, Tobit, Susanna, Wisdom of Solomon' },
   { id: 'polemics', short: 'Toldot Yeshu', level: 1, name: 'Anti-Christian polemic', examples: 'Toldot Yeshu' },
+  { id: 'feminist_translations', short: 'feminist translations', level: 1, name: "Women's / feminist translations", examples: 'Hadar (Dena Weiss), Rabbi Debra Robbins, Jen Taylor Friedman', translation: true },
 
   { id: 'non_orthodox_translations', short: 'non-Orthodox translations', level: 2, name: 'Non-Orthodox Tanakh translations', examples: 'Gender-sensitive JPS (Contemporary Torah), JPS 1985, Robert Alter, Everett Fox', translation: true },
   { id: 'open_orthodox', short: 'Open Orthodoxy', level: 2, name: 'Open Orthodoxy', examples: 'Yeshivat Maharat, partnership minyanim' },
   { id: 'haskalah_secular', short: 'Haskalah', level: 2, name: 'Haskalah & secular authors', examples: 'Bialik, Nachman Krochmal, Yeshayahu Leibowitz, Shinan, Wessely' },
-  { id: 'feminist_translations', short: 'feminist translations', level: 2, name: "Women's / feminist translations", examples: 'Hadar (Dena Weiss), Rabbi Debra Robbins, Jen Taylor Friedman', translation: true },
 
   { id: 'jps_1917', short: 'JPS 1917', level: 3, name: 'JPS 1917 translation', examples: 'The Holy Scriptures: A New Translation (JPS 1917)', translation: true },
-  { id: 'historical_apocrypha', short: 'Ben Sira & Maccabees', level: 3, name: 'Ben Sira & Maccabees', examples: 'Ben Sira, Books of the Maccabees, Megillat Antiochus' },
+  { id: 'sefarim_chitzoniim', short: 'Apocrypha', level: 3, name: 'Apocrypha & pseudepigrapha (Sefarim Chitzoniim)', examples: 'Jubilees, Enoch, Judith, Tobit, Psalms 151 & 154, Testaments of the Twelve Patriarchs (not Ben Sira or Maccabees)' },
   { id: 'academic_orthodox', short: 'Mishnat Eretz Yisrael', level: 3, name: 'Academic Orthodox scholarship', examples: 'Mishnat Eretz Yisrael (the Safrais)' },
   { id: 'community_sheets', short: 'community sheets', level: 3, name: 'Community source sheets', examples: 'Sheets by anyone, except from known Orthodox sources' },
   { id: 'women_authors', short: 'works by women', level: 3, name: 'Works by women authors', examples: 'Dirshuni, Jewish Legal Writings by Women, Torah of the Mothers, Erica Brown, translations by women' },

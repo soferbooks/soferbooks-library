@@ -44,7 +44,6 @@ const GROUP_NAMES = {
   haskalah_secular: ['filter.group_haskalah_secular', 'filter.group_haskalah_secular_short'],
   feminist_translations: ['filter.group_feminist_translations', 'filter.group_feminist_translations_short'],
   jps_1917: ['filter.group_jps_1917', 'filter.group_jps_1917_short'],
-  historical_apocrypha: ['filter.group_historical_apocrypha', 'filter.group_historical_apocrypha_short'],
   academic_orthodox: ['filter.group_academic_orthodox', 'filter.group_academic_orthodox_short'],
   community_sheets: ['filter.group_community_sheets', 'filter.group_community_sheets_short'],
   women_authors: ['filter.group_women_authors', 'filter.group_women_authors_short'],
