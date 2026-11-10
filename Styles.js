@@ -109,7 +109,7 @@ export default StyleSheet.create({
   },
   // Sefaria Design System - Content Body Hebrew
   ContentBodyHe: {
-    fontFamily: 'Taamey Frank Taamim Fix',
+    fontFamily: 'FrankSofer',
     fontSize: 22,
     lineHeight: 29,
     textAlign: 'right',
@@ -489,7 +489,7 @@ export default StyleSheet.create({
     paddingTop: 5,
   },
   headerCategoryAttributionTextHe: {
-    fontFamily: "Taamey Frank Taamim Fix",
+    fontFamily: "FrankSofer",
     color: "#999",
     fontSize: 15,
   },
@@ -872,7 +872,7 @@ export default StyleSheet.create({
     fontSize: 20,
     color: "#999",
     textAlign: "center",
-    fontFamily: "Taamey Frank Taamim Fix",
+    fontFamily: "FrankSofer",
   },
   textTocHeaderTitle: {
     flex: 1,
@@ -1056,7 +1056,7 @@ export default StyleSheet.create({
   textTocCategoryAttributionTextHe: {
     fontSize: 16,
     textAlign: "center",
-    fontFamily: "Taamey Frank Taamim Fix",
+    fontFamily: "FrankSofer",
   },
   textTocVersionInfo: {
     flexDirection: "row",
@@ -1178,7 +1178,7 @@ export default StyleSheet.create({
     marginTop: 5,
   },
   hebrewText: {
-    fontFamily: "Taamey Frank Taamim Fix",
+    fontFamily: "FrankSofer",
     writingDirection: "rtl",
     textAlign: 'right',
     fontSize: iPad ? 22 : 18,
@@ -1196,7 +1196,7 @@ export default StyleSheet.create({
     textAlign: 'left'
   },
   he: {
-    fontFamily: "Taamey Frank Taamim Fix",
+    fontFamily: "FrankSofer",
     textAlign: 'right',
   },
   enInt: {
@@ -1408,7 +1408,7 @@ export default StyleSheet.create({
     color: "#4b71b7",
   },
   hediv: {
-    fontFamily: "Taamey Frank Taamim Fix",
+    fontFamily: "FrankSofer",
     writingDirection: "rtl",
     flex: -1,
     paddingTop: 15,
@@ -1445,7 +1445,7 @@ export default StyleSheet.create({
   },
 
   heInEn: {
-    fontFamily: "Taamey Frank Taamim Fix",
+    fontFamily: "FrankSofer",
     writingDirection: "rtl",
     flex: -1,
   },
