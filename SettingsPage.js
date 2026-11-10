@@ -46,6 +46,7 @@ import {
 import Sefaria from "./sefaria";
 import * as FileSystem from 'expo-file-system/legacy';
 import { trackEvent } from './analytics/events';
+import { ContentFilterSettings, LibrarySourcesSettings } from './shomer/ContentFilterSettings';
 const DEBUG_MODE = false;
 
 /**
@@ -353,6 +354,10 @@ const SettingsPage = ({ close, logout, openUri, syncProfile }) => {
           <ButtonToggleSection
             langStyle={langStyle}
           />
+
+          <View style={[styles.readerDisplayOptionsMenuDivider, styles.settingsDivider, theme.readerDisplayOptionsMenuDivider]}/>
+          <ContentFilterSettings langStyle={langStyle} />
+          <LibrarySourcesSettings langStyle={langStyle} />
 
           <View style={[styles.readerDisplayOptionsMenuDivider, styles.settingsDivider, theme.readerDisplayOptionsMenuDivider]}/>
           <View>

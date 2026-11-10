@@ -496,7 +496,10 @@ var Api = {
           curatedPrimacy: {he: refObj?.order?.curatedPrimacy?.he || 0, en: refObj?.order?.curatedPrimacy?.en || 0}}
       }
     }
-    data.textRefs = Object.values(refMap);
+    // content filter: sources from, and works by, books the reader's filter hides are left out
+    const hidden = ref => !!Sefaria.shomer?.hiddenBookForRef(ref);
+    data.textRefs = Object.values(refMap).filter(r => !hidden(r.ref));
+    if (Array.isArray(data.indexes)) { data.indexes = data.indexes.filter(i => !hidden(i?.title)); }
     return data;
   },
 

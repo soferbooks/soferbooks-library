@@ -7,12 +7,14 @@ import {Alert, Platform} from 'react-native';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import NetInfo from "@react-native-community/netinfo";
 import {getCrashlytics, recordError, log} from '@react-native-firebase/crashlytics';
+import {SCHEMA_VERSION, serverFor, exportPathFor} from './sources';
+import * as shomer from './shomer';
 
-const SCHEMA_VERSION = "7";
-// Local Soferia download server. On a USB device run `adb reverse tcp:5200 tcp:5200`
-// first; inside the Android emulator use http://10.0.2.2:5200.
-const DOWNLOAD_SERVER = "http://127.0.0.1:5200";
-const HOST_PATH = `${DOWNLOAD_SERVER}/static/ios-export/${SCHEMA_VERSION}`;
+// Sefaria's own mobile download server, as upstream Sefaria-Mobile uses (see sources.js).
+// For the local export server set SEFARIA_DOWNLOAD_SERVER in .env (see sources.js).
+const DOWNLOAD_SERVER = serverFor('sefaria');
+const HOST_PATH = exportPathFor('sefaria', SCHEMA_VERSION);
+const MAKE_BUNDLE_MAX_BOOKS = 500;  // content filter: largest custom bundle asked of the server
 const HOST_BUNDLE_URL = `${HOST_PATH}/bundles`;
 const [FILE_DIRECTORY, TMP_DIRECTORY] = [`${FileSystem.documentDirectory}library`, `${FileSystem.cacheDirectory}tmp`];  //todo: make sure these are used
 
@@ -406,7 +408,8 @@ async function lastUpdated() {
 
 function getFullBookList() { // todo: Use Sefaria.cacheIndexFromToc to initialize?
   // Test with Jest
-  return Object.keys(Sefaria.booksDict);
+  // includes books hidden by the content filter, so that copies already on disk get deleted
+  return shomer.allBookTitles();
 }
 
 async function packageSetupProtocol() {
@@ -472,6 +475,8 @@ function setDesiredBooks() {
       })
     })
   }
+  // content filter: books it hides are never downloaded, and copies on disk get deleted
+  Object.keys(BooksState).forEach(b => { if (shomer.isBookHidden(b)) { BooksState[b].desired = false; } });
 
 }
 
@@ -812,6 +817,10 @@ async function postDownload(downloadPath, newDownload=true) {
     // Take to the settings page and check for updates?
     log(getCrashlytics(), `Error when unzipping bundle: ${e}`)
   }
+  // content filter: a bundle may still have brought a hidden book (e.g. one prebuilt before the
+  // filter changed); don't keep it
+  const hiddenOnDisk = (await getLocalBookList()).filter(t => shomer.isBookHidden(t));
+  if (hiddenOnDisk.length) { await deleteBooks(hiddenOnDisk, false); }
   try {
     await simpleDelete(downloadPath)
   } catch (e) { console.warn(e) }
@@ -908,16 +917,44 @@ async function downloadPackage(packageName, networkSetting) {
     return
   }  // todo: review: should notification to the user be sent for a forbidden download?
   let bundles;
+  // content filter: if the prebuilt package bundles contain hidden books, ask the server to build
+  // a bundle of exactly the books this package should bring (makeBundle, as updates do).
+  // markAsClicked already marked the package's allowed books as desired. Very large sets still
+  // use the prebuilt (CDN-cached) bundles; postDownload then deletes the few hidden books.
+  const booksToDownload = Object.keys(BooksState).filter(t => BooksState[t].desired && !BooksState[t].localLastUpdated);
+  const useMadeBundle = packageHasHiddenBooks(packageName) && booksToDownload.length <= MAKE_BUNDLE_MAX_BOOKS;
   try {
-    bundles = await getPackageUrls(packageName);
+    if (useMadeBundle) {
+      if (!booksToDownload.length) { Tracker.removeDownload(true); return }
+      const made = await requestNewBundle(booksToDownload);
+      Tracker.downloadSize = made.downloadSize;
+      bundles = made.bundleArray;  // used as-is, like downloadUpdate does
+    } else {
+      bundles = (await getPackageUrls(packageName)).map(u => encodeURIComponent(u));
+    }
   } catch (e) { return }
 
-  bundles = bundles.map(u => encodeURIComponent(u));
   if (aborter.abort) { return }
   await downloadBundleArray(bundles, Tracker.arrayDownloadState, networkSetting);
   // bundles.map(async b => {await downloadBundle(`${DOWNLOAD_SERVER}/${b}`, networkSetting)});
 
   // await downloadBundle(`${packageName}.zip`, networkSetting)
+}
+
+// content filter changed: recompute which books are wanted (the next update/download then
+// fetches newly allowed books and deletes newly hidden ones)
+shomer.subscribe(() => {
+  if (PackagesState && PackagesState['COMPLETE LIBRARY']) {
+    repopulateBooksState().catch(e => console.log('content filter: repopulateBooksState failed', e));
+  }
+});
+
+function packageHasHiddenBooks(packageName) {
+  // does the content filter hide any book this package would download?
+  if (!shomer.isActive()) { return false }
+  const pkg = PackagesState[packageName];
+  const titles = (pkg && pkg.jsonData && pkg.jsonData['indexes']) || (packageName === 'COMPLETE LIBRARY' ? getFullBookList() : []);
+  return titles.some(t => shomer.isBookHidden(t));
 }
 
 async function downloadUpdate(networkSetting, triggeredByUser=true, booksToDownload=null) {

@@ -42,7 +42,9 @@ class AutocompleteList extends React.Component {
     this.state = {
       completions: [],
       completionsLang: null,
-      recentQueries: Sefaria.recentQueries.map(q => ({...q})),
+      recentQueries: Sefaria.recentQueries
+        .filter(q => !Sefaria.shomer?.hiddenBookForRef(q.key || q.query))  // content filter
+        .map(q => ({...q})),
     }
   }
 
@@ -67,6 +69,7 @@ class AutocompleteList extends React.Component {
   onQueryChange = q => {
     if (q.length >= 3) {
       Sefaria.api.name(q, true)
+      .then(results => Sefaria.shomer?.filterNameResponse(results) ?? results)  // content filter
       .then(results => {
         if (this._isMounted) {
           const typeToValue = { "ref": 1, "toc": 3, "topic": 2, "persontopic": 2, "authortopic": 4, "user": 5, "collection": 6 };

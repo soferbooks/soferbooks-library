@@ -6,6 +6,7 @@ import LinkContent from './LinkContent';
 import {ERRORS} from "./errors";
 import {loadJSONFile} from "./DownloadControl";
 import {fileExists} from './DownloadControl';
+import * as shomer from './shomer';
 
 /*
 PUBLIC INTERFACE
@@ -256,7 +257,8 @@ const getDefaultVersionForLang = function(allVersions, lang) {
      * default is first version with `lang`
      * assumption is versions are sorted in priority order, as returned by VersionSet()
      */
-    return allVersions.find(v => v.language === lang);
+    // content filter: the default is the first version the reader's filter does not hide
+    return allVersions.find(v => v.language === lang && !shomer.isVersionHidden(v));
 };
 
 const getOfflineSectionKey = function(ref, versions) {
@@ -352,6 +354,9 @@ const loadOfflineSection = async function(ref, versions, fallbackOnDefaultVersio
 const loadOfflineSectionByVersions = async function(selectedVersions, allVersions, ref, fileNameStem, fallbackOnDefaultVersions=true) {
     const textByLang = {};
     let defaultVersions = {};
+    // content filter: a hidden version asked for (e.g. from history) falls back on the default
+    selectedVersions = Object.fromEntries(Object.entries(selectedVersions).filter(([lang, vtitle]) =>
+        !shomer.isVersionHidden((allVersions || []).find(v => v.versionTitle === vtitle && v.language === lang) || {versionTitle: vtitle})));
     selectedVersions = populateMissingVersions(selectedVersions, allVersions);
     if (fallbackOnDefaultVersions) {
         defaultVersions = populateMissingVersions({}, allVersions);

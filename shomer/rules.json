@@ -1,0 +1,899 @@
+[
+  {
+    "id": "gender_neutral_jps",
+    "name": "Gender-Sensitive JPS / The Contemporary Torah (RJPS)",
+    "hebrewName": "תרגום JPS מנוטרל-מגדר (RJPS)",
+    "sefariaSlugs": [
+      "the-contemporary-torah",
+      "contemporary-torah",
+      "rjps",
+      "gender-neutral-jps",
+      "gender-sensitive-jps"
+    ],
+    "keywords": [
+      "The Contemporary Torah",
+      "RJPS",
+      "Gender-Sensitive JPS",
+      "JPS 2006",
+      "Reform JPS",
+      "When God began to create heaven and earth",
+      "Gender-Sensitive",
+      "THE JPS TANAKH: Gender-Sensitive Edition",
+      "humankind in our image",
+      "humankind in the divine image",
+      "Revised JPS",
+      "Revised JPS, 2023"
+    ],
+    "reason": "Systematically eliminates traditional masculine pronouns for God and alters biblical phrasing, departing from traditional Masoretic transmission.",
+    "exampleWorks": [
+      "The Contemporary Torah: A Gender-Sensitive Adaptation of the JPS Translation"
+    ],
+    "group": "non_orthodox_translations"
+  },
+  {
+    "id": "robert_alter_translation",
+    "name": "Robert Alter Translation & Commentary",
+    "hebrewName": "תרגום ופירוש רוברט אלתר",
+    "sefariaSlugs": [
+      "robert-alter",
+      "the-hebrew-bible-robert-alter",
+      "alter-translation"
+    ],
+    "keywords": [
+      "Robert Alter",
+      "The Hebrew Bible, by Robert Alter",
+      "Alter translation",
+      "Alter commentary",
+      "welter and waste",
+      "The Hebrew Bible: A Translation with Commentary"
+    ],
+    "reason": "Secular literary translation that treats Tanakh as ancient Near Eastern folklore, denies Mosaic authorship, and routinely contradicts Chazal.",
+    "exampleWorks": [
+      "The Hebrew Bible: A Translation with Commentary (Robert Alter)"
+    ],
+    "group": "non_orthodox_translations"
+  },
+  {
+    "id": "everett_fox_translation",
+    "name": "Everett Fox (Schocken Bible Translation)",
+    "hebrewName": "תרגום אוורט פוקס (הוצאת שוקן)",
+    "sefariaSlugs": [
+      "everett-fox",
+      "the-five-books-of-moses-everett-fox",
+      "the-early-prophets-fox"
+    ],
+    "keywords": [
+      "Everett Fox",
+      "The Five Books of Moses, by Everett Fox",
+      "Schocken Bible",
+      "At the beginning of God's creating",
+      "Schocken Books"
+    ],
+    "reason": "Based on the Buber-Rosenzweig poetic German translation; approaches Scripture from secular existentialist linguistic theory rather than traditional Mesorah.",
+    "exampleWorks": [
+      "The Five Books of Moses (Everett Fox)",
+      "The Early Prophets (Fox)"
+    ],
+    "group": "non_orthodox_translations"
+  },
+  {
+    "id": "njps_1985",
+    "name": "New JPS Tanakh (JPS 1985)",
+    "hebrewName": "תרגום JPS החדש (1985)",
+    "sefariaSlugs": [
+      "tanakh-the-holy-scriptures-jps-1985",
+      "jps-1985",
+      "njps",
+      "jps-tanakh-1985"
+    ],
+    "keywords": [
+      "Tanakh: The Holy Scriptures, JPS 1985",
+      "NJPS",
+      "New JPS",
+      "JPS 1985",
+      "Tanakh: The Holy Scriptures, published by JPS",
+      "JPS, 1985"
+    ],
+    "reason": "Frequently departs from traditional Rabbinic interpretation (Chazal), incorporates academic textual emendations, and translates contrary to established Halakha.",
+    "exampleWorks": [
+      "Tanakh: The Holy Scriptures (JPS 1985)"
+    ],
+    "group": "non_orthodox_translations"
+  },
+  {
+    "id": "christian_translations",
+    "name": "Christian / Non-Jewish Bible Translations (KJV, ASV, Douay-Rheims)",
+    "hebrewName": "תרגומים נוצריים (קינג ג'יימס, ASV)",
+    "sefariaSlugs": [
+      "king-james-version",
+      "kjv",
+      "asv",
+      "american-standard-version",
+      "douay-rheims"
+    ],
+    "keywords": [
+      "King James",
+      "KJV",
+      "Authorized Version",
+      "Douay-Rheims",
+      "American Standard Version"
+    ],
+    "reason": "Christian translations containing Christological polemical renderings (e.g. Isaiah 7:14 and messianic Psalms).",
+    "exampleWorks": [
+      "King James Version (KJV)",
+      "American Standard Version"
+    ],
+    "group": "christian_translations"
+  },
+  {
+    "id": "ben_sira",
+    "name": "Wisdom of Ben Sira (Sirach)",
+    "hebrewName": "חכמת בן סירא",
+    "sefariaSlugs": [
+      "ben-sira",
+      "sirach",
+      "wisdom-of-ben-sira"
+    ],
+    "keywords": [
+      "Ben Sira",
+      "Sirach",
+      "Chakhmat Ben Sira",
+      "בן סירא"
+    ],
+    "reason": "Quoted extensively throughout the Talmud (e.g. Sanhedrin 100b, Chagigah 13a, Bava Batra 98b, Yevamot 63b) and cited by Rishonim.",
+    "exampleWorks": [
+      "The Wisdom of Ben Sira",
+      "Ecclesiasticus (Sirach)"
+    ],
+    "group": "historical_apocrypha"
+  },
+  {
+    "id": "maccabees",
+    "name": "Books of the Maccabees (1 & 2 Maccabees / Megillat Antiochus)",
+    "hebrewName": "ספרי המקבים / מגילת אנטיוכוס",
+    "sefariaSlugs": [
+      "maccabees",
+      "1-maccabees",
+      "2-maccabees",
+      "megillat-antiochus",
+      "megillat-hashmonaim"
+    ],
+    "keywords": [
+      "Maccabees",
+      "1 Maccabees",
+      "2 Maccabees",
+      "Megillat Antiochus",
+      "Megillat Hashmonaim",
+      "מקבים",
+      "מגילת אנטיוכוס"
+    ],
+    "reason": "Standard historical narrative of the Chanukah revolt and Hashmonaim, referenced in classical Halakhic traditions.",
+    "exampleWorks": [
+      "1 Maccabees",
+      "2 Maccabees",
+      "Megillat Antiochus"
+    ],
+    "group": "historical_apocrypha"
+  },
+  {
+    "id": "jubilees_enoch",
+    "name": "Pseudepigrapha (Book of Jubilees, 1 & 2 Enoch)",
+    "hebrewName": "ספר היובלים וספר חנוך (ספרים חיצוניים)",
+    "sefariaSlugs": [
+      "book-of-jubilees",
+      "jubilees",
+      "1-enoch",
+      "2-enoch",
+      "testament-of-the-twelve-patriarchs"
+    ],
+    "keywords": [
+      "Book of Jubilees",
+      "Jubilees",
+      "1 Enoch",
+      "2 Enoch",
+      "Solar Calendar Jubilees",
+      "ספר היובלים",
+      "ספר חנוך",
+      "Book of Enoch",
+      "Testament of the Twelve Patriarchs",
+      "Assumption of Moses"
+    ],
+    "reason": "Promotes non-Rabbinic sectarian theology and solar calendars conflicting directly with Halakhic lunar calendar; excluded under traditional Sefarim Chitzonim prohibitions (Sanhedrin 100b).",
+    "exampleWorks": [
+      "Book of Jubilees",
+      "1 Enoch (Ethiopic)",
+      "Testament of the Twelve Patriarchs"
+    ],
+    "group": "sefarim_chitzoniim"
+  },
+  {
+    "id": "etz_hayim",
+    "name": "Etz Hayim Commentary",
+    "hebrewName": "עץ חיים (התנועה הקונסרבטיבית)",
+    "sefariaSlugs": [
+      "etz-hayim",
+      "etz_hayim",
+      "etz-chaim-torah-and-commentary"
+    ],
+    "keywords": [
+      "Etz Hayim",
+      "Rabbinical Assembly",
+      "United Synagogue of Conservative Judaism",
+      "United Synagogue of America",
+      "Conservative commentary",
+      "Etz Chaim Torah and Commentary"
+    ],
+    "reason": "Official Torah commentary of the Conservative movement; incorporates non-traditional theological perspectives.",
+    "exampleWorks": [
+      "Etz Hayim: Torah and Commentary"
+    ],
+    "group": "conservative"
+  },
+  {
+    "id": "conservative_responsa",
+    "name": "Conservative Responsa / CJLS",
+    "hebrewName": "תשובות ועד ההלכה הקונסרבטיבי (CJLS)",
+    "sefariaSlugs": [
+      "committee-on-jewish-law-and-standards",
+      "rabbinical-assembly-responsa",
+      "cjls"
+    ],
+    "keywords": [
+      "CJLS",
+      "Rabbinical Assembly Responsa",
+      "Conservative Responsa",
+      "David Golinkin",
+      "Joel Roth",
+      "Elliot Dorff"
+    ],
+    "reason": "Committee on Jewish Law and Standards rulings which permit electricity on Shabbat, driving to synagogue, and other departures from Orthodox halakha.",
+    "exampleWorks": [
+      "Proceedings of the Committee on Jewish Law and Standards",
+      "Responsa of the Schechter Institute"
+    ],
+    "group": "conservative"
+  },
+  {
+    "id": "louis_jacobs",
+    "name": "Louis Jacobs",
+    "hebrewName": "הרב לואיס ג'ייקובס (מסורתי)",
+    "sefariaSlugs": [
+      "louis-jacobs",
+      "rabbi-louis-jacobs"
+    ],
+    "keywords": [
+      "Louis Jacobs",
+      "We Have Reason to Believe",
+      "Principles of the Jewish Faith (Jacobs)"
+    ],
+    "reason": "Founder of British Masorti/Conservative movement; rejected traditional belief in Torah Min HaShamayim.",
+    "exampleWorks": [
+      "We Have Reason to Believe",
+      "A Jewish Theology",
+      "The Book of Jewish Belief"
+    ],
+    "group": "conservative"
+  },
+  {
+    "id": "robert_gordis",
+    "name": "Robert Gordis",
+    "hebrewName": "רוברט גורדיס",
+    "sefariaSlugs": [
+      "robert-gordis"
+    ],
+    "keywords": [
+      "Robert Gordis",
+      "Gordis Commentary"
+    ],
+    "reason": "Prominent Conservative scholar and JTS professor; Biblical commentaries from non-Orthodox perspective.",
+    "exampleWorks": [
+      "Koheleth - The Man and His World",
+      "The Book of Job"
+    ],
+    "group": "conservative"
+  },
+  {
+    "id": "david_golinkin",
+    "name": "David Golinkin",
+    "hebrewName": "דוד גולינקין",
+    "sefariaSlugs": [
+      "david-golinkin"
+    ],
+    "keywords": [
+      "David Golinkin",
+      "Schechter Institute Responsa",
+      "Schechter Institute"
+    ],
+    "reason": "President of Schechter Institute and head of Masorti/Conservative Law Committee in Israel.",
+    "exampleWorks": [
+      "Responsa in a Moment",
+      "The Status of Women in Jewish Law"
+    ],
+    "group": "conservative"
+  },
+  {
+    "id": "solomon_schechter",
+    "name": "Solomon Schechter",
+    "hebrewName": "שניאור זלמן שכטר",
+    "sefariaSlugs": [
+      "solomon-schechter"
+    ],
+    "keywords": [
+      "Solomon Schechter",
+      "Aspects of Rabbinic Theology",
+      "Catholic Israel"
+    ],
+    "reason": "Founder and architect of the Conservative movement in the United States.",
+    "exampleWorks": [
+      "Studies in Judaism",
+      "Some Aspects of Rabbinic Theology"
+    ],
+    "exceptions": [
+      "Avot DeRabbi Natan",
+      "Avot D'Rabbi Natan",
+      "Avot de-Rabbi Natan",
+      "Avot de Rabbi Natan",
+      "Avot of Rabbi Natan",
+      "Avot DeRabbi Nathan",
+      "Avot D'Rabbi Nathan",
+      "Avos DeRabbi Nosson",
+      "אבות דרבי נתן"
+    ],
+    "group": "conservative"
+  },
+  {
+    "id": "dr_joshua_kulp_conservative_yeshiva",
+    "name": "Dr. Joshua Kulp / Conservative Yeshiva in Jerusalem",
+    "hebrewName": "ד\"ר יהושע קולפ / ישיבה קונסרבטיבית בירושלים",
+    "sefariaSlugs": [
+      "joshua-kulp",
+      "dr-joshua-kulp",
+      "dr.-joshua-kulp",
+      "conservative-yeshiva",
+      "conservativeyeshiva",
+      "fuchsberg",
+      "daf-shevui",
+      "daf-shevui-by-dr-joshua-kulp",
+      "the-mishnah-commentary-of-joshua-kulp",
+      "the_mishnah,_trans._by_dr._joshua_kulp"
+    ],
+    "keywords": [
+      "Joshua Kulp",
+      "Dr. Joshua Kulp",
+      "Dr Joshua Kulp",
+      "Conservative Yeshiva",
+      "Conservative Yeshiva in Jerusalem",
+      "conservativeyeshiva",
+      "Daf Shevui",
+      "Daf Shevui by Dr. Joshua Kulp",
+      "Mishnah Commentary of Joshua Kulp",
+      "The Mishnah, trans. by Dr. Joshua Kulp",
+      "Fuchsberg Jerusalem Center",
+      "יהושע קולפ",
+      "יהושע מנחם קולפ",
+      "Fuchsberg"
+    ],
+    "reason": "Conservative Movement: Dr. Joshua Kulp (Rosh Yeshiva of Conservative Yeshiva in Jerusalem / Fuchsberg Center). Mishnah Commentary and Daf Shevui.",
+    "exampleWorks": [
+      "The Mishnah Commentary of Joshua Kulp",
+      "The Mishnah, trans. by Dr. Joshua Kulp",
+      "Daf Shevui on Talmud Bavli",
+      "The Schechter Haggadah"
+    ],
+    "group": "conservative"
+  },
+  {
+    "id": "gunther_plaut",
+    "name": "W. Gunther Plaut / The Torah: A Modern Commentary",
+    "hebrewName": "פירוש פלאוט לתורה (רפורמי)",
+    "sefariaSlugs": [
+      "gunther-plaut",
+      "the-torah-a-modern-commentary",
+      "plaut"
+    ],
+    "keywords": [
+      "Gunther Plaut",
+      "W. Gunther Plaut",
+      "The Torah: A Modern Commentary",
+      "URJ Torah Commentary"
+    ],
+    "reason": "The flagship Torah commentary of American Reform Judaism; rejects Mosaic authorship and binding nature of Halakha.",
+    "exampleWorks": [
+      "The Torah: A Modern Commentary (Plaut)",
+      "The Haftarah Commentary"
+    ],
+    "group": "reform"
+  },
+  {
+    "id": "ccar_responsa",
+    "name": "CCAR Responsa & Liturgy",
+    "hebrewName": "תשובות וסידורי היהדות הרפורמית (CCAR)",
+    "sefariaSlugs": [
+      "ccar",
+      "central-conference-of-american-rabbis",
+      "reform-responsa",
+      "mishkan-tfilah"
+    ],
+    "keywords": [
+      "CCAR",
+      "Central Conference of American Rabbis",
+      "Reform Responsa",
+      "Mishkan T'filah",
+      "Gates of Prayer"
+    ],
+    "reason": "Official responsa and prayer books of the Reform Movement, asserting non-binding Halakha and theological departures.",
+    "exampleWorks": [
+      "CCAR Responsa",
+      "Contemporary Reform Responsa",
+      "Mishkan T'filah"
+    ],
+    "group": "reform"
+  },
+  {
+    "id": "abraham_geiger",
+    "name": "Abraham Geiger & Early Reform Founders",
+    "hebrewName": "אברהם גייגר ומייסדי הרפורמה",
+    "sefariaSlugs": [
+      "abraham-geiger",
+      "kaufmann-kohler",
+      "david-einhorn"
+    ],
+    "keywords": [
+      "Abraham Geiger",
+      "Kaufmann Kohler",
+      "David Einhorn",
+      "Pittsburgh Platform"
+    ],
+    "reason": "Pioneers of 19th-century German and American Reform Judaism; rejected ceremonial Halakha, kashrut, and Messianic return to Zion.",
+    "exampleWorks": [
+      "Urschrift und Uebersetzungen der Bibel",
+      "Jewish Theology (Kohler)"
+    ],
+    "group": "reform"
+  },
+  {
+    "id": "mordecai_kaplan",
+    "name": "Mordecai Kaplan / Reconstructionism",
+    "hebrewName": "מרדכי קפלן (רקונסטרוקטיביזם)",
+    "sefariaSlugs": [
+      "mordecai-kaplan",
+      "reconstructionist",
+      "judaism-as-a-civilization"
+    ],
+    "keywords": [
+      "Mordecai Kaplan",
+      "Judaism as a Civilization",
+      "Reconstructionist Rabbinical College",
+      "Kol Haneshamah"
+    ],
+    "reason": "Defined Judaism as an evolving civilization; denied personal God, supernatural revelation, and chosen peoplehood.",
+    "exampleWorks": [
+      "Judaism as a Civilization",
+      "The Meaning of God in Modern Jewish Religion"
+    ],
+    "group": "reconstructionist"
+  },
+  {
+    "id": "jewish_renewal",
+    "name": "Jewish Renewal (Schachter-Shalomi, Waskow)",
+    "hebrewName": "התחדשות יהודית (שכטר-שלומי, וסקוב)",
+    "sefariaSlugs": [
+      "zalman-schachter-shalomi",
+      "arthur-waskow",
+      "jewish-renewal"
+    ],
+    "keywords": [
+      "Zalman Schachter-Shalomi",
+      "Arthur Waskow",
+      "Jewish Renewal",
+      "Eco-Kashrut",
+      "P'nai Or"
+    ],
+    "reason": "Syncretic movement combining elements of Sufism, New Age spirituality, and non-traditional liturgies.",
+    "exampleWorks": [
+      "Jewish with Feeling",
+      "Godwrestling",
+      "Seasons of Our Joy"
+    ],
+    "group": "reconstructionist"
+  },
+  {
+    "id": "biblical_criticism",
+    "name": "Academic Biblical Criticism & Source Theory",
+    "hebrewName": "ביקורת המקרא האקדמית (תזת התעודות JEDP)",
+    "sefariaSlugs": [
+      "academic-bible",
+      "documentary-hypothesis",
+      "source-criticism",
+      "higher-criticism"
+    ],
+    "keywords": [
+      "Documentary Hypothesis",
+      "Wellhausen",
+      "JEDP",
+      "Source Criticism",
+      "Biblical Criticism",
+      "Higher Criticism",
+      "Deuteronomist",
+      "Priestly Source"
+    ],
+    "reason": "Directly contradicts the foundational Orthodox dogma of Torah Min HaShamayim (Divine authorship of the Pentateuch).",
+    "exampleWorks": [
+      "Prolegomena to the History of Israel",
+      "The Bible with Sources Revealed"
+    ],
+    "group": "biblical_criticism"
+  },
+  {
+    "id": "secular_bible_commentaries",
+    "name": "Secular / Non-Denominational Bible Commentaries",
+    "hebrewName": "פירושי מקרא חילוניים-אקדמיים",
+    "sefariaSlugs": [
+      "anchor-bible",
+      "jewish-publication-society-academic",
+      "oxford-bible-commentary"
+    ],
+    "keywords": [
+      "Anchor Bible",
+      "Old Testament Library",
+      "Hermeneia",
+      "Historical-critical method"
+    ],
+    "reason": "Secular academic analyses treating the Tanakh as human-authored literature composed of regional folklore.",
+    "exampleWorks": [
+      "The Anchor Yale Bible Commentaries",
+      "The Jewish Study Bible (Academic Essays)"
+    ],
+    "group": "biblical_criticism"
+  },
+  {
+    "id": "open_orthodox_progressive",
+    "name": "Controversial Open-Orthodox / Progressive Innovations",
+    "hebrewName": "אורתודוקסיה פתוחה / פסיקות שנויות במחלוקת",
+    "sefariaSlugs": [
+      "open-orthodoxy",
+      "partnership-minyanim-responsa",
+      "yeshivat-chovevei-torah-controversial"
+    ],
+    "keywords": [
+      "Open Orthodoxy",
+      "Partnership Minyan",
+      "Maharat",
+      "Yeshivat Maharat",
+      "Women Rabbis",
+      "Torah MiSinai revision"
+    ],
+    "reason": "Right-Wing Modern Orthodox leadership (e.g. RCA, OU, Young Israel) officially rejects Open Orthodox institutions and innovations.",
+    "exampleWorks": [
+      "Egalitarian Halakha Essays",
+      "Partnership Minyan Responsa"
+    ],
+    "group": "open_orthodox"
+  },
+  {
+    "id": "rav_soloveitchik",
+    "name": "Rabbi Joseph B. Soloveitchik (The Rav)",
+    "hebrewName": "הרב יוסף דוב הלוי סולובייצ'יק (הגרי\"ד)",
+    "sefariaSlugs": [
+      "rabbi-joseph-b-soloveitchik",
+      "halakhic-man",
+      "the-lonely-man-of-faith"
+    ],
+    "keywords": [
+      "Joseph B. Soloveitchik",
+      "Joseph Dov Soloveitchik",
+      "Halakhic Man",
+      "The Lonely Man of Faith",
+      "Kol Dodi Dofek",
+      "איש ההלכה",
+      "איש האמונה",
+      "קול דודי דופק"
+    ],
+    "reason": "Paramount rabbinic leader, Rosh Yeshiva of RIETS (YU), and intellectual leader of Modern Orthodoxy.",
+    "exampleWorks": [
+      "Halakhic Man",
+      "The Lonely Man of Faith",
+      "Out of the Whirlwind"
+    ],
+    "group": "religious_zionist_thought"
+  },
+  {
+    "id": "rav_kook",
+    "name": "Rabbi Avraham Yitzchak HaKohen Kook",
+    "hebrewName": "מרן הרב אברהם יצחק הכהן קוק זצ\"ל",
+    "sefariaSlugs": [
+      "rav-kook",
+      "orot",
+      "orot-hateshuvah",
+      "olat-reiyah"
+    ],
+    "keywords": [
+      "Rav Kook",
+      "Orot",
+      "Orot HaTeshuvah",
+      "Olat Reiyah",
+      "Ein Ayah",
+      "אורות התשובה",
+      "עולת ראיה",
+      "עין איה",
+      "אורות הקודש",
+      "Orot HaKodesh"
+    ],
+    "reason": "First Ashkenazi Chief Rabbi of Eretz Yisrael; revered spiritual luminary of Religious Zionism.",
+    "exampleWorks": [
+      "Orot",
+      "Orot HaTeshuvah",
+      "Ein Ayah on Ein Yaakov"
+    ],
+    "group": "religious_zionist_thought"
+  },
+  {
+    "id": "nechama_leibowitz",
+    "name": "Nechama Leibowitz",
+    "hebrewName": "נחמה ליבוביץ'",
+    "sefariaSlugs": [
+      "nechama-leibowitz",
+      "studies-in-bereshit-nechama-leibowitz"
+    ],
+    "keywords": [
+      "Nechama Leibowitz",
+      "Studies in Bereshit",
+      "Studies in Shemot",
+      "Gilyonot"
+    ],
+    "reason": "Pioneering Orthodox Bible teacher respected across Modern Orthodox, Dati Leumi, and traditional circles.",
+    "exampleWorks": [
+      "Studies in the Weekly Parasha",
+      "Gilyonot Nechama"
+    ],
+    "group": "religious_zionist_thought"
+  },
+  {
+    "id": "sefarim_chitzoniim",
+    "name": "Sefarim Chitzoniim (Judith, Tobit, Susanna, Wisdom of Solomon, etc.)",
+    "hebrewName": "ספרים חיצוניים (יהודית, טוביה, שושנה, חכמת שלמה ועוד)",
+    "sefariaSlugs": [
+      "book-of-judith",
+      "book-of-tobit",
+      "the-book-of-susanna",
+      "the-wisdom-of-solomon",
+      "wisdom-of-solomon",
+      "prayer-of-manasseh",
+      "letter-of-aristeas",
+      "psalm-151",
+      "psalm-154",
+      "additions-to-esther"
+    ],
+    "keywords": [
+      "Book of Judith",
+      "Book of Tobit",
+      "The Book of Susanna",
+      "The Wisdom of Solomon",
+      "Wisdom of Solomon",
+      "Prayer of Manasseh",
+      "Letter of Aristeas",
+      "Psalm 151",
+      "Psalm 154",
+      "Additions to Esther",
+      "ספר יהודית",
+      "מעשה טוביה",
+      "ספר שושנה",
+      "חכמת שלמה",
+      "תפילת מנשה",
+      "תְּפִלַּת מְנַשֶּׁה",
+      "אגרת אריסטיאס",
+      "תהילים קנ\"א",
+      "תהלים קנ\"ד",
+      "תוספות למגלת אסתר"
+    ],
+    "reason": "Sefarim chitzoniim excluded under the traditional prohibition (Sanhedrin 100b); kept distinct from Ben Sira and Maccabees, which are allowed in RWMO.",
+    "exampleWorks": [
+      "Book of Judith",
+      "Book of Tobit",
+      "The Book of Susanna",
+      "The Wisdom of Solomon",
+      "Prayer of Manasseh",
+      "Letter of Aristeas",
+      "Psalm 151",
+      "Psalm 154"
+    ],
+    "exceptions": [
+      "חכמת שלמה על",
+      "Chochmat Shlomo",
+      "Chokhmat Shlomo"
+    ],
+    "group": "sefarim_chitzoniim"
+  },
+  {
+    "id": "haskalah_secular",
+    "name": "Haskalah & Secular Authors (Bialik, Krochmal, Leibowitz, Shinan, Wessely)",
+    "hebrewName": "משכילים וסופרים חילוניים (ביאליק, כרוכמל, ליבוביץ, שינאן, וייזל)",
+    "sefariaSlugs": [
+      "hayim-nahman-bialik",
+      "haim-nahman-bialik",
+      "bialik",
+      "nachman-krochmal",
+      "moreh-nevukhei-hazeman",
+      "yeshayahu-leibowitz",
+      "avigdor-shinan",
+      "shinan",
+      "jewish-legal-writings-by-women",
+      "naphtali-herz-wessely",
+      "naftali-herz-wessely",
+      "wessely",
+      "divrei-shalom-veemet",
+      "words-of-peace-and-truth",
+      "yariv-ben-aharon"
+    ],
+    "keywords": [
+      "Hayim Nahman Bialik",
+      "Haim Nahman Bialik",
+      "Chaim Nachman Bialik",
+      "Bialik",
+      "Revealment and Concealment in Language",
+      "Ali Be'er on Revealment and Concealment in Language",
+      "Bein HaShitin on Halakhah and Aggadah",
+      "Nachman Krochmal",
+      "Moreh Nevukhei HaZeman",
+      "Guide for the Perplexed of the Time",
+      "Yeshayahu Leibowitz",
+      "שיחות על פרשת השבוע (ליבוביץ)",
+      "ישעיהו ליבוביץ",
+      "Avigdor Shinan",
+      "Shinan on Pirkei Avot",
+      "אביגדור שינאן",
+      "Jewish Legal Writings by Women",
+      "Yariv Ben Aharon",
+      "יריב בן אהרן",
+      "Naphtali Herz Wessely",
+      "Naftali Herz Wessely",
+      "Wessely",
+      "Divrei Shalom VeEmet",
+      "Words of Peace and Truth",
+      "נפתלי הרץ וייזל",
+      "דברי שלום ואמת",
+      "גילוי וכיסוי בלשון",
+      "פירושים על גילוי וכיסוי בלשון",
+      "עלי באר על גילוי וכיסוי בלשון",
+      "בין השיטין על הלכה ואגדה",
+      "מורה נבוכי הזמן",
+      "נשים בדיון הלכתי"
+    ],
+    "reason": "Haskalah and secular authors whose works depart from traditional belief; Sofer's not_offered list excludes them on the same RWMO standard.",
+    "exampleWorks": [
+      "Halakhah and Aggadah (Bialik)",
+      "Revealment and Concealment in Language (Bialik)",
+      "Moreh Nevukhei HaZeman (Krochmal)",
+      "Talks of Yeshayahu Leibowitz on the Parasha",
+      "Mishnat Eretz Yisrael (Safrai)",
+      "Divrei Shalom VeEmet (Wessely)"
+    ],
+    "group": "haskalah_secular"
+  },
+  {
+    "id": "mishnat_eretz_yisrael",
+    "name": "Mishnat Eretz Yisrael (Safrai)",
+    "hebrewName": "משנת ארץ ישראל (ספראי)",
+    "sefariaSlugs": [
+      "mishnat-eretz-yisrael"
+    ],
+    "keywords": [
+      "Mishnat Eretz Yisrael",
+      "משנת ארץ ישראל",
+      "Shmuel Safrai",
+      "Ze'ev Safrai",
+      "שמואל ספראי",
+      "זאב ספראי"
+    ],
+    "reason": "Historical-academic commentary on the Mishnah by Orthodox scholars (Shmuel, Ze'ev and Chana Safrai): accepted in RWMO, excluded under the Yeshivish presets.",
+    "exampleWorks": [
+      "Mishnat Eretz Yisrael on Mishnah Berakhot"
+    ],
+    "group": "academic_orthodox"
+  },
+  {
+    "id": "toldot_yeshu",
+    "name": "Toldot Yeshu (Anti-Christian Polemic)",
+    "hebrewName": "תולדות ישו",
+    "sefariaSlugs": [
+      "toldot-yeshu",
+      "toldos-yeshu"
+    ],
+    "keywords": [
+      "Toldot Yeshu",
+      "Toledot Yeshu",
+      "תולדות ישו"
+    ],
+    "reason": "A polemical work outside the traditional canon, excluded by Sofer's not_offered list.",
+    "exampleWorks": [
+      "Toldot Yeshu"
+    ],
+    "group": "polemics"
+  },
+  {
+    "id": "wessely_gan_naul",
+    "name": "Wessely's Gan Naul",
+    "hebrewName": "גן נעול (וייזל)",
+    "sefariaSlugs": [
+      "gan-naul"
+    ],
+    "keywords": [
+      "Gan Naul",
+      "גן נעול"
+    ],
+    "exceptions": [
+      "Abulafia",
+      "אבולעפיה"
+    ],
+    "reason": "Wessely's Haskalah work; Abulafia's distinct 'Gan Naul (Abulafia)' is kept, so that title is excepted.",
+    "exampleWorks": [
+      "Gan Naul (Wessely)"
+    ],
+    "group": "haskalah_secular"
+  },
+  {
+    "id": "bialik_halakhah_aggadah",
+    "name": "Bialik's Halakhah and Aggadah",
+    "hebrewName": "הלכה ואגדה (ביאליק)",
+    "sefariaSlugs": [
+      "halakhah-and-aggadah"
+    ],
+    "keywords": [
+      "Halakhah and Aggadah",
+      "הלכה ואגדה"
+    ],
+    "reason": "Bialik's Haskalah essay collection, excluded by Sofer's not_offered list.",
+    "exampleWorks": [
+      "Halakhah and Aggadah (Bialik)"
+    ],
+    "group": "haskalah_secular"
+  },
+  {
+    "id": "sofer_bad_translators",
+    "name": "Non-Orthodox & Christian Translators (Sofer list)",
+    "hebrewName": "מתרגמים לא-אורתודוקסיים ונוצריים",
+    "sefariaSlugs": [],
+    "keywords": [
+      "Robert Alpert",
+      "Mark Greenspan",
+      "Mark B Greenspan",
+      "Seidenberg",
+      "Hebrew Union College",
+      "Schlachter",
+      "Etheridge",
+      "C.D.Ginsburg",
+      "C. D. Ginsburg",
+      "C. M. M. Brady",
+      "Edward M. Cook",
+      "Notzar haNesher"
+    ],
+    "reason": "Translations by non-Orthodox and Christian translators that Sofer's not_offered list excludes.",
+    "exampleWorks": [
+      "Schlachter Bible",
+      "Etheridge Targums",
+      "Ginsburg Tanakh",
+      "Notzar haNesher"
+    ],
+    "group": "non_orthodox_translations"
+  },
+  {
+    "id": "jps_1917",
+    "name": "JPS 1917 (The Holy Scriptures)",
+    "hebrewName": "תרגום JPS 1917",
+    "group": "jps_1917",
+    "sefariaSlugs": [
+      "the-holy-scriptures-a-new-translation-jps-1917",
+      "jps-1917"
+    ],
+    "keywords": [
+      "The Holy Scriptures: A New Translation (JPS 1917)",
+      "The Holy Scriptures: A New Translation",
+      "JPS 1917",
+      "JPS, 1917"
+    ],
+    "reason": "Jewish Publication Society translation (1917) by an academic committee; hidden from the Yeshivish presets up.",
+    "exampleWorks": [
+      "The Holy Scriptures: A New Translation (JPS 1917)"
+    ]
+  }
+]

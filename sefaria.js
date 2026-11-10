@@ -26,6 +26,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { Topic } from './Topic';
 import {openFileInSources} from "./offline";
 import {trackEvent} from "./analytics/events";
+import * as shomer from './shomer';
 
 
 global.Sefaria = {
@@ -39,6 +40,7 @@ global.Sefaria = {
     if (Sefaria.numTimesOpenedApp === 0) { AsyncStorage.setItem('lastSyncTime', '0'); }
     AsyncStorage.setItem("numTimesOpenedApp", JSON.stringify(Sefaria.numTimesOpenedApp + 1));
     Sefaria.lastAppUpdateTime = await Sefaria.getLastAppUpdateTime();
+    await shomer.loadConfig();  // content filter settings, before the TOC is filtered by them
     await Sefaria._loadTOC();
     await Sefaria.history._loadHistoryItems();
     await initAsyncStorage(dispatch);
@@ -303,14 +305,14 @@ global.Sefaria = {
   },
   _loadTOC: function() {
     return openFileInSources("toc.json").then(data => {
-      Sefaria.toc = data;
-      Sefaria._cacheIndexFromToc(data, true);
+      Sefaria.toc = shomer.applyToToc(data);  // content filter: hidden books are left out
+      Sefaria._cacheIndexFromToc(Sefaria.toc, true);
     });
   },
   search_toc: null,
   _loadSearchTOC: function() {
     return openFileInSources('search_toc.json').then(data => {
-      Sefaria.search_toc = data;
+      Sefaria.search_toc = shomer.applyToSearchToc(data);
     });
   },
   _loadHebrewCategories: function() {
@@ -1889,8 +1891,9 @@ Sefaria.search.execute_query = function(args) {
   return executeOfflineQuery(args).then(result => {
     if (result) { return result; }
     return Sefaria.search._onlineExecuteQuery(args);
-  });
+  }).then(result => shomer.filterSearchResponse(args.type, result));  // content filter
 };
+Sefaria.shomer = shomer;
 
 Array.prototype.stableSort = function(cmp) {
   cmp = !!cmp ? cmp : (a, b) => {

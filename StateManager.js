@@ -6,6 +6,7 @@ import iPad from './isIPad';
 import themeWhite from './ThemeWhite';
 import themeBlack from './ThemeBlack';
 import strings from './LocalizedStrings';
+import * as shomer from './shomer';
 
 const STATE_ACTIONS = {
   setTheme: "SET_THEME",
@@ -24,6 +25,7 @@ const STATE_ACTIONS = {
   setDownloadNetworkSetting: "SET_DOWNLOAD_NETWORK_MODE",
   setReadingHistory: "SET_READING_HISTORY",
   setGroggerActive: "SET_GROGGER_ACTIVE",
+  setContentFilter: "SET_CONTENT_FILTER",
 };
 
 const UPDATE_SETTINGS_ACTIONS = {
@@ -110,6 +112,12 @@ const ACTION_CREATORS = {
     value: isActive,
     fromAsync,
   }),
+  // content filter (shomer/): a normalized config, or null = not chosen yet
+  setContentFilter: (config, fromAsync) => ({
+    type: STATE_ACTIONS.setContentFilter,
+    value: config,
+    fromAsync,
+  }),
 }
 
 const ASYNC_STORAGE_DEFAULTS = {
@@ -173,6 +181,10 @@ const ASYNC_STORAGE_DEFAULTS = {
     default: 'on',
     action: ACTION_CREATORS.setGroggerActive,
   },
+  [shomer.STORAGE_KEY]: {
+    default: null,  // null: the first-launch chooser asks for a preset
+    action: ACTION_CREATORS.setContentFilter,
+  },
 };
 
 // Not part of ASYNC_STORAGE_DEFAULTS: auth lives in the Keychain (api.js),
@@ -200,6 +212,7 @@ const DEFAULT_STATE = {
   hasDismissedSyncModal: ASYNC_STORAGE_DEFAULTS.hasDismissedSyncModal.default,
   downloadNetworkSetting: ASYNC_STORAGE_DEFAULTS.downloadNetworkSetting.default,
   groggerActive: ASYNC_STORAGE_DEFAULTS.groggerActive.default,
+  contentFilter: undefined,  // undefined until loaded from storage; then null (not chosen) or a config
 };
 
 const saveFieldToAsync = function (field, value) {
@@ -337,6 +350,14 @@ const reducer = function (state, action) {
       newState = {
         ...state,
         groggerActive: action.value,
+      };
+      break;
+    case STATE_ACTIONS.setContentFilter:
+      if (!action.fromAsync) { saveFieldToAsync(shomer.STORAGE_KEY, action.value); }
+      shomer.setConfig(action.value);  // re-filters the library; no-op if unchanged
+      newState = {
+        ...state,
+        contentFilter: action.value,
       };
       break;
     default:

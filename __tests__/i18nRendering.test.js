@@ -62,6 +62,10 @@ import { generalAppErrorAlert } from '../errors';
 import { ssoCollisionMessage, ssoOnlyAccountMessage, ssoErrorWithCode } from '../authErrorMessages';
 import { AUTH_ERROR_CODE, SSO_ERROR_CODE } from '../AuthConstants';
 import ReaderApp from '../ReaderApp';
+import ContentFilterChooser from '../shomer/ContentFilterChooser';
+import { ContentFilterSettings } from '../shomer/ContentFilterSettings';
+import * as shomer from '../shomer';
+import { configForPreset, toggleGroup } from '../shomer/presets';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ActionSheet from 'react-native-action-sheet';
 import NetInfo from '@react-native-community/netinfo';
@@ -450,8 +454,23 @@ describe('Settings screen', () => {
         'settings.download_network_setting', 'settings.wifi_only', 'settings.mobile_network',
         'settings.offline_access', 'settings.system', 'settings.terms_and_privacy',
         'settings.app_version',
+        'filter.section_header', 'filter.description', 'filter.groups_header',
+        'library_sources.header', 'library_sources.description', 'library_sources.coming_soon',
       ]
     );
+  });
+});
+
+describe('Content filter', () => {
+  test('the first-launch chooser renders in both languages', () => {
+    expectScreenLocalizes(wrap(ContentFilterChooser, {}),
+      ['filter.chooser_title', 'filter.chooser_message']);
+  });
+
+  test('a hand-switched group shows "Custom" in both languages', () => {
+    const custom = toggleGroup(configForPreset('rwmo'), 'jps_1917', true);
+    expectScreenLocalizes(wrapWithState(ContentFilterSettings, { langStyle: {} }, { contentFilter: custom }),
+      ['filter.section_header', 'filter.custom', 'filter.groups_header']);
   });
 });
 
@@ -1046,6 +1065,21 @@ describe('Alerts', () => {
       );
     });
 
+    test('a book hidden by the content filter says so, in both languages', async () => {
+      const app = readerAppInstance();
+      shomer.setConfig(configForPreset('strict_charedi'));
+      shomer.applyToToc([{ title: 'Orot', heTitle: 'אורות' }]);
+      try {
+        await expectAlertLocalizes(
+          () => app.textUnavailableAlert('Orot 1:1'),
+          ['filter.hidden_title', 'filter.hidden_message', 'common.ok']
+        );
+      } finally {
+        shomer.applyToToc(null);
+        shomer.setConfig(null);
+      }
+    });
+
     test('the first-run download prompt renders in both languages', async () => {
       const app = readerAppInstance();
       await expectAlertLocalizes(
@@ -1225,6 +1259,7 @@ describe('Strings with placeholders', () => {
     'reader.category_commentary': { category: 'Talmud' },
     'search.more_versions': { count: 3 },
     'download.updates_available_message': { count: 7 },
+    'filter.hidden_message': { title: 'Orot', reason: 'Rav Kook' },
     'search.no_results_containing': { query: 'moses' },
     'topics.this_source_is_connected_to': { title: 'Passover', sources: '4 sources' },
     'topics.this_topic_is_connected_to': { title: 'Passover', sources: '4 sources' },

@@ -60,6 +60,11 @@ class DeepLinkRouter extends React.PureComponent {
     // wrapper for openRef to convert url params to function params
     // TODO handle sheet ref case
     let { ref, title } = Sefaria.urlToRef(tref);
+    if (!title && Sefaria.shomer?.hiddenBookForRef(ref)) {
+      // content filter: say the book is hidden rather than sending the reader to the website
+      this.props.openRef(ref, "deep link");
+      return;
+    }
     if (!title) {
       Sefaria.api.name(ref, true).then(results => {   // look for alt title in ref
           const matches = results.completion_objects.filter(obj => obj.type === 'ref' && ref.includes(obj.title));

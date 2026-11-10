@@ -68,6 +68,7 @@ import {
 } from './Misc.js';
 import {FooterTabBar} from "./FooterTabBar";
 import {getSafeViewStyleAndStatusBarBackground} from "./getSafeViewStyles";
+import ContentFilterChooser from "./shomer/ContentFilterChooser";
 
 const ViewPort = Dimensions.get('window');
 
@@ -1019,6 +1020,13 @@ class ReaderApp extends React.PureComponent {
   };
 
   textUnavailableAlert = ref => {
+    const hidden = Sefaria.shomer?.hiddenBookForRef(ref);  // content filter
+    if (hidden) {
+      Alert.alert(strings.filter.hidden_title,
+        strings.formatString(strings.filter.hidden_message, {title: hidden.title, reason: hidden.reason}),
+        [{text: strings.common.ok}]);
+      return;
+    }
     Alert.alert(
       strings.errors.text_unavailable,
       strings.errors.prompt_open_on_web_message,
@@ -2369,6 +2377,8 @@ class ReaderApp extends React.PureComponent {
             setTextLanguage={this.setTextLanguage}
             setNavigationCategories={this.setNavigationCategories}
           />
+          {/* content filter: first launch asks for a preset (null = loaded but not chosen yet) */}
+          {this.props.contentFilter === null ? <ContentFilterChooser /> : null}
         </View>
       </ReaderAppContext.Provider>
     );

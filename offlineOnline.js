@@ -13,6 +13,7 @@ import {
     textFromRefData,
 } from "./offline";
 import api from "./api";
+import * as shomer from "./shomer";
 
 
 export const loadText = function(ref, context, versions, fallbackOnDefaultVersions=true, failSilently=false) {
@@ -29,6 +30,7 @@ export const loadText = function(ref, context, versions, fallbackOnDefaultVersio
             if (textContent?.missingLangs?.length) {
                 throw ERRORS.MISSING_OFFLINE_DATA;
             }
+            textContent = shomer.stripHiddenEnglish(textContent);  // content filter (normally the offline default already skips it)
             if (!context) {
                 const result = textFromRefData(textContent);
                 return {result};
@@ -44,6 +46,7 @@ export const loadText = function(ref, context, versions, fallbackOnDefaultVersio
                         api.processTextApiData(ref, context, versions, data);
                         return data;
                     })
+                    .then(data => avoidHiddenTranslationOnline(ref, context, versions, failSilently, data))
             }
             // Unexpected: offline loading failed for a reason other than "not downloaded"
             // (e.g. a bug while parsing/assembling the offline file, or a corrupt file).
@@ -60,7 +63,33 @@ export const loadVersions = async (ref) => {
     if (!versions) {
         versions = await api.versions(ref, true);
     }
-    return versions;
+    return shomer.filterVersions(versions);  // content filter
+};
+
+const avoidHiddenTranslationOnline = async (ref, context, versions, failSilently, data) => {
+    /**
+     * Content filter: the server sent its default English, and the reader's filter hides it.
+     * Load the first English translation the filter allows instead; if there is none, show the
+     * Hebrew only.
+     */
+    const textContent = data?.textContent;
+    if (!textContent || !shomer.isActive() || versions?.en ||
+        !shomer.isVersionHidden({versionTitle: textContent.versionTitle, versionSource: textContent.versionSource})) {
+        return data;
+    }
+    try {
+        const allowed = shomer.filterVersions(await api.versions(ref, true)) || [];
+        const en = allowed.find(v => v.language === 'en');
+        if (en) {
+            const newVersions = {...(versions || {}), en: en.versionTitle};
+            const other = await api.textApi(ref, context, newVersions, failSilently);
+            api.processTextApiData(ref, context, newVersions, other);
+            if (other?.textContent) { return other; }
+        }
+    } catch (e) {
+        console.log('content filter: could not load another translation', e);
+    }
+    return {...data, textContent: shomer.stripHiddenEnglish(textContent)};
 };
 
 export const loadTranslations = async (ref, online=true) => {
@@ -71,16 +100,16 @@ export const loadTranslations = async (ref, online=true) => {
     if (online && (!offlineTranslations || offlineTranslations.missingVersions.length)) {
         translations = await api.translations(ref);
     }
-    return translations;
+    return shomer.filterTranslations(translations);  // content filter
 }
 
 export const loadRelated = async function(ref, online) {
     const cached = api._related[ref];
-    if (!!cached) { return cached; }
+    if (!!cached) { return shomer.filterRelated(cached); }
     const loader = online ? api.related : loadLinksOffline;
     const response = await loader(ref);
     api._related[ref] = response;
-    return response;
+    return shomer.filterRelated(response);  // content filter (links to hidden books drop out with the TOC)
 };
 
 const _textToc = {};
