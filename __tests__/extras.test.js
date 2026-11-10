@@ -497,6 +497,49 @@ describe('opening a book that is not downloaded', () => {
     act(() => inst.unmount());
   });
 
+  test('Back after a downloaded book opens does not bring the "Downloading" box back', async () => {
+    jest.resetModules();
+    const React = require('react');
+    const renderer = require('react-test-renderer');
+    const {act} = renderer;
+    const TestContextWrapper = require('../TestContextWrapper').default;
+    const ReaderApp = require('../ReaderApp').default;
+    const Sefaria = require('../sefaria').default;
+    const ex = require('../extras');
+    const {Alert: RNAlert} = require('react-native');
+    const FS = require('expo-file-system/legacy');
+    FS.clear();
+    ex._reset({enabled: {otzaria: true}, catalogs: {otzaria: {entries: CATALOG}}});
+    Sefaria._cacheIndexFromToc(ex.applyToToc(SEFARIA_TOC), true);
+    serve({[encodeURIComponent('ספר בדיקה מקונן') + '.txt']: BOOK_TEXT});
+
+    let inst;
+    act(() => {
+      inst = renderer.create(React.createElement(TestContextWrapper,
+        {passContextToChildren: true, child: ReaderApp, childProps: {showErrorBoundary: () => {}}}));
+    });
+    const app = inst.root.findByType(ReaderApp).instance;
+    const alert = jest.spyOn(RNAlert, 'alert').mockImplementation(() => {});
+    const {ExtraDownloadModal} = require('../ExtraDownloadProgress');
+
+    // opening the book saves the page it came from for Back, as openRef does - right after the
+    // download, before React has applied "the download is over" to this.state
+    const open = jest.fn(async () => { app.modifyHistory({dir: 'forward', state: app.state}); });
+    const done = app.extraBookAlert('ספר בדיקה מקונן', open);
+    let pending;
+    act(() => { pending = alert.mock.calls[0][2][1].onPress(); });
+    await act(async () => { await pending; });
+    expect(await done).toBe(true);
+    expect(open).toHaveBeenCalled();
+    expect(inst.root.findAllByType(ExtraDownloadModal)).toHaveLength(0);
+
+    act(() => { expect(app.manageBack('main')).toBe(true); });
+    expect(app.state.extraDownload).toBeFalsy();
+    expect(inst.root.findAllByType(ExtraDownloadModal)).toHaveLength(0);
+    alert.mockRestore();
+    act(() => inst.unmount());
+  });
+
   test('ERRORS has the extra-book error', () => {
     expect(ERRORS.EXTRA_NOT_DOWNLOADED).toBeTruthy();
   });

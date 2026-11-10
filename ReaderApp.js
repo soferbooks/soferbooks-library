@@ -121,8 +121,11 @@ const TAB_SNAPSHOT_KEYS = [
 const TAB_PLACE_STATE_KEYS = ['menuOpen', 'loaded', 'textTitle', 'textReference', 'segmentRef', 'segmentIndexRef',
   'sectionIndexRef', 'sectionArray', 'textListVisible', 'connectionsMode', 'selectedVersions', 'offsetRef'];
 // App-wide reader state that must never be rolled back by the back button (PageHistory snapshots).
+// extraDownload: a book opened right after its download is saved for Back before React applies
+// "the download is over", so the snapshot still has it; restoring it brought back a "Downloading"
+// box with no download behind it (no progress, no Cancel, stuck).
 const NON_HISTORY_STATE_KEYS = ['readerTabs', 'inlineCommentaryPrefs', 'splitView', 'splitTabId', 'windowWidth',
-  'textListFlexPreference', 'hasInternet'];
+  'textListFlexPreference', 'hasInternet', 'extraDownload'];
 const SPLIT_VIEW_STORAGE_KEY = 'readerSplitView';
 const SPLIT_VIEW_MIN_WIDTH = 600;  // dp: tablets and large foldables
 
