@@ -10,7 +10,7 @@
     "about.feedback": "Feedback",
     "about.licences": "Each text keeps its own licence (for example public domain, CC0, CC BY or CC BY-SA). Open \"About this text\" while reading to see the source and licence of what you are reading.",
     "about.soferbooks_intro": "SoferBooks Library is a free app for reading the classic Jewish texts on your phone. No account is needed: your reading history and saved texts stay on this device.",
-    "about.source_code": "Sefaria mobile app source code (GPL-3.0)",
+    "about.source_code": "SoferBooks Library source code (GPL-3.0, based on Sefaria's app)",
     "about.texts_courtesy": "The texts are courtesy of their sources: chiefly Sefaria's free library (sefaria.org), and the publishers, editors and translators credited on each text.",
     "common.apply": "Apply",
     "common.back": "Back",

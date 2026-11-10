@@ -9,7 +9,7 @@ import strings from './LocalizedStrings';
 
 const SOFERBOOKS_URL = 'https://soferbooks.com';
 const SEFARIA_URL = 'https://www.sefaria.org';
-const SOURCE_CODE_URL = 'https://github.com/Sefaria/Sefaria-Mobile';
+const SOURCE_CODE_URL = 'https://github.com/soferbooks/soferbooks-library';
 
 /**
  * About SoferBooks Library: who makes the app, where the texts come from and under what
