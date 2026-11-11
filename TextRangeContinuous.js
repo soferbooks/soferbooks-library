@@ -6,6 +6,7 @@ import {
   Text
 } from 'react-native';
 import { GlobalStateContext } from './StateManager';
+import { boldDibbur } from './reader/dibbur';
 import TextSegment from './TextSegment';
 import styles from './Styles';
 
@@ -18,6 +19,7 @@ class TextRangeContinuous extends React.PureComponent {
     setRowRefInitY:     PropTypes.func.isRequired,
     showSegmentNumbers: PropTypes.bool.isRequired,
     textSegmentPressed: PropTypes.func.isRequired,
+    boldDibbur:         PropTypes.bool,
   };
 
   constructor(props) {
@@ -28,7 +30,8 @@ class TextRangeContinuous extends React.PureComponent {
       const { textLanguage, theme, themeStr, fontSize } = React.useContext(GlobalStateContext);
       const segmentText = [];
       currSegData.text = currSegData.content.text || "";
-      currSegData.he = currSegData.content.he || "";
+      // a commentary: its dibbur hamaschil in bold, as SoferBooks prints it (reader/dibbur.js)
+      currSegData.he = (this.props.boldDibbur ? boldDibbur(currSegData.content.he) : currSegData.content.he) || "";
       textLanguage = Sefaria.util.getTextLanguageWithContent(textLanguage, currSegData.text, currSegData.he);
       const segmentRef = currSegData.ref;
       const refSection = `${this.props.rowData.sectionIndex}:${currSegData.segmentNumber}`

@@ -4,8 +4,10 @@ import { GlobalStateContext, getTheme } from './StateManager';
 import { CSS_CLASS_STYLES } from './Misc';
 import styles from './Styles.js';
 
-export function useHTMLViewStyles(bilingual, textType) {
-    const { themeStr, fontSize, biLayout } = useContext(GlobalStateContext);
+export function useHTMLViewStyles(bilingual, textType, fontSizeOverride = null) {
+    // (fontSizeOverride: the commentary's own size, in the connections panel - commentaryFontScale)
+    const { themeStr, fontSize: readerFontSize, biLayout } = useContext(GlobalStateContext);
+    const fontSize = fontSizeOverride || readerFontSize;
     const theme = getTheme(themeStr);
     const isStacked = biLayout === 'stacked';
 

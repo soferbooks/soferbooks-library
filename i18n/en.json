@@ -346,5 +346,10 @@
     "versions.translations": "Translations",
     "versions.translations_description": "Preview or choose a different translation below.",
     "versions.version": "Version",
-    "versions.versions": "Versions"
+    "versions.versions": "Versions",
+    "connections.open_here": "Open here",
+    "connections.open_in_new_tab": "Open in new tab",
+    "connections.show_underneath": "Show underneath",
+    "connections.stop_showing_underneath": "Stop showing underneath",
+    "reader.commentary_font_size": "Commentary Size"
 }

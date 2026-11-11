@@ -15,6 +15,7 @@ const STATE_ACTIONS = {
   setInterfaceLanguage: "SET_INTERFACE_LANGUAGE",
   setPreferredCustom: "SET_PREFERRED_CUSTOM",
   setFontSize: "SET_FONT_SIZE",
+  setCommentaryFontScale: "SET_COMMENTARY_FONT_SCALE",
   setAliyot: "SET_ALIYOT",
   setVocalization: "SET_VOCALIZATION",
   setBiLayout: "SET_BI_LAYOUT",
@@ -59,6 +60,13 @@ const ACTION_CREATORS = {
   setFontSize: (fontSize, fromAsync) => ({
     type: STATE_ACTIONS.setFontSize,
     value: fontSize,
+    fromAsync,
+  }),
+  // the commentary's text size (the connections panel, "under each passage"), as a share of the
+  // reader's own font size: so it grows with it, and can be set apart (Mordy, 2026-11-11)
+  setCommentaryFontScale: (scale, fromAsync) => ({
+    type: STATE_ACTIONS.setCommentaryFontScale,
+    value: scale,
     fromAsync,
   }),
   setAliyot: show => ({
@@ -113,6 +121,10 @@ const ASYNC_STORAGE_DEFAULTS = {
     default: iPad ? 25 : 20,
     action: ACTION_CREATORS.setFontSize,
   },
+  commentaryFontScale: {
+    default: 1,
+    action: ACTION_CREATORS.setCommentaryFontScale,
+  },
   color: {
     default: "white",
     action: ACTION_CREATORS.setTheme,
@@ -151,6 +163,7 @@ const DEFAULT_STATE = {
   readingHistory: ASYNC_STORAGE_DEFAULTS.readingHistory.default,
   preferredCustom: ASYNC_STORAGE_DEFAULTS.preferredCustom.default,
   fontSize: ASYNC_STORAGE_DEFAULTS.fontSize.default,
+  commentaryFontScale: ASYNC_STORAGE_DEFAULTS.commentaryFontScale.default,
   showAliyot: ASYNC_STORAGE_DEFAULTS.showAliyot.default,
   vocalization: ASYNC_STORAGE_DEFAULTS.vocalization.default,
   biLayout: ASYNC_STORAGE_DEFAULTS.biLayout.default,
@@ -158,6 +171,15 @@ const DEFAULT_STATE = {
   groggerActive: ASYNC_STORAGE_DEFAULTS.groggerActive.default,
   contentFilter: undefined,  // undefined until loaded from storage; then a config (the default preset if none saved)
 };
+
+export const COMMENTARY_FONT_SCALE_MIN = 0.6;
+export const COMMENTARY_FONT_SCALE_MAX = 2;
+export const clampCommentaryFontScale = value => {
+  const n = typeof value === 'number' && isFinite(value) ? value : 1;
+  return parseFloat(Math.min(COMMENTARY_FONT_SCALE_MAX, Math.max(COMMENTARY_FONT_SCALE_MIN, n)).toFixed(2));
+};
+/** The commentary's size from the reader's (fontSize) and the commentary's own setting */
+export const commentaryFontSize = (fontSize, scale) => fontSize * clampCommentaryFontScale(scale == null ? 1 : scale);
 
 const saveFieldToAsync = function (field, value) {
   AsyncStorage.setItem(field, JSON.stringify(value));
@@ -219,6 +241,15 @@ const reducer = function (state, action) {
         fontSize: action.value,
       }
       break;
+    case STATE_ACTIONS.setCommentaryFontScale: {
+      const value = clampCommentaryFontScale(action.value);
+      if (!action.fromAsync) { saveFieldToAsync('commentaryFontScale', value); }
+      newState = {
+        ...state,
+        commentaryFontScale: value,
+      };
+      break;
+    }
     case STATE_ACTIONS.setAliyot:
       if (!action.fromAsync) { saveFieldToAsync('showAliyot', action.value); }
       newState = {

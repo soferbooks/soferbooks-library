@@ -45,6 +45,13 @@ class ConnectionsPanel extends React.PureComponent {
     interfaceLanguage:        PropTypes.oneOf(["english", "hebrew"]).isRequired,
     fontSize:             PropTypes.number.isRequired,
     openRef:              PropTypes.func.isRequired,
+    // a source tapped: "Open here" / "Open in new tab" / "Show underneath" (TextList.js)
+    openRefHere:          PropTypes.func,
+    openRefInNewTab:      PropTypes.func,
+    showInline:           PropTypes.func,
+    canShowInline:        PropTypes.bool,
+    inlineCommentary:     PropTypes.string,
+    inlineKeyFor:         PropTypes.func,
     setConnectionsMode:   PropTypes.func.isRequired,
     openFilter:           PropTypes.func.isRequired,
     closeCat:             PropTypes.func.isRequired,
@@ -147,6 +154,11 @@ class ConnectionsPanel extends React.PureComponent {
               interfaceLanguage={this.props.interfaceLanguage}
               segmentRef={this.props.segmentRef}
               openRef={this.props.openRef}
+              openRefHere={this.props.openRefHere}
+              openRefInNewTab={this.props.openRefInNewTab}
+              showInline={this.props.canShowInline ? this.props.showInline : null}
+              inlineCommentary={this.props.inlineCommentary}
+              inlineKeyFor={this.props.inlineKeyFor}
               connectionsMode={this.props.connectionsMode}
               loadContent={loadContent}
               recentFilters={recentFilters}

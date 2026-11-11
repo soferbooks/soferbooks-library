@@ -1596,6 +1596,32 @@ const openActionSheet = (refStr, versions, openRef, interfaceLanguage, heRefStr,
   singleActionPopup(text, tempOpenRef)
 }
 
+/**
+ * A source tapped in the connections panel: three ways to read it (Mordy, 2026-11-11) -
+ * "Open here" (this tab; Back returns), "Open in new tab" (this tab keeps its place), and
+ * "Show underneath" (the source under each passage of the text being read, as the Aa menu's
+ * "Under each passage" does; "Stop showing underneath" when it is shown already). A choice
+ * missing its handler is not offered.
+ */
+const openLinkActionSheet = ({refStr, heRefStr, interfaceLanguage, openHere, openInNewTab,
+                              showUnderneath, shownUnderneath}) => {
+  const choices = [];
+  if (openHere) { choices.push([strings.connections.open_here, openHere]); }
+  if (openInNewTab) { choices.push([strings.connections.open_in_new_tab, openInNewTab]); }
+  if (showUnderneath) {
+    choices.push([shownUnderneath ? strings.connections.stop_showing_underneath : strings.connections.show_underneath, showUnderneath]);
+  }
+  const title = interfaceLanguage === "hebrew" ? (heRefStr || refStr) : refStr;   // (which source: its ref)
+  ActionSheet.showActionSheetWithOptions({
+    title,
+    options: [...choices.map(c => c[0]), strings.common.cancel],
+    cancelButtonIndex: choices.length,
+  },
+  (buttonIndex) => {
+    if (buttonIndex >= 0 && buttonIndex < choices.length) { choices[buttonIndex][1](); }
+  });
+};
+
 
 export {
   AnimatedRow,
@@ -1661,5 +1687,6 @@ export {
   TwoBoxRow,
   singleActionPopup,
   openActionSheet,
+  openLinkActionSheet,
   SimpleMarkdown,
 }

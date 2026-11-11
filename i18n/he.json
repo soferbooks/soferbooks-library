@@ -346,5 +346,10 @@
     "versions.translations": "תרגומים",
     "versions.translations_description": "כאן ניתן להחליף לתרגום אחר או לראות תצוגה מקדימה שלו לצד הטקסט הנוכחי.",
     "versions.version": "גרסה",
-    "versions.versions": "גרסאות"
+    "versions.versions": "גרסאות",
+    "connections.open_here": "פתחו כאן",
+    "connections.open_in_new_tab": "פתחו בכרטיסייה חדשה",
+    "connections.show_underneath": "הציגו מתחת לכל קטע",
+    "connections.stop_showing_underneath": "הפסיקו להציג מתחת לכל קטע",
+    "reader.commentary_font_size": "גודל המפרשים"
 }
