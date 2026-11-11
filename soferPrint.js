@@ -10,8 +10,10 @@
  * Halachos, the Tur into its four parts) is found by the name it answers to ("matched"); an
  * extra source's book (Dicta, Otzaria, Wikisource) by its Hebrew name.
  *
- * The answer is kept on the phone (AsyncStorage) for a week, so each book asks at most once a
- * week; offline or on any error the link is simply not shown.
+ * The answer is kept on the phone (AsyncStorage): a book Sofer sells for a week, a "not sold" for
+ * a day only, so a book Sofer adds (or a moment the site answered nothing) is not hidden for a
+ * week. Offline or on any error nothing is kept and the link is simply not shown. (v2: answers
+ * kept by the first builds, which kept a "not sold" for a week, are dropped.)
  *
  * The link: https://soferbooks.com/?tab=new&book=<Sofer's title> opens the site's book editor
  * with that sefer chosen (web/src/components/HomeTabs.tsx in Sofer).
@@ -21,8 +23,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {normTitle} from './extras/tree';
 
 export const SOFER_SITE = 'https://soferbooks.com';
-const CACHE_KEY = 'soferPrintable:v1';
+const CACHE_KEY = 'soferPrintable:v2';
 const KEEP_MS = 7 * 24 * 3600 * 1000;
+const KEEP_NOT_SOLD_MS = 24 * 3600 * 1000;
 
 /** The site's address that opens its book editor on this sefer */
 export const orderUrl = soferTitle => `${SOFER_SITE}/?tab=new&book=${encodeURIComponent(soferTitle)}`;
@@ -65,18 +68,19 @@ let memory = null;
 async function cache() {
   if (memory) { return memory; }
   try { memory = JSON.parse(await AsyncStorage.getItem(CACHE_KEY)) || {}; } catch (e) { memory = {}; }
+  AsyncStorage.removeItem('soferPrintable:v1').catch(() => {});   // (the first builds' answers)
   return memory;
 }
 
 const pending = {};
-/** lookUp, kept on the phone for a week. null: not sold, or unknown (offline). */
+/** lookUp, kept on the phone (a week; a "not sold" a day). null: not sold, or unknown (offline). */
 export async function printableTitle(title, heTitle, now = Date.now()) {
   if (!title) { return null; }
   const kept = (await cache())[title];
-  if (kept && now - kept.at < KEEP_MS) { return kept.sofer; }
+  if (kept && now - kept.at < (kept.sofer ? KEEP_MS : KEEP_NOT_SOLD_MS)) { return kept.sofer; }
   if (!pending[title]) {
     pending[title] = lookUp(title, heTitle).then(async sofer => {
-      memory[title] = {sofer, at: now};
+      (await cache())[title] = {sofer, at: now};
       try { await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(memory)); } catch (e) { /* kept in memory */ }
       return sofer;
     }).catch(() => (kept ? kept.sofer : null)).finally(() => { delete pending[title]; });

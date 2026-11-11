@@ -282,8 +282,9 @@ class ReaderDisplayOptionsMenu extends React.Component {
         <Animated.View style={[myStyles, {flex: 0, flexShrink: 1, maxHeight: '100%'}]}>
           <ScrollView style={{flexGrow: 0}} keyboardShouldPersistTaps="handled" testID="readerDisplayOptionsScroll">
             {rows}
+            {/* before "Under each passage", whose long list pushed it out of sight */}
+            {this.props.bookTitle ? <PrintCopyLink title={this.props.bookTitle} heTitle={this.props.bookHeTitle} /> : null}
             {this.renderInlineSources()}
-            {this.props.bookTitle ? <PrintCopyLink title={this.props.bookTitle} heTitle={this.props.bookHeTitle} style={{marginBottom: 6}} /> : null}
           </ScrollView>
         </Animated.View>
       </View>

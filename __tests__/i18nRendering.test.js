@@ -612,6 +612,21 @@ describe('Connections panel on Ezra 1:1', () => {
     );
   });
 
+  test('about-this-text offers "Order a printed copy" for a book Sofer sells, in both languages', async () => {
+    // soferbooks.com's search finds the book (as the live site answers for Ezra): it can be ordered
+    const realFetch = global.fetch;
+    require('../soferPrint')._reset();
+    await AsyncStorage.clear();
+    global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ results: [{ title: 'Ezra', he_title: 'עזרא' }] }) }));
+    try {
+      await expectSettledScreenLocalizes(wrapInRenderLanguage(ConnectionsPanel, ezraProps('about')),
+        ['versions.about_this_text', 'reader.order_printed_copy']);
+    } finally {
+      global.fetch = realFetch;
+      require('../soferPrint')._reset();
+    }
+  });
+
   // The translations panel's mode is spelled 'versions', not 'translations'.
   test('translations renders its labels in both languages', () => {
     expectScreenLocalizes(wrap(ConnectionsPanel, ezraProps('versions')), [

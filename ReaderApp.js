@@ -1983,7 +1983,8 @@ ${strings.formatString(strings.extras.download_size,
     // Sent to the corrections address of the library the text came from (reportError.js)
     const { to, subject, body } = correctionEmail({
       ref: this.state.segmentRef,
-      text: this.getDisplayedText(true),
+      text: this.getDisplayedText(false),
+      url: Sefaria.refToFullUrl(this.state.segmentRef),
       version: versionOnScreen(this.state.currVersionObjects, this.props.textLanguage),
       platform: Platform.OS,
     });
