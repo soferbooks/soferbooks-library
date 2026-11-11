@@ -3,7 +3,7 @@
 // Sefaria is always on (read online, downloaded for offline use in Settings). The extra sources
 // (`extra: true`, extras/index.js) are turned on one by one in Settings; their books come from
 // the source's own server, one book at a time. The rest are registered so the Settings list can
-// show them as "coming soon".
+// show them as "coming soon" (none now).
 //
 // Sefaria's layout (the one upstream Sefaria-Mobile's DownloadControl.js uses, schema 7):
 //   {baseUrl}/static/ios-export/{schema}/{toc,search_toc,topic_toc,hebrew_categories,people,
@@ -37,8 +37,14 @@ export const SOURCES = [
     enabled: false, available: true, extra: true,
   },
   { id: 'wikisource', name: 'Wikisource', heName: 'ויקיטקסט', baseUrl: 'https://he.wikisource.org', layout: 'extra', enabled: false, available: true, extra: true },
-  // planned: GitHub Releases of the SoferBooks project (SOFERBOOKS_RELEASES below)
-  { id: 'soferbooks_extras', name: 'SoferBooks extras', heName: 'תוספות SoferBooks', baseUrl: null, layout: null, enabled: false, available: false },
+  // the books only Sofer has (his splits, Ben-Yehuda, Rabbi Ben-David's sefarim, combined editions),
+  // hosted by SoferBooks as one GitHub Release: extras/sofer.js (RELEASE_TAG: the one line a new
+  // release changes)
+  {
+    id: 'sofer_library', name: 'Sofer Library', heName: 'ספריית סופר',
+    baseUrl: 'https://github.com/soferbooks/soferbooks-library-data', layout: 'extra',
+    enabled: false, available: true, extra: true,
+  },
 ];
 
 /**

@@ -48,6 +48,8 @@ import Sefaria from "./sefaria";
 import * as FileSystem from 'expo-file-system/legacy';
 import { ContentFilterSettings, LibrarySourcesSettings } from './shomer/ContentFilterSettings';
 import { NakdanSettings } from './reader/NakdanNotices';
+import { onPackageChosen, FULL_LIBRARY } from './fullLibrary';
+import { FullLibraryPanel } from './FullLibraryPanel';
 const DEBUG_MODE = false;
 
 /**
@@ -119,7 +121,8 @@ const usePkgState = () => {
   const [isDisabledObj, setIsDisabledObj] = useState(getIsDisabledObj());  // React Hook
 
 
-  const onPackagePress = async (pkgObj) => {
+  // (withExtras: false when the full-library panel downloads Sefaria's part and chose the others itself)
+  const onPackagePress = async (pkgObj, {withExtras = true} = {}) => {
     const onPressActive = async (pkgName) => {
       const removePackage = async () => {
         DownloadTracker.cancelDownload();
@@ -138,6 +141,8 @@ const usePkgState = () => {
           return
         }
         await PackagesState[pkgName].markAsClicked();
+        // (the whole library brings every extra source's books too, downloaded in the background)
+        if (withExtras) { onPackageChosen(pkgName).catch(e => console.log('full library: extra sources', e)); }
         await DownloadTracker.startDownloadSession(pkgName);
         setIsDisabledObj(getIsDisabledObj());
         try {
@@ -381,6 +386,13 @@ const SettingsPage = ({ close, openUri }) => {
               </View>
               : null
           }
+          <FullLibraryPanel
+            langStyle={langStyle}
+            onDownloadSefaria={async () => {
+              const pkg = PackagesState[FULL_LIBRARY];
+              if (pkg && !pkg.clicked) { await onPackagePress(pkg, {withExtras: false}); }
+            }}
+          />
           <OfflinePackageList isDisabledObj={isDisabledObj} onPackagePress={onPackagePress} />
           <View style={[styles.readerDisplayOptionsMenuDivider, styles.settingsDivider, styles.underOfflinePackages, theme.readerDisplayOptionsMenuDivider]}/>
           <TouchableWithoutFeedback onPress={() => {

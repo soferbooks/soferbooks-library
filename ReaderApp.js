@@ -62,6 +62,9 @@ import {correctionEmail, versionOnScreen} from "./reportError";
 import * as extras from "./extras";
 import {ExtraDownloadModal} from "./ExtraDownloadProgress";
 import {SOURCES} from "./sources";
+import {partLines} from "./FullLibraryPanel";
+import {fullLibraryParts} from "./fullLibrary";
+import * as extrasQueue from "./extrasQueue";
 import ReaderTabBar, { READER_TAB_BAR_HEIGHT } from "./tabs/ReaderTabBar";
 import {
   emptyTabsState,
@@ -341,9 +344,15 @@ class ReaderApp extends React.PureComponent {
         // (A reader who stays online reads Sefaria's books online; a book of an extra source -
         //  Otzaria ... - offers its own download when opened: extraBookAlert.)
         const showWelcomeAlert = () => {
+          // (the full library's parts and what each costs - Settings has them as tick boxes, all ticked)
+          let parts = '';
+          try {
+            const {lines, totalLine} = partLines(fullLibraryParts(), this.props.interfaceLanguage === 'hebrew');
+            parts = `\n\n${strings.full_library.offer_parts}\n${lines.join('\n')}\n${totalLine}`;
+          } catch (e) { console.log('full library sizes', e); }
           Alert.alert(
             strings.common.welcome,
-            `${strings.download.download_library_recommended_message}\n\n${strings.download.how_to_download_library_message}`,
+            `${strings.download.download_library_recommended_message}${parts}\n\n${strings.download.how_to_download_library_message}`,
             [
               {text: strings.download.open_settings, onPress: onDownload},
               {text: strings.common.not_now, style: 'cancel'}
@@ -371,6 +380,8 @@ class ReaderApp extends React.PureComponent {
         this.setState({
           loaded: true,
         });
+        // (the full library's books of the other libraries: go on downloading after a restart)
+        extrasQueue.resumeIfRunning().catch(e => console.log('full library: resume', e));
         if (!this._initDeepLinkURL) {
 
           this.getInitialPromise()

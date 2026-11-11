@@ -333,13 +333,12 @@ describe('library sources', () => {
     expect(exportPathFor('sefaria')).toBe(`https://readonly.sefaria.org/static/ios-export/${SCHEMA_VERSION}`);
   });
 
-  test('the others are registered as coming soon', () => {
-    expect(SOURCES.filter(s => !s.available).map(s => s.id))
-      .toEqual(['soferbooks_extras']);
+  test('none is left "coming soon"', () => {
+    expect(SOURCES.filter(s => !s.available).map(s => s.id)).toEqual([]);
   });
 
-  test('Dicta, Otzaria and Wikisource are extra sources the reader turns on (extras/), off by default', () => {
-    expect(SOURCES.filter(s => s.extra && s.available).map(s => s.id)).toEqual(['dicta', 'otzaria', 'wikisource']);
+  test('Dicta, Otzaria, Wikisource and the Sofer Library are extra sources the reader turns on (extras/), off by default', () => {
+    expect(SOURCES.filter(s => s.extra && s.available).map(s => s.id)).toEqual(['dicta', 'otzaria', 'wikisource', 'sofer_library']);
     expect(SOURCES.filter(s => s.extra).every(s => !s.enabled)).toBe(true);
   });
 });

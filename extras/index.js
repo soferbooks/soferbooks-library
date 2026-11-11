@@ -14,6 +14,8 @@
  *   toTree(text, entry) -> [Node, author]        extras/tree.js
  *   isRestricted(text, entry) -> bool            the book's own notice forbids it
  *   versionOf(entry, text) -> {versionTitle, versionSource, license, librarySource, ...}
+ *   (optional) convert(entry, text) -> {files, firstSection, companions}  in place of toTree and
+ *     the conversion, for books that come ready made in the library's layout (extras/sofer.js)
  *   (optional) versionsOf(entry, text, tree) -> [{version, tree}]  more than one edition of the
  *     book, laid out alike, the one shown first (Dicta's with nikud, then the plain text)
  *   (optional) linksOf(entry, text) -> {otzariaPath, dictaPages}  where the book's connections
@@ -46,6 +48,7 @@ import otzaria from './otzaria';
 import dicta from './dicta';
 import wikisource, {withCurrentShelf} from './wikisource';
 import chok from './chok';
+import soferLibrary from './sofer';
 import {bookFiles} from './schema7';
 import * as links from './links';
 import {chooseBooks, addToToc, categoryNames} from './catalog';
@@ -55,7 +58,7 @@ import * as shomer from '../shomer';
 
 // (chok: Chok LeYisrael, one book from Otzaria's library, turned on by its learning schedule - no
 //  switch in Settings: extras/chok.js)
-export const EXTRA_SOURCES = {[otzaria.id]: otzaria, [dicta.id]: dicta, [wikisource.id]: wikisource, [chok.id]: chok};
+export const EXTRA_SOURCES = {[otzaria.id]: otzaria, [dicta.id]: dicta, [wikisource.id]: wikisource, [chok.id]: chok, [soferLibrary.id]: soferLibrary};
 export const ENABLED_KEY = 'extraSources';
 export const CATALOG_MAX_AGE = 7 * 24 * 3600 * 1000;   // a week, as Sefaria's own update check
 const LIBRARY_DIR = `${FileSystem.documentDirectory}library/`;
@@ -255,6 +258,7 @@ function forgetCaches() {
 /** The book's files, converted from the source's text (pure apart from the source). */
 export function convertBook(entry, text) {
   const source = EXTRA_SOURCES[entry.source];
+  if (source.convert) { return source.convert(entry, text); }   // (books that come ready made: extras/sofer.js)
   const [tree, author] = source.toTree(text, entry);
   const {files, firstSection, sections} = bookFiles(tree, {
     title: entry.title,

@@ -18,7 +18,7 @@ describe('report a mistake: routing', () => {
   });
 
   test('other libraries without a corrections address go to SoferBooks', () => {
-    for (const id of ['dicta', 'otzaria', 'wikisource', 'soferbooks_extras']) {
+    for (const id of ['dicta', 'otzaria', 'wikisource', 'sofer_library']) {
       const e = email({ librarySource: id, versionTitle: 'v' });
       expect(e.to).toBe(FALLBACK_EMAIL);
       expect(e.source).toBe(id);

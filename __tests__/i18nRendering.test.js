@@ -449,7 +449,7 @@ describe('Settings screen', () => {
         'settings.offline_access', 'settings.system',
         'settings.app_version',
         'filter.section_header', 'filter.description', 'filter.groups_header',
-        'library_sources.header', 'library_sources.description', 'library_sources.coming_soon',
+        'library_sources.header', 'library_sources.description',
         'library_sources.always_on', 'extras.source_detail',
         'settings.nakdan_header', 'settings.nakdan_always', 'settings.nakdan_always_detail',
         'settings.nakdan_ask', 'settings.nakdan_credit',
@@ -1170,6 +1170,10 @@ describe('Strings with placeholders', () => {
     'extras.progress_percent': { percent: 42 },
     'extras.turn_off_message': { count: 5 },
     'extras.updates_message': { count: 3 },
+    'full_library.part_size': { download: '1.2 GB', phone: '5.2 GB' },
+    'full_library.part_books': { count: '1,156' },
+    'full_library.total': { download: '2.1 GB', phone: '7.4 GB' },
+    'full_library.progress': { source: 'Otzaria', done: 412, total: '3,100', done_size: '1.2 GB', total_size: '2.8 GB' },
   };
 
   test('the list below is every string in the table that has a placeholder', () => {
@@ -1972,6 +1976,18 @@ const NOT_YET_COVERED = [
   // the flows themselves are tested in __tests__/extras.test.js.
   'extras.delete_book', 'extras.delete_book_message', 'extras.download_to_read_badge',
   'extras.up_to_date',
+
+  // shomer/ContentFilterSettings.js: the "(coming soon)" after a library source that is not
+  // available yet. Since the Sofer Library works (2026-11-11) every source is available, so no
+  // render shows it; kept for the next source registered before it works.
+  'library_sources.coming_soon',
+
+  // FullLibraryPanel.js (Settings) and the first-launch offer: rendered in
+  // __tests__/fullLibrary.test.js (the panel's parts, sizes, total and queue controls); the
+  // Settings screen render above does not load the packages it needs.
+  'full_library.header', 'full_library.description', 'full_library.part_sefaria',
+  'full_library.download', 'full_library.pause', 'full_library.resume', 'full_library.cancel',
+  'full_library.wifi_only', 'full_library.waiting_wifi', 'full_library.paused', 'full_library.offer_parts',
 ];
 
 describe('Counts of one', () => {
