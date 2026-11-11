@@ -1,4 +1,4 @@
-import React, {useCallback}  from 'react';
+import React, {useCallback, useContext}  from 'react';
 import {View, FlatList, Platform} from "react-native";
 import Sefaria from "./sefaria";
 import {displayRef} from "./extras/schema7";
@@ -18,19 +18,22 @@ import {useGlobalState} from "./Hooks";
 import {TextCategoryPage} from "./TextCategoryPage";
 import strings from "./LocalizedStrings";
 import OpenTabsStrip from "./tabs/OpenTabsStrip";
+import ReaderAppContext from "./context";
 import SoferBooksLogo from "./SoferBooksLogo";
 
 /**
  * SoferBooks Library home page (replaces Sefaria's texts page / feed). Top to bottom:
  *   1. Open tabs strip  - placeholder slot, see OpenTabsSlot below
- *   2. Continue reading - the most recent place in each book, from on-device history
+ *   2. Continue reading - the most recent place in each book, from on-device history, leaving
+ *                         out the books already open as tabs (they are in the strip above)
  *   3. Library          - the top-level category shelves ("Browse the library")
  *   4. Today's learning - the existing learning-schedule (calendar) items, under the shelves
  *                         (owner, 2026-11-11)
  * Choosing a category replaces the page with that category (TextCategoryPage), as before.
  */
 
-const CONTINUE_READING_COUNT = 4;
+// at most three (owner, 2026-11-11)
+const CONTINUE_READING_COUNT = 3;
 // Sefaria's calendar.json items, and the app's own (learningSchedules/extraSchedules.js), in calendar order
 const TODAYS_LEARNING_CALENDARS = [
     'Parashat Hashavua', 'Shnayim Mikra', 'Haftarah', 'Daf Yomi', 'Daily Mishnah',
@@ -85,9 +88,21 @@ const HomeSectionHeader = ({ titleKey, actionKey, onAction }) => {
     );
 };
 
+const bookOfPlace = item => item.book || Sefaria.textTitleForRef(item.ref);
+
+/**
+ * The "Continue reading" rows (pure; tested): the most recent places, leaving out every book open
+ * in a tab (the "Open tabs" strip already shows it), at most CONTINUE_READING_COUNT.
+ */
+export const continueReadingItems = (lastPlace, tabs, count = CONTINUE_READING_COUNT) => {
+    const open = new Set((tabs || []).map(t => t && t.title).filter(Boolean));
+    return (lastPlace || []).filter(item => item && item.ref && !open.has(bookOfPlace(item))).slice(0, count);
+};
+
 const ContinueReading = ({ openRef, openHistory }) => {
     const { theme, readingHistory } = useGlobalState();
-    const items = readingHistory ? (Sefaria.history.lastPlace || []).slice(0, CONTINUE_READING_COUNT) : [];
+    const { readerTabs } = useContext(ReaderAppContext);
+    const items = readingHistory ? continueReadingItems(Sefaria.history.lastPlace, readerTabs?.tabs) : [];
     if (!items.length) { return null; }
     return (
         <View style={styles.homeSection}>
@@ -95,7 +110,7 @@ const ContinueReading = ({ openRef, openHistory }) => {
             {items.map(item => (
                 <SefariaPressable key={item.ref} onPress={() => openRef(item.ref, item.versions)}>
                     <View style={[styles.homeContinueRow, theme.lighterGreyBorder]}>
-                        <CategoryColorLine category={Sefaria.primaryCategoryForTitle(item.book || Sefaria.textTitleForRef(item.ref))} thickness={4}/>
+                        <CategoryColorLine category={Sefaria.primaryCategoryForTitle(bookOfPlace(item))} thickness={4}/>
                         <ContentTextWithFallback
                             en={displayRef(item.ref, item.he_ref || item.heRef)}
                             he={(item.he_ref || item.heRef) ? Sefaria.normHebrewRef(item.he_ref || item.heRef) : item.ref}

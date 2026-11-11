@@ -10,7 +10,8 @@ import Sefaria from '../sefaria';
 import * as shomer from '../shomer';
 import DeepLinkRouter, { WEB_ONLY_PAGES } from '../DeepLinkRouter';
 import TestContextWrapper from '../TestContextWrapper';
-import { TextsPage } from '../TextsPage';
+import { TextsPage, continueReadingItems } from '../TextsPage';
+import ReaderAppContext from '../context';
 import { AboutPage } from '../AboutPage';
 import SoferBooksLogo from '../SoferBooksLogo';
 import { SefariaLinksSetting, openSefariaLinkSettings } from '../SettingsPage';
@@ -91,6 +92,42 @@ describe('home page order', () => {
     expect(learning).toBeGreaterThan(browse);
     expect(about).toBeGreaterThan(learning);
     act(() => { inst.unmount(); });
+  });
+});
+
+describe('home page "Continue reading"', () => {
+  const place = (book, n) => ({ ref: `${book} ${n}`, he_ref: null, versions: {}, book });
+  const history = [place('Genesis', 1), place('Berakhot', '2a'), place('Psalms', 3), place('Exodus', 4), place('Mishnah Berurah', 5)];
+
+  test('leaves out the books open as tabs, and shows at most three', () => {
+    const tabs = [{ id: 't1', title: 'Genesis' }, { id: 't2', title: 'Psalms' }];
+    expect(continueReadingItems(history, tabs).map(i => i.book)).toEqual(['Berakhot', 'Exodus', 'Mishnah Berurah']);
+    expect(continueReadingItems(history, []).map(i => i.book)).toEqual(['Genesis', 'Berakhot', 'Psalms']);
+    expect(continueReadingItems(history, undefined)).toHaveLength(3);
+    expect(continueReadingItems([], tabs)).toEqual([]);
+  });
+
+  test('the home page shows them so', () => {
+    Sefaria.history.lastPlace = history;
+    Sefaria.primaryCategoryForTitle = jest.fn(() => 'Tanakh');
+    const readerTabs = { tabs: [{ id: 't1', title: 'Genesis', ref: 'Genesis 1' }], activeTabId: 't1', archived: [] };
+    let inst;
+    act(() => {
+      inst = renderer.create(
+        <ReaderAppContext.Provider value={{ readerTabs, openReaderTab: noop }}>
+          <TestContextWrapper child={TextsPage} childProps={{
+            categories: [], setCategories: noop, openRef: noop, openLearningSchedules: noop,
+            onBack: noop, openAbout: noop, openHistory: noop,
+          }} />
+        </ReaderAppContext.Provider>);
+    });
+    // (the open tab itself is in the "Open tabs" strip above)
+    const all = allText(inst);
+    const texts = all.slice(all.findIndex(t => t.includes(strings.home.continue_reading))).join('\n');
+    for (const shown of ['Berakhot 2a', 'Psalms 3', 'Exodus 4']) { expect(texts).toContain(shown); }
+    for (const hidden of ['Genesis 1', 'Mishnah Berurah 5']) { expect(texts).not.toContain(hidden); }
+    act(() => { inst.unmount(); });
+    Sefaria.history.lastPlace = [];
   });
 });
 

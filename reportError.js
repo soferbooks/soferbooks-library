@@ -39,19 +39,29 @@ export function versionOnScreen(currVersionObjects, textLanguage) {
 
 /**
  * The email for a correction: {to, subject, body, source}.
+ *
+ * The body says no more than Sefaria's own app does (Sefaria-Mobile ReaderApp.reportError: the
+ * ref, the text, its sefaria.org address, "Describe the error:"). A Sefaria text gets exactly
+ * that. Any other library's text gets the ref, the text and the version's title (which edition
+ * it is, as Sefaria's address tells Sefaria) - never the version's source URL or other metadata.
  * @param {object} p
  * @param {string} p.ref         the segment ref
- * @param {string} p.text        the displayed text (with its URL)
+ * @param {string} p.text        the displayed text (without a URL)
+ * @param {string} [p.url]       the text's sefaria.org address (used for Sefaria texts only)
  * @param {object|null} p.version  the version on screen (versionOnScreen)
  * @param {string} p.platform    Platform.OS
  */
-export function correctionEmail({ ref, text, version, platform }) {
+export function correctionEmail({ ref, text, url, version, platform }) {
   const source = sourceOfVersion(version);
   const entry = CORRECTIONS[source] || { name: source, email: null };
   const to = entry.email || FALLBACK_EMAIL;
   const subject = `${entry.subject || `Text Correction (${entry.name})`} from SoferBooks Library (${platform})`;
-  const versionLine = version && version.versionTitle
-    ? `\n\nVersion: ${version.versionTitle}${version.versionSource ? ` (${version.versionSource})` : ''}` : '';
-  const body = `${ref}\n\n${text}${versionLine}\n\nDescribe the error:`;
-  return { to, subject, body, source };
+  const parts = [ref, text];
+  if (source === 'sefaria') {
+    if (url) { parts.push(url); }
+  } else if (version && version.versionTitle) {
+    parts.push(`Version: ${version.versionTitle}`);
+  }
+  parts.push('Describe the error:');
+  return { to, subject, body: parts.join('\n\n'), source };
 }

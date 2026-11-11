@@ -53,13 +53,37 @@ describe('asking the site', () => {
     expect(await printableTitle('Genesis', 'בראשית', now + 8 * 24 * 3600 * 1000)).toBe('Genesis');
     expect(global.fetch).toHaveBeenCalled();
   });
+  test('a "not sold" is kept for a day only, so a book the site adds shows up the next day', async () => {
+    const now = Date.now();
+    global.fetch = jest.fn(async () => ({ok: true, json: async () => ({results: []})}));
+    expect(await printableTitle('Genesis', 'בראשית', now)).toBe(null);
+    global.fetch = jest.fn(async () => ({ok: true, json: async () => ({results: SITE.Genesis})}));
+    expect(await printableTitle('Genesis', 'בראשית', now + 3600 * 1000)).toBe(null);
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(await printableTitle('Genesis', 'בראשית', now + 25 * 3600 * 1000)).toBe('Genesis');
+  });
+  test('answers kept by the first builds (a "not sold" for a week) are not used', async () => {
+    await AsyncStorage.setItem('soferPrintable:v1', JSON.stringify({Genesis: {sofer: null, at: Date.now()}}));
+    expect(await printableTitle('Genesis', 'בראשית')).toBe('Genesis');
+  });
   test('offline: no link, and nothing kept', async () => {
     global.fetch = jest.fn(async () => { throw new Error('offline'); });
     expect(await printableTitle('Genesis', 'בראשית')).toBe(null);
-    expect(await AsyncStorage.getItem('soferPrintable:v1')).toBe(null);
+    expect(await AsyncStorage.getItem('soferPrintable:v2')).toBe(null);
   });
 });
 
 test('the link opens the site\'s book editor on the sefer', () => {
   expect(orderUrl('Ben Ish Hai Drashot')).toBe('https://soferbooks.com/?tab=new&book=Ben%20Ish%20Hai%20Drashot');
+});
+
+test('the link is shown in the table of contents, "About this text" and the display menu', () => {
+  // (a merge once dropped a mount; each screen must keep it)
+  const fs = require('fs');
+  const path = require('path');
+  const src = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
+  expect(src('ReaderTextTableOfContents.js')).toMatch(/<PrintCopyLink title=\{title\}/);
+  expect(src('AboutBox.js')).toMatch(/<PrintCopyLink title=\{d\.title\}/);
+  expect(src('ReaderDisplayOptionsMenu.js')).toMatch(/<PrintCopyLink title=\{this\.props\.bookTitle\}/);
+  expect(src('ReaderApp.js')).toMatch(/bookTitle=\{isSheet \? null : this\.state\.textTitle\}/);
 });

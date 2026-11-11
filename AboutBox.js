@@ -11,6 +11,7 @@ import strings from './LocalizedStrings';
 import styles from './Styles';
 import VersionBlock from './VersionBlock';
 import {SimpleMarkdown} from "./Misc";
+import PrintCopyLink from "./PrintCopyLink";
 var moment = require("moment");
 
 
@@ -104,6 +105,8 @@ const AboutBox = ({ textToc, currVersionObjects, openFilter, sheet, openUri, seg
         <Text style={[styles.aboutTitle, hei ? styles.he : styles.en, theme.text]}>
           { hei ? d.heTitle : d.title }
         </Text>
+        {/* "Order a printed copy" when Sofer sells the book (soferPrint.js) */}
+        <PrintCopyLink title={d.title} heTitle={d.heTitle} />
         { authorsEn && authorsEn.length ?
           <Text style={[styles.aboutSubtitle, hei ? styles.heInt : styles.enInt, theme.secondaryText]}>
             { hei ? authorsHe : authorsEn}
