@@ -228,12 +228,14 @@ describe('the edition with nikud (Dicta\'s computer nikud), shown first', () => 
     expect(versionsOf(entryOf(load('iggeret_hateshuvah')), doc)).toHaveLength(1);
   });
 
-  test('two editions: "... - with nikud (Dicta)" first, its notes saying the nikud is the computer\'s; then the plain', () => {
+  test('the edition "... - with nikud (Dicta)" alone (owner, 2026-11-11: no plain text beside it), its notes saying the nikud is the computer\'s', () => {
     const fx = load('devash_tamar');
     const entry = entryOf(fx);
     const doc = docOf(fx);
-    const [nikud, plain] = versionsOf(entry, doc);
-    expect(plain.version).toEqual(versionOf(entry, doc));
+    const editions = versionsOf(entry, doc);
+    expect(editions).toHaveLength(1);
+    const [nikud] = editions;
+    const plain = {version: versionOf(entry, doc), tree: choose(doc).tree};
     expect(nikud.version).toMatchObject({
       versionTitle: 'Dicta Library (Warsaw, 1897) - with nikud (Dicta)',
       versionTitleInHebrew: 'ספריית דיקטה (ורשה, 1897) - מנוקד (ניקוד ממוחשב של דיקטה)',
@@ -243,16 +245,35 @@ describe('the edition with nikud (Dicta\'s computer nikud), shown first', () => 
     expect(nikud.version.versionNotesInHebrew).toMatch(/^ניקוד נוסף על ידי מחשב \(דיקטה\)/);
     expect(nikud.version.versionNotesInHebrew).toContain(CREDIT_HE_DICTA);
     expect(nikud.version.versionSource).toMatch(/nikud added by computer \(Dicta\)$/);
-    // (the book's files: both editions in every section, the one with nikud the default)
-    const {files, sections} = bookFiles(plain.tree, {...entry, title: 'x', versions: versionsOf(entry, doc)});
+    // (the book's files: the edition with nikud only; its text is the plain text with the vowels)
+    const {files, sections} = bookFiles(plain.tree, {...entry, title: 'x', versions: editions});
     const index = files['x_index.json'];
-    expect(index.versions.map(v => [v.versionTitle, v.isPrimary, v.priority])).toEqual([
-      [nikud.version.versionTitle, true, 0], [plain.version.versionTitle, false, 1]]);
+    expect(index.versions.map(v => [v.versionTitle, v.isPrimary, v.priority])).toEqual([[nikud.version.versionTitle, true, 0]]);
     const meta = files[`${sections[0]}.metadata.json`];
-    expect(meta.versions.map(v => v.versionTitle)).toEqual([nikud.version.versionTitle, plain.version.versionTitle]);
+    expect(meta.versions.map(v => v.versionTitle)).toEqual([nikud.version.versionTitle]);
     const he = vt => files[`${sections[0]}.${md5(vt).substring(0, 8)}.he.json`];
-    expect(he(nikud.version.versionTitle).map(unmarked)).toEqual(he(plain.version.versionTitle));
-    expect(he(nikud.version.versionTitle)).not.toEqual(he(plain.version.versionTitle));
+    expect(he(plain.version.versionTitle)).toBeUndefined();
+    const plainFiles = bookFiles(plain.tree, {...entry, title: 'x', version: plain.version}).files;
+    const plainText = plainFiles[`${sections[0]}.${md5(plain.version.versionTitle).substring(0, 8)}.he.json`];
+    expect(he(nikud.version.versionTitle).map(unmarked)).toEqual(plainText);
+    expect(he(nikud.version.versionTitle)).not.toEqual(plainText);
+  });
+
+  test('offline search finds a word typed without nikud in the edition with nikud', async () => {
+    const {parseQuery} = require('../offlineSearch');
+    const fx = load('devash_tamar');
+    const entry = entryOf(fx);
+    const doc = docOf(fx);
+    const [nikud] = versionsOf(entry, doc);
+    const {files} = bookFiles(choose(doc).tree, {...entry, title: 'x', versions: [nikud]});
+    const lines = await extras.searchLines(files);
+    expect(lines.every(l => l.split('\t')[3] === nikud.version.versionTitle)).toBe(true);
+    // a word of the book, with its vowels in the search line, typed without them
+    const line = lines.find(l => /[ְ-ּ]/.test(l.split('\t')[4]));
+    const word = line.split('\t')[4].split(/\s+/).find(w => /[ְ-ּ]/.test(w) && unmarked(w).length > 3);
+    const [re] = parseQuery(unmarked(word));
+    expect(unmarked(word)).not.toEqual(word);
+    expect(re.test(line.split('\t')[4])).toBe(true);
   });
 
   test('no nikud pages, or too few of the words found in them: the plain edition alone', () => {
@@ -414,7 +435,7 @@ describe('downloading a Dicta book', () => {
     return entries[0];
   }
 
-  test('Dicta\'s pages and its pages with nikud: both zips from files.dicta.org.il, two editions, the temporary files gone', async () => {
+  test('Dicta\'s pages and its pages with nikud: both zips from files.dicta.org.il, the edition with nikud kept alone, the temporary files gone', async () => {
     const fx = load('devash_tamar');
     const entry = setUp(fx, null);
     FileSystem.setRemote(fx.book.textFileURL, zipOf(fx.pages));
@@ -428,8 +449,8 @@ describe('downloading a Dicta book', () => {
     const zipped = JSON.parse(await FileSystem.readAsStringAsync(`library/${entry.title}.zip`));
     const index = JSON.parse(zipped[`${entry.title}_index.json`]);
     expect(index.librarySource).toBe('dicta');
-    expect(index.versions.map(v => v.versionTitle)).toEqual([
-      'Dicta Library (Warsaw, 1897) - with nikud (Dicta)', 'Dicta Library (Warsaw, 1897)']);
+    // (the plain pages are still downloaded: the nikud is laid on them - but not kept as an edition)
+    expect(index.versions.map(v => v.versionTitle)).toEqual(['Dicta Library (Warsaw, 1897) - with nikud (Dicta)']);
     index.versions.forEach(v => expect(v).toMatchObject({license: 'CC-BY-SA', librarySource: 'dicta'}));
     expect(index.versions[0].versionNotes).toMatch(/^Nikud added by computer \(Dicta\)/);
     expect(index.schema.nodes).toHaveLength(expected('devash_tamar').sections.length);
@@ -442,7 +463,7 @@ describe('downloading a Dicta book', () => {
       expect((await FileSystem.getInfoAsync(tmp)).exists).toBe(false);
     }
     const state = JSON.parse(await FileSystem.readAsStringAsync('library/_extras/state.json'));
-    expect(state.installed[entry.title]).toMatchObject({source: 'dicta', id: fx.book.fileName, converter: 2});
+    expect(state.installed[entry.title]).toMatchObject({source: 'dicta', id: fx.book.fileName, converter: 3});
     // (offline search: the edition shown, the one with nikud; an unvowelled query still finds it)
     const lines = (await FileSystem.readAsStringAsync(`library/${entry.title}_search.txt`)).trim().split('\n');
     expect(lines.every(l => l.split('\t')[3] === index.versions[0].versionTitle)).toBe(true);
@@ -478,7 +499,7 @@ describe('downloading a Dicta book', () => {
     expect(global.fetch.mock.calls[0][0]).toMatch(/^https:\/\/raw\.githubusercontent\.com\/Otzaria\/otzaria-library\/main\/DictaToOtzaria\//);
     expect(FileSystem.downloadAsync.mock.calls.map(c => c[0])).toEqual([fx.book.nikudMetegFileURL]);
     const index = JSON.parse(JSON.parse(await FileSystem.readAsStringAsync(`library/${entry.title}.zip`))[`${entry.title}_index.json`]);
-    expect(index.versions).toHaveLength(2);
+    expect(index.versions).toHaveLength(1);           // (the edition with nikud only)
     index.versions.forEach(v => {
       expect(v.versionSource).toMatch(/laid out by the Otzaria library/);
       expect(v.librarySource).toBe('dicta');

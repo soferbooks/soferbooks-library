@@ -47,8 +47,9 @@ export const ID = 'dicta';
 export const CATALOG_URL = 'https://raw.githubusercontent.com/Dicta-Israel-Center-for-Text-Analysis/Dicta-Library-Download/main/books.json';
 export const OTZARIA_MANIFEST_URL = 'https://raw.githubusercontent.com/Otzaria/otzaria-library/main/files_manifest.json';
 export const HOME_URL = 'https://library.dicta.org.il';
-// (2: the edition with nikud; books converted by 1 are converted again, as an update)
-export const CONVERTER_VERSION = 2;
+// (2: the edition with nikud; 3: only that one, no plain text beside it. Books converted by an
+//  older one are converted again, as an update - the plain edition goes then)
+export const CONVERTER_VERSION = 3;
 
 // importers.DICTA_LICENSE / DICTA_SOURCE / OTZARIA_LAYOUT_NOTE / DICTA_IN_COPY
 export const LICENSE = 'CC-BY-SA';
@@ -462,7 +463,11 @@ export function nikudEdition(doc) {
   return edition;
 }
 
-/** The book's editions, the one shown first: with nikud (when it has one), then the plain text */
+/**
+ * The book's edition: with nikud when Dicta has one - only that one (owner, 2026-11-11: the plain
+ * text is not kept beside it; offline search finds words without nikud in it, since
+ * offlineSearch.js ignores the vowel points) - else the plain text.
+ */
 export function versionsOf(entry, doc) {
   const plain = versionOf(entry, doc);
   const tree = choose(doc).tree;
@@ -478,7 +483,7 @@ export function versionsOf(entry, doc) {
       versionNotesInHebrew: [NIKUD_NOTE_HE, plain.versionNotesInHebrew].filter(Boolean).join(' '),
     },
     tree: nikud.tree,
-  }, {version: plain, tree}];
+  }];
 }
 
 // ---------------------------------------------------------------- downloading

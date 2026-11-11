@@ -269,7 +269,11 @@ unzipped on the phone. Licence CC BY-SA 4.0 (the repository's README and the sit
 credited to Dicta. Sofer's rules: Otzaria's layout of a Dicta book (DictaToOtzaria) is used when
 it has text (fetched from Otzaria's repository; then nothing is downloaded from Dicta), still
 Dicta's; where Dicta's own has no sections, another collection's copy that has them (with the
-app's collection licences). Dicta's computer-nikud editions (`nikudMetegFileURL`) are not offered.
+app's collection licences). Dicta's computer-nikud edition (`nikudMetegFileURL`) is the one the
+phone keeps (owner, 2026-11-11): its vowels are laid on the plain text, which is still downloaded
+for that but kept only for a book Dicta has no nikud for. Offline search finds words typed without
+nikud in it (offlineSearch.js ignores the vowel points). Books downloaded with both editions get the
+plain one dropped at their next update (`CONVERTER_VERSION` 3 makes them updates).
 
 ```powershell
 # expected results of the fixtures (__tests__/fixtures/dicta/*.sofer.json), by Sofer's import_dicta
