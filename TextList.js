@@ -12,9 +12,12 @@ import ActionSheet from 'react-native-action-sheet';
 
 import {
   openActionSheet,
+  openLinkActionSheet,
   SYSTEM_FONTS,
 } from './Misc.js';
-import { GlobalStateContext, getTheme } from './StateManager';
+import { GlobalStateContext, getTheme, commentaryFontSize } from './StateManager';
+import { boldDibbur, isCommentaryBook, isCommentaryCategory } from './reader/dibbur';
+import { commentaryTitles } from './extras/links';
 import { RenderHTML } from 'react-native-render-html';
 import strings from './LocalizedStrings';
 import styles, { SCROLL_PADDING_BOTTOM_FRACTION, makeScrollViewLayoutHandler } from './Styles.js';
@@ -42,6 +45,12 @@ class TextList extends React.Component {
     filterIndex:     PropTypes.number,
     listContents:    PropTypes.array,
     openRef:         PropTypes.func.isRequired,
+    // a source tapped: "Open here" / "Open in new tab" / "Show underneath" (ConnectionsPanel.js)
+    openRefHere:     PropTypes.func,
+    openRefInNewTab: PropTypes.func,
+    showInline:      PropTypes.func,
+    inlineCommentary: PropTypes.string,
+    inlineKeyFor:    PropTypes.func,
     loadContent:     PropTypes.func.isRequired,
     textLanguage:    PropTypes.oneOf(['english', 'bilingual', 'hebrew']).isRequired,
     themeStr:        PropTypes.string.isRequired,
@@ -124,6 +133,11 @@ class TextList extends React.Component {
     return (
       <ListItem
         openRef={this.props.openRef}
+        openRefHere={this.props.openRefHere}
+        openRefInNewTab={this.props.openRefInNewTab}
+        showInline={this.props.showInline}
+        inlineCommentary={this.props.inlineCommentary}
+        inlineKeyFor={this.props.inlineKeyFor}
         refStr={item.ref}
         heRefStr={item.heRef}
         category={item.category}
@@ -189,7 +203,7 @@ class TextList extends React.Component {
         key={this.state.updateScrollPosKey}
         style={styles.scrollViewPaddingInOrderToScroll}
         data={this.state.dataSource}
-        extraData={`${this.props.fontSize}|${this.props.themeStr}`}
+        extraData={`${this.props.fontSize}|${this.props.themeStr}|${this.context && this.context.commentaryFontScale}|${this.props.inlineCommentary}`}
         renderItem={this.renderItem}
         contentContainerStyle={[{justifyContent: "center"}, { paddingBottom: this.state.scrollViewHeight * SCROLL_PADDING_BOTTOM_FRACTION }]}
         onLayout={this._onScrollViewLayout}
@@ -217,8 +231,17 @@ const EmptyListMessage = () => (
 );
 
 
+/** Is a source in the panel a commentary's comment (its dibbur hamaschil made bold: reader/dibbur.js)? */
+export const isCommentaryItem = (category, refStr) => isCommentaryCategory(category)
+  || isCommentaryBook(Sefaria.textTitleForRef(refStr), commentaryTitles());
+
 const ListItem = ({
   openRef,
+  openRefHere,
+  openRefInNewTab,
+  showInline,
+  inlineCommentary,
+  inlineKeyFor,
   refStr,
   heRefStr,
   versionTitle,
@@ -228,19 +251,33 @@ const ListItem = ({
   loading,
   displayRef,
 }) => {
-  const { themeStr, fontSize, interfaceLanguage, textLanguage } = useContext(GlobalStateContext);
+  const { themeStr, fontSize: readerFontSize, commentaryFontScale, interfaceLanguage, textLanguage } = useContext(GlobalStateContext);
+  // (the commentary's own text size: the Aa menu's "Commentary Size")
+  const fontSize = commentaryFontSize(readerFontSize, commentaryFontScale);
   const theme = getTheme(themeStr);
   const { width } = useWindowDimensions();
   const lco = linkContentObj;
   const lang = Sefaria.util.getTextLanguageWithContent(textLanguage,lco.en,lco.he);
   const bilingual = lang === 'bilingual';
-  const { classesStyles:enClasses, textStyle:enStyle, tagsStyles:enTags } = useHTMLViewStyles(bilingual, 'english');
-  const { classesStyles:heClasses, textStyle:heStyle, tagsStyles:heTags } = useHTMLViewStyles(bilingual, 'hebrew');
+  const { classesStyles:enClasses, textStyle:enStyle, tagsStyles:enTags } = useHTMLViewStyles(bilingual, 'english', fontSize);
+  const { classesStyles:heClasses, textStyle:heStyle, tagsStyles:heTags } = useHTMLViewStyles(bilingual, 'hebrew', fontSize);
 
   const versions = (versionLanguage) ? {[versionLanguage]: versionTitle} : null;
-  const onPress = () => openActionSheet(refStr, versions, openRef, interfaceLanguage, heRefStr, category);
+  // a translation (the versions list) is opened as before; a connection offers three ways to read it
+  const asLink = !versions && !!openRefHere;
+  const onPress = asLink ? () => openLinkActionSheet({
+    refStr, heRefStr, interfaceLanguage,
+    openHere: () => openRefHere(refStr),
+    openInNewTab: openRefInNewTab ? () => openRefInNewTab(refStr) : null,
+    showUnderneath: showInline ? () => showInline(refStr) : null,
+    shownUnderneath: !!showInline && !!inlineCommentary && !!inlineKeyFor && inlineKeyFor(refStr) === inlineCommentary,
+  }) : () => openActionSheet(refStr, versions, openRef, interfaceLanguage, heRefStr, category);
+  // (a long press: straight to a new tab, what a tap did before)
+  const onLongPress = asLink && openRefInNewTab ? () => openRefInNewTab(refStr) : undefined;
   let textViews = [];
-  const he = Sefaria.util.getDisplayableHTML(lco.he, "hebrew");
+  // a commentary's comment: its dibbur hamaschil in bold, as SoferBooks prints it (reader/dibbur.js)
+  const heHtml = !loading && isCommentaryItem(category, refStr) ? boldDibbur(lco.he) : lco.he;
+  const he = Sefaria.util.getDisplayableHTML(heHtml, "hebrew");
   const en = Sefaria.util.getDisplayableHTML(lco.en, "english");
   const lineHeightMultiplierHe = Platform.OS === 'android' ? 1.3 : 1.2;
   const smallEnSheet = {
@@ -288,7 +325,7 @@ const ListItem = ({
   const refTitleStyle = isHeb ? styles.he : styles.en;
   const tempRefStr = isHeb ? heRefStr : refStr;
   return (
-    <TouchableOpacity style={[styles.textListItem, theme.searchTextResult]} onPress={onPress} delayPressIn={200}>
+    <TouchableOpacity style={[styles.textListItem, theme.searchTextResult]} onPress={onPress} onLongPress={onLongPress} delayPressIn={200}>
       {displayRef ? null : <Text style={[refTitleStyle, styles.textListCitation, theme.textListCitation]}>{tempRefStr}</Text>}
       {textViews}
     </TouchableOpacity>
@@ -296,6 +333,11 @@ const ListItem = ({
 }
 ListItem.propTypes = {
   openRef:           PropTypes.func.isRequired,
+  openRefHere:       PropTypes.func,
+  openRefInNewTab:   PropTypes.func,
+  showInline:        PropTypes.func,
+  inlineCommentary:  PropTypes.string,
+  inlineKeyFor:      PropTypes.func,
   refStr:            PropTypes.string,
   heRefStr:          PropTypes.string,
   versionTitle:      PropTypes.string,

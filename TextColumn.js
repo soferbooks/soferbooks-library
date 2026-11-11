@@ -18,6 +18,8 @@ import TextRange from './TextRange';
 import TextRangeContinuous from './TextRangeContinuous';
 import TextHeightMeasurer from './TextHeightMeasurer';
 import InlineCommentary from './reader/InlineCommentary';
+import { isCommentaryBook } from './reader/dibbur';
+import { commentaryTitles } from './extras/links';
 import { refHasSectionKeys } from './extras/schema7';
 import { createAnchor, isAnchorActive, anchorCorrection, renderedIndexRange, pickVisibleAnchor, ANCHOR_MAX_SEEKS } from './reader/scrollAnchor';
 import { VOCALIZATION } from './VocalizationEnum';
@@ -650,9 +652,13 @@ class TextColumn extends React.PureComponent {
         textSegmentPressed={this.textSegmentPressed}
         setRowRef={this.setSegmentRowRef}
         setRowRefInitY={this.setRowRefInitY}
+        boldDibbur={this.isCommentary()}
       />
     );
   };
+
+  // a commentary (its dibbur hamaschil shown bold: reader/dibbur.js)
+  isCommentary = () => !this.props.isSheet && isCommentaryBook(this.props.textTitle, commentaryTitles());
 
   setSegmentRowRef = (key, ref) => { this.rowRefs[key] = ref; };
 
@@ -679,6 +685,7 @@ class TextColumn extends React.PureComponent {
           isSheet={this.props.isSheet}
           setHighlightedWord={this.props.setHighlightedWord}
           nakdan={!!this.props.nakdan}
+          boldDibbur={this.isCommentary()}
         />
         {this.props.inlineCommentary && item.type === ROW_TYPES.SEGMENT && !this.props.isSheet ?
           <InlineCommentary links={item.data.related?.links} sourceKey={this.props.inlineCommentary} nakdan={!!this.props.nakdan} /> : null}

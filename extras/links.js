@@ -420,8 +420,16 @@ export function buildIndex(files) {
   }
   // the obvious connections last: a book's own link of the same two passages wins
   for (const f of files) { ((f && f.inferred) || []).forEach(both); }
+  // the books that are commentaries: their links tie them to the text they explain (their own,
+  // or found by their name) - for the dibbur hamaschil in bold (reader/dibbur.js)
+  map.commentaries = new Set(files.filter(f => f && f.title && (
+    (f.links || []).some(l => l.r === 'base') || (f.pending || []).some(p => p.r === 'base')
+    || (f.inferred || []).length)).map(f => f.title));
   return map;
 }
+
+/** The downloaded extra books that are commentaries (a Set; empty until the index is read) */
+export const commentaryTitles = () => (index && index.commentaries) || new Set();
 
 /** Read the link files of the downloaded books (titles) into the index, once until invalidated */
 export function ready(titles) {

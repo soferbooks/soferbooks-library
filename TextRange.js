@@ -12,6 +12,7 @@ import TextSegment from './TextSegment';
 import styles from './Styles';
 import iPad from "./isIPad";
 import { useNakdan } from './reader/nakdan';
+import { boldDibbur as withBoldDibbur } from './reader/dibbur';
 
 
 const TextRange = React.memo(({
@@ -31,6 +32,7 @@ const TextRange = React.memo(({
   isSheet,
   setHighlightedWord,
   nakdan,
+  boldDibbur,
 }) => {
   const { themeStr, textLanguage, biLayout, fontSize, vocalization } = useContext(GlobalStateContext);
 
@@ -44,6 +46,8 @@ const TextRange = React.memo(({
   const dictaHe = useNakdan(rowData.content.he, !!nakdan && !isSheet);
   let heText = Sefaria.util.applyVocalizationSettings(dictaHe || rowData.content.he, vocalization, vowelToggleAvailable) || "";
   enText = Sefaria.util.getDisplayableHTML(enText, 'english', isSheet, false);
+  // a commentary: its dibbur hamaschil in bold, as SoferBooks prints it (reader/dibbur.js; at display, not stored)
+  if (boldDibbur && !isSheet) { heText = withBoldDibbur(heText); }
   heText = Sefaria.util.getDisplayableHTML(heText, 'hebrew', isSheet, true);
   let numLinks = rowData.related?.links?.length || 0;
 
@@ -166,6 +170,7 @@ TextRange.propTypes = {
   shareCurrentSegment:PropTypes.func.isRequired,
   getDisplayedText:   PropTypes.func.isRequired,
   nakdan:             PropTypes.bool,   // add Dicta's nikud to a text without nikud
+  boldDibbur:         PropTypes.bool,   // a commentary: its dibbur hamaschil in bold (reader/dibbur.js)
 };
 
 export default TextRange;

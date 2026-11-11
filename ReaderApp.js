@@ -93,6 +93,7 @@ import ScheduleSequenceBar from "./learningSchedules/ScheduleSequenceBar";
 import {
   getInlineCommentary,
   effectiveInlineCommentary,
+  inlineKeyForRef,
   clearSessionInlineCommentary,
   setInlineCommentary,
   loadInlineCommentaryPrefs,
@@ -609,6 +610,16 @@ class ReaderApp extends React.PureComponent {
     });
   };
 
+  // the commentary's own text size (the connections panel, "Under each passage"): Aa menu
+  incrementCommentaryFont = (increment) => {
+    const x = increment === "larger" ? 1.1 : increment === "smaller" ? 0.9 : increment;
+    const scale = (typeof this.props.commentaryFontScale === 'number' ? this.props.commentaryFontScale : 1) * x;
+    this.props.dispatch({
+      type: STATE_ACTIONS.setCommentaryFontScale,
+      value: scale,
+    });
+  };
+
   getHistoryObject = () => {
     // get ref to send to /api/profile/user_history
     try {
@@ -1103,6 +1114,22 @@ class ReaderApp extends React.PureComponent {
     }
     // a source from the panel (Gemara, a commentary's full text, ...) opens in a new tab; this tab keeps its place
     return this.openRefInNewTab(ref, versions);
+  };
+
+  // A source tapped in the connections panel: "Open here" (this tab, Back returns), "Open in new
+  // tab" (as before), "Show underneath" (the source under each passage: setInlineCommentaryForBook)
+  openRefHereFromPanel = (ref, versions) => this.openRef(ref, "text list", versions);
+
+  inlineKeyForRef = ref => inlineKeyForRef(this.state.relatedBySectionRef, ref, r => Sefaria.textTitleForRef(r),
+    t => (Sefaria.primaryCategoryForTitle(t) === 'Commentary' && Sefaria.collectiveTitlesDict[t]
+      ? Sefaria.collectiveTitlesDict[t].en : null));
+
+  // (shown already: a second tap takes it away)
+  showInlineFromPanel = ref => {
+    const key = this.inlineKeyForRef(ref);
+    if (!key) { return; }
+    const current = effectiveInlineCommentary(this.state.inlineCommentaryPrefs, this.state.textTitle);
+    this.setInlineCommentaryForBook(current === key ? null : key);
   };
 
   /**
@@ -2677,6 +2704,12 @@ ${strings.formatString(strings.extras.download_size,
                 categories={Sefaria.categoriesForTitle(this.state.textTitle, isSheet)}
                 textFlow={this.state.textFlow}
                 openRef={this.openRefConnectionsPanel}
+                openRefHere={this.openRefHereFromPanel}
+                openRefInNewTab={this.openRefInNewTab}
+                showInline={this.showInlineFromPanel}
+                canShowInline={!isSheet && this.state.textFlow !== 'continuous'}
+                inlineKeyFor={this.inlineKeyForRef}
+                inlineCommentary={inlineCommentary}
                 setConnectionsMode={this.setConnectionsMode}
                 openFilter={this.openFilter}
                 closeCat={this.closeLinkCat}
@@ -2751,6 +2784,7 @@ ${strings.formatString(strings.extras.download_size,
                 setTextLanguage={this.setTextLanguage}
                 setVocalization={this.setVocalization}
                 incrementFont={this.incrementFont}
+                incrementCommentaryFont={this.incrementCommentaryFont}
                 setTheme={this.setTheme}
                 canBeContinuous={Sefaria.canBeContinuous(this.state.textTitle)}
                 canHaveAliyot={Sefaria.canHaveAliyot(this.state.textTitle)}

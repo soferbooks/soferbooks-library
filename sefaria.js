@@ -867,6 +867,53 @@ global.Sefaria = {
       }
 
     },
+    /**
+     * linkSummary's {category: {count, books: {title: book}}} with the categories whose names are
+     * the same (heName(category), quotes and spaces aside) made one: under the one first in
+     * Sefaria's order (topLevel), its books those of all of them - a book in two of them once,
+     * its refs together (a Set: each once). Pure (tested in __tests__/connectionsFixes.test.js).
+     */
+    mergeSameNamedCategories: function(summary, heName, topLevel = []) {
+      // (a category in other capitals - "commentary" - has no name of its own: its capitalised one's)
+      const name = c => {
+        const he = heName ? heName(c) : c;
+        return he !== c ? he : (heName ? heName(c.charAt(0).toUpperCase() + c.slice(1)) : c);
+      };
+      const norm = c => String(name(c) || c).toLowerCase().replace(/["'״׳\s]/g, '');
+      const rank = c => {
+        if (c === 'Commentary') { return -1; }
+        const i = (topLevel || []).indexOf(c);
+        return i === -1 ? Infinity : i;
+      };
+      const groups = {};
+      for (const cat of Object.keys(summary)) {
+        (groups[norm(cat)] = groups[norm(cat)] || []).push(cat);
+      }
+      const out = {};
+      for (const cat of Object.keys(summary)) {
+        const group = groups[norm(cat)];
+        if (group.length === 1) { out[cat] = summary[cat]; continue; }
+        const keep = group.slice().sort((a, b) => (rank(a) - rank(b)) || (a < b ? -1 : a > b ? 1 : 0))[0];
+        if (out[keep]) { continue; }
+        const merged = {...summary[keep], books: {}};
+        for (const c of group) {
+          merged.hasEn = merged.hasEn || summary[c].hasEn;
+          for (const [title, book] of Object.entries(summary[c].books)) {
+            const have = merged.books[title];
+            if (!have) {
+              merged.books[title] = {...book, category: keep, refSet: new Set(book.refSet), heRefSet: new Set(book.heRefSet)};
+              continue;
+            }
+            book.refSet.forEach(r => have.refSet.add(r));
+            book.heRefSet.forEach(r => have.heRefSet.add(r));
+            have.hasEn = have.hasEn || book.hasEn;
+            have.extra = have.extra || book.extra;
+          }
+        }
+        out[keep] = merged;
+      }
+      return out;
+    },
     linkSummary: function(sectionRef, links=[], textLanguage) {
       // Returns an ordered array summarizing the link counts by category and text
       // Takes an array of links which are of the form { "category", "sourceHeRef", "sourceRef", "textTitle"}
@@ -934,6 +981,11 @@ global.Sefaria = {
           }
         }
       }
+
+      // One entry for categories with the same name: Sefaria's Talmud "Guides" and the "Reference"
+      // the extra sources' books (Otzaria, Chok LeYisrael ...) bring are both "ספרות עזר", and
+      // Niddah 2a:1 showed it twice (Mordy, 2026-11-11)
+      summary = Sefaria.links.mergeSameNamedCategories(summary, Sefaria.hebrewCategory, Sefaria.topLevelCategories);
 
       // Convert object into ordered list
       const topByCategory = {

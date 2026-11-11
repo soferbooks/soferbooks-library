@@ -169,5 +169,29 @@ export const itemsForSource = (links, key) => {
   return out;
 };
 
+/**
+ * The key of the source a ref is from, as "Under each passage" knows it (the connections panel's
+ * "Show underneath"): the key of the loaded link with that ref (relatedBySectionRef), else the
+ * book's collective title for a commentary (Sefaria.collectiveTitlesDict, as offline links have
+ * it), else the book's own title. null when the ref has no book.
+ */
+export const inlineKeyForRef = (relatedBySectionRef, ref, textTitleForRef = () => null, collectiveTitleFor = () => null) => {
+  if (!ref) { return null; }
+  for (const related of Object.values(relatedBySectionRef || {})) {
+    if (!Array.isArray(related)) { continue; }
+    for (const seg of related) {
+      for (const link of (seg && seg.links) || []) {
+        if (link && link.sourceRef === ref) {
+          const key = linkSourceKey(link);
+          if (key) { return key; }
+        }
+      }
+    }
+  }
+  const title = textTitleForRef(ref);
+  if (!title) { return null; }
+  return collectiveTitleFor(title) || title;
+};
+
 /** The source refs (unique, in order) that a segment's links give for source `key`. */
 export const refsForSource = (links, key) => itemsForSource(links, key).map(x => x.ref);

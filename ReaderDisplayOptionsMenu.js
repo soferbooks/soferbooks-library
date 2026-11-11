@@ -35,6 +35,8 @@ class ReaderDisplayOptionsMenu extends React.Component {
     setTextLanguage:                 PropTypes.func,
     setAliyot:                       PropTypes.func,
     incrementFont:                   PropTypes.func,
+    // the commentary's own text size (the connections panel, "Under each passage")
+    incrementCommentaryFont:         PropTypes.func,
     setTheme:                        PropTypes.func,
     // "Under each passage": commentaries/targumim available for this sefer ([{key, en, he}])
     inlineSources:                   PropTypes.array,
@@ -174,6 +176,16 @@ class ReaderDisplayOptionsMenu extends React.Component {
       {
         label: strings.reader.font_size,
         onPress: this.props.incrementFont,
+        buttons:["smaller","larger"],
+        icons: [icons.a_icon_small, icons.a_icon],
+        currVal: null,
+        parametrized: true
+      },
+      {
+        // (Mordy, 2026-11-11: the commentary's size apart from the text's)
+        condition: !!this.props.incrementCommentaryFont,
+        label: strings.reader.commentary_font_size,
+        onPress: this.props.incrementCommentaryFont,
         buttons:["smaller","larger"],
         icons: [icons.a_icon_small, icons.a_icon],
         currVal: null,

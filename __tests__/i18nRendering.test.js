@@ -43,7 +43,7 @@ import ReaderControls from '../ReaderControls';
 import { SearchResultPage } from '../search/SearchResultPage';
 import AutocompleteList from '../search/AutocompleteList';
 import {
-  ButtonToggleSet, SefariaProgressBar, SaveButton, openActionSheet, SystemButton,
+  ButtonToggleSet, SefariaProgressBar, SaveButton, openActionSheet, openLinkActionSheet, SystemButton,
 } from '../Misc';
 import * as DownloadControl from '../DownloadControl';
 import {
@@ -687,7 +687,7 @@ describe('Reader display options menu', () => {
     canBeContinuous: true, canHaveAliyot: true, showAliyot: false,
     vowelToggleAvailable, vocalization: VOCALIZATION.NIKKUD,
     setTextFlow: noop, setTextLanguage: noop, setAliyot: noop, setBiLayout: noop,
-    incrementFont: noop, setTheme: noop, setVocalization: noop,
+    incrementFont: noop, incrementCommentaryFont: noop, setTheme: noop, setVocalization: noop,
   });
 
   test('renders its labels in both languages', () => {
@@ -696,6 +696,7 @@ describe('Reader display options menu', () => {
       [
         'reader.language', 'reader.layout', 'reader.bilingual_layout', 'reader.color',
         'reader.aliyot', 'common.on', 'common.off', 'reader.font_size', 'reader.vocalization',
+        'reader.commentary_font_size',
       ]
     );
   });
@@ -1838,6 +1839,19 @@ describe('Action sheets', () => {
     expectSheetLocalizes(
       () => openActionSheet('Genesis 1:1', { en: 'JPS 2006' }, noop, 'english', 'בראשית א׳:א׳'),
       ['common.open_item', 'versions.version']
+    );
+  });
+
+  test('a source in the connections panel offers three ways to read it, in both languages', () => {
+    expectSheetLocalizes(
+      () => openLinkActionSheet({ refStr: 'Rashi on Genesis 1:1:1', heRefStr: 'רש״י על בראשית א׳:א׳:א׳',
+        interfaceLanguage: 'english', openHere: noop, openInNewTab: noop, showUnderneath: noop }),
+      ['connections.open_here', 'connections.open_in_new_tab', 'connections.show_underneath', 'common.cancel']
+    );
+    expectSheetLocalizes(
+      () => openLinkActionSheet({ refStr: 'Rashi on Genesis 1:1:1', interfaceLanguage: 'english',
+        openHere: noop, showUnderneath: noop, shownUnderneath: true }),
+      ['connections.stop_showing_underneath']
     );
   });
 });
