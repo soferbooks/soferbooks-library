@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The app's name on a phone set to Hebrew (the menus follow the phone's language).
+         The English names are injected per build in android/app/build.gradle (resValue). -->
+    <string name="app_name">ספריית SoferBooks</string>
+    <string name="launcher_label">ספריית SoferBooks</string>
+</resources>

@@ -71,7 +71,7 @@ export const ContentFilterSettings = ({ langStyle }) => {
       <Text style={[langStyle, theme.secondaryText, local.detail]}>{strings.filter.description}</Text>
       {CHOICES.map(p => (
         <PresetButton key={p.id} preset={p} selected={preset === p.id} theme={theme} langStyle={langStyle}
-          onPress={() => setContentFilter(configForPreset(p.id))} />
+          detail={presetDetail(p)} onPress={() => setContentFilter(configForPreset(p.id))} />
       ))}
       {preset === 'custom' ? <Text style={[langStyle, theme.text, local.presetName]}>{'◉ '}{strings.filter.custom}</Text> : null}
       <Text style={[langStyle, styles.settingsSectionHeader, theme.tertiaryText, local.groupsHeader]}>{strings.filter.groups_header}</Text>

@@ -1,5 +1,5 @@
 import React, {useCallback}  from 'react';
-import {View, FlatList, Image, Platform} from "react-native";
+import {View, FlatList, Platform} from "react-native";
 import Sefaria from "./sefaria";
 import {displayRef} from "./extras/schema7";
 import {
@@ -18,13 +18,15 @@ import {useGlobalState} from "./Hooks";
 import {TextCategoryPage} from "./TextCategoryPage";
 import strings from "./LocalizedStrings";
 import OpenTabsStrip from "./tabs/OpenTabsStrip";
+import SoferBooksLogo from "./SoferBooksLogo";
 
 /**
  * SoferBooks Library home page (replaces Sefaria's texts page / feed). Top to bottom:
  *   1. Open tabs strip  - placeholder slot, see OpenTabsSlot below
  *   2. Continue reading - the most recent place in each book, from on-device history
- *   3. Today's learning - the existing learning-schedule (calendar) items
- *   4. Library          - the top-level category shelves
+ *   3. Library          - the top-level category shelves ("Browse the library")
+ *   4. Today's learning - the existing learning-schedule (calendar) items, under the shelves
+ *                         (owner, 2026-11-11)
  * Choosing a category replaces the page with that category (TextCategoryPage), as before.
  */
 
@@ -134,9 +136,8 @@ const TopLevelCategory = ({item: tocItem, setCategories}) => {
 };
 
 const HomeLogo = () => {
-    const { themeStr } = useGlobalState();
-    const source = themeStr === 'white' ? require('./img/soferbooks-logo.png') : require('./img/soferbooks-logo-light.png');
-    return <Image source={source} resizeMode={'contain'} style={styles.homeLogo} accessibilityLabel={strings.a11y.soferbooks_logo} />;
+    const { themeStr, interfaceLanguage } = useGlobalState();
+    return <SoferBooksLogo dark={themeStr !== 'white'} hebrew={interfaceLanguage === 'hebrew'} />;
 };
 
 // "Browse the library": Misc's Header, with the home-page heading font
@@ -146,7 +147,7 @@ const LibraryHeader = () => {
     return <InterfaceText stringKey={"nav.browse_the_library"} extraStyles={[styles.navReHeaderText, theme.tertiaryText, headingFont]} />;
 };
 
-const HomePageHeader = ({ openRef, openHistory, openLearningSchedules }) => (
+const HomePageHeader = ({ openRef, openHistory }) => (
     <View>
         <FlexFrame dir={"row"} justifyContent={"space-between"} alignItems={"center"}>
             <HomeLogo />
@@ -154,18 +155,23 @@ const HomePageHeader = ({ openRef, openHistory, openLearningSchedules }) => (
         </FlexFrame>
         <OpenTabsSlot />
         <ContinueReading openRef={openRef} openHistory={openHistory} />
-        <TodaysLearning openRef={openRef} openLearningSchedules={openLearningSchedules} />
         <PageHeader><LibraryHeader /></PageHeader>
     </View>
 );
 
-const HomePageFooter = ({ openAbout }) => {
+const HomePageFooter = ({ openAbout, openRef, openLearningSchedules }) => {
     const { theme } = useGlobalState();
     return (
-        <View style={styles.homeFooter}>
-            <SefariaPressable onPress={openAbout}>
-                <InterfaceText stringKey={"about.about_soferbooks"} extraStyles={[styles.fontSize16, theme.secondaryText]}/>
-            </SefariaPressable>
+        <View>
+            {/* "Today's learning" sits under the library shelves (owner, 2026-11-11) */}
+            <View style={styles.homeFooterLearning}>
+                <TodaysLearning openRef={openRef} openLearningSchedules={openLearningSchedules} />
+            </View>
+            <View style={styles.homeFooter}>
+                <SefariaPressable onPress={openAbout}>
+                    <InterfaceText stringKey={"about.about_soferbooks"} extraStyles={[styles.fontSize16, theme.secondaryText]}/>
+                </SefariaPressable>
+            </View>
         </View>
     );
 };
@@ -195,10 +201,9 @@ export const TextsPage = ({categories, setCategories, openRef, openLearningSched
                     <HomePageHeader
                         openRef={openRef}
                         openHistory={openHistory}
-                        openLearningSchedules={openLearningSchedules}
                     />
                 }
-                ListFooterComponent={<HomePageFooter openAbout={openAbout} />}
+                ListFooterComponent={<HomePageFooter openAbout={openAbout} openRef={openRef} openLearningSchedules={openLearningSchedules} />}
                 keyExtractor={item => item.category}
                 renderItem={({ item }) => (
                     <TopLevelCategory

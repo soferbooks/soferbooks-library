@@ -42,11 +42,6 @@ export function makeScrollViewLayoutHandler(component) {
 }
 
 export default StyleSheet.create({
-  homeLogo: {
-    width: 180,
-    height: 50,
-    marginVertical: 10,
-  },
   homeSection: {
     marginBottom: 20,
   },
@@ -73,13 +68,14 @@ export default StyleSheet.create({
     fontSize: 18,
     marginHorizontal: 10,
   },
+  homeFooterLearning: {
+    marginTop: 25,
+  },
   homeFooter: {
     alignItems: 'center',
     marginVertical: 30,
   },
   aboutLogo: {
-    width: 260,
-    height: 73,
     alignSelf: 'center',
     marginVertical: 20,
   },

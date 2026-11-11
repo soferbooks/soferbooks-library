@@ -23,7 +23,7 @@ import he from '../i18n/he.json';
 import TestContextWrapper from '../TestContextWrapper';
 import { GlobalStateContext, DispatchContext, DEFAULT_STATE } from '../StateManager';
 import { iconData } from '../IconData';
-import SettingsPage from '../SettingsPage';
+import SettingsPage, { SefariaLinksSetting } from '../SettingsPage';
 import ConnectionsPanel from '../ConnectionsPanel';
 import TextList from '../TextList';
 import LexiconBox from '../LexiconBox';
@@ -52,10 +52,9 @@ import {
 } from '../DownloadControl';
 import { generalAppErrorAlert } from '../errors';
 import ReaderApp from '../ReaderApp';
-import ContentFilterChooser from '../shomer/ContentFilterChooser';
-import { ContentFilterSettings } from '../shomer/ContentFilterSettings';
+import { ContentFilterSettings, PresetButton, presetDetail } from '../shomer/ContentFilterSettings';
 import * as shomer from '../shomer';
-import { configForPreset, toggleGroup } from '../shomer/presets';
+import { CHOICES, configForPreset, toggleGroup } from '../shomer/presets';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ActionSheet from 'react-native-action-sheet';
 import ReaderTabBar, { ArchivedTabsModal } from '../tabs/ReaderTabBar';
@@ -457,9 +456,16 @@ describe('Settings screen', () => {
 });
 
 describe('Content filter', () => {
-  test('the first-launch chooser renders in both languages', () => {
-    expectScreenLocalizes(wrap(ContentFilterChooser, {}),
-      ['filter.chooser_title', 'filter.chooser_message', 'filter.off_detail',
+  // (no first-launch chooser any more: the default is RWMO, owner 2026-11-11; Settings shows
+  //  each choice with what it adds)
+  // (Just the choices: the groups' English example lists below them would read as leaks, e.g.
+  //  "Toldot Yeshu" is both an example and a short name.)
+  const PresetChoices = () => CHOICES.map(p => (
+    <PresetButton key={p.id} preset={p} selected={p.id === 'rwmo'} theme={{}} langStyle={{}} detail={presetDetail(p)} onPress={noop} />
+  ));
+  test('Settings lists every choice with what it adds, in both languages', () => {
+    expectScreenLocalizes(wrap(PresetChoices, {}),
+      ['filter.off_detail',
         // every choice, each with what it adds (the groups' short names)
         'filter.preset_off', 'filter.preset_centrist_mo', 'filter.preset_rwmo', 'filter.preset_yeshivish', 'filter.preset_strict_charedi',
         'filter.group_reform_short',
@@ -765,6 +771,17 @@ describe('Learning schedules page', () => {
         'learning_schedules.description',
       ]
     );
+  });
+});
+
+describe('"Open Sefaria links in this app" (Settings, Android)', () => {
+  const realOS = Platform.OS;
+  beforeEach(() => { Platform.OS = 'android'; });
+  afterEach(() => { Platform.OS = realOS; });
+
+  test('renders its button and explanation in both languages', () => {
+    expectScreenLocalizes(wrap(SefariaLinksSetting, { langStyle: {} }),
+      ['settings.open_sefaria_links', 'settings.open_sefaria_links_explanation']);
   });
 });
 

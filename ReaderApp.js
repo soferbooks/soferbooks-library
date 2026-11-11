@@ -58,7 +58,6 @@ import {
 } from './Misc.js';
 import {FooterTabBar} from "./FooterTabBar";
 import {getSafeViewStyleAndStatusBarBackground} from "./getSafeViewStyles";
-import ContentFilterChooser from "./shomer/ContentFilterChooser";
 import {correctionEmail, versionOnScreen} from "./reportError";
 import * as extras from "./extras";
 import {ExtraDownloadModal} from "./ExtraDownloadProgress";
@@ -222,7 +221,8 @@ class ReaderApp extends React.PureComponent {
 
   componentDidMount() {
     // add handleOpenURL listener before running initFiles so that _initDeepLinkURL will be set in time
-    Linking.getInitialURL().then(url => { this.handleOpenURL(url); }).catch(err => {
+    // the link that started the app (a sefaria.org link tapped elsewhere) counts as from outside
+    Linking.getInitialURL().then(url => { this.handleOpenURLNamedParam({ url, fromOutside: true }); }).catch(err => {
         console.warn('An error occurred', err);
     });
     this.linkingSubscription = Linking.addEventListener('url', this.handleOpenURLNamedParam);
@@ -263,7 +263,7 @@ class ReaderApp extends React.PureComponent {
 
   componentDidUpdate(prevProps, prevState) {
     if (this._libraryPromptPending && prevProps.contentFilter == null && this.props.contentFilter != null) {
-      this.promptLibraryDownload();  // the content filter was just chosen on first launch
+      this.promptLibraryDownload();  // the content-filter setting has just loaded
     }
     if (this.state.readerTabs !== prevState.readerTabs) {
       this._saveTabs(this.state.readerTabs);
@@ -298,8 +298,8 @@ class ReaderApp extends React.PureComponent {
   };
 
   promptLibraryDownload() {
-    // First launch: the content-filter chooser is up until a choice is made (contentFilter is
-    // undefined while loading, null while not chosen). Wait for it; componentDidUpdate asks again.
+    // Wait for the content-filter setting to load (undefined until then; with nothing saved it is
+    // the default preset, no chooser - owner, 2026-11-11); componentDidUpdate asks again.
     if (this.props.contentFilter == null) {
       this._libraryPromptPending = true;
       return Promise.resolve();
@@ -364,7 +364,7 @@ class ReaderApp extends React.PureComponent {
           // load search files before deep link incase deep link is to search
           Sefaria.postInitSearch()
           .then(() => {
-            this._deepLinkRouterRef.route(this._initDeepLinkURL);
+            this._deepLinkRouterRef.route(this._initDeepLinkURL, this._initDeepLinkFromOutside);
           })
           .then(() => { this.setState({_completedInit: true}); })
           .then(() => Sefaria.postInit(this.props.downloadNetworkSetting))
@@ -452,6 +452,7 @@ class ReaderApp extends React.PureComponent {
       } else {
         // save URL. it will be applied when componentDidMount finishes
         this._initDeepLinkURL = url;
+        this._initDeepLinkFromOutside = fromOutside;
       }
     }
   };
@@ -2738,6 +2739,7 @@ class ReaderApp extends React.PureComponent {
             openNav={this.openNav}
             openMenu={this.openMenu}
             openRef={this.openRef}
+            openRefInNewTab={this.openRefInNewTab}
             openUri={this.openUri}
             openSearch={this.openSearch}
             setSearchOptions={this.setSearchOptions}
@@ -2745,8 +2747,6 @@ class ReaderApp extends React.PureComponent {
             setTextLanguage={this.setTextLanguage}
             setNavigationCategories={this.setNavigationCategories}
           />
-          {/* content filter: first launch asks for a preset (null = loaded but not chosen yet) */}
-          {this.props.contentFilter === null ? <ContentFilterChooser /> : null}
           {this.state.extraDownload ? (
             <ExtraDownloadModal
               title={this.state.extraDownload.title}

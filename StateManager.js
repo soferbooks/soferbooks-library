@@ -7,6 +7,7 @@ import themeWhite from './ThemeWhite';
 import themeBlack from './ThemeBlack';
 import strings from './LocalizedStrings';
 import * as shomer from './shomer';
+import { defaultConfig, withDefault } from './shomer/presets';
 
 const STATE_ACTIONS = {
   setTheme: "SET_THEME",
@@ -137,7 +138,7 @@ const ASYNC_STORAGE_DEFAULTS = {
     action: ACTION_CREATORS.setGroggerActive,
   },
   [shomer.STORAGE_KEY]: {
-    default: null,  // null: the first-launch chooser asks for a preset
+    default: defaultConfig(),  // nothing saved: Right-Wing Modern Orthodox (no first-launch chooser)
     action: ACTION_CREATORS.setContentFilter,
   },
 };
@@ -155,7 +156,7 @@ const DEFAULT_STATE = {
   biLayout: ASYNC_STORAGE_DEFAULTS.biLayout.default,
   downloadNetworkSetting: ASYNC_STORAGE_DEFAULTS.downloadNetworkSetting.default,
   groggerActive: ASYNC_STORAGE_DEFAULTS.groggerActive.default,
-  contentFilter: undefined,  // undefined until loaded from storage; then null (not chosen) or a config
+  contentFilter: undefined,  // undefined until loaded from storage; then a config (the default preset if none saved)
 };
 
 const saveFieldToAsync = function (field, value) {
@@ -253,14 +254,16 @@ const reducer = function (state, action) {
         groggerActive: action.value,
       };
       break;
-    case STATE_ACTIONS.setContentFilter:
-      if (!action.fromAsync) { saveFieldToAsync(shomer.STORAGE_KEY, action.value); }
-      shomer.setConfig(action.value);  // re-filters the library; no-op if unchanged
+    case STATE_ACTIONS.setContentFilter: {
+      const value = withDefault(action.value);  // a saved `null` (older versions: "not chosen") is the default
+      if (!action.fromAsync) { saveFieldToAsync(shomer.STORAGE_KEY, value); }
+      shomer.setConfig(value);  // re-filters the library; no-op if unchanged
       newState = {
         ...state,
-        contentFilter: action.value,
+        contentFilter: value,
       };
       break;
+    }
     default:
       newState = state;
       break;

@@ -1,6 +1,9 @@
 import {
   PRESETS, CHOICES, GROUPS, groupsFor, normalize, presetOf, configForPreset, toggleGroup,
+  DEFAULT_PRESET, defaultConfig, withDefault,
 } from '../shomer/presets';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { reducer, DEFAULT_STATE, STATE_ACTIONS } from '../StateManager';
 import {
   match, hasWord, filterToc, versionMatch, bookMatch, sheetMatch, filterVersions, RULES,
 } from '../shomer/matcher';
@@ -47,9 +50,33 @@ describe('preset ladder', () => {
 });
 
 describe('settings', () => {
-  test('nothing is chosen silently: no saved setting stays null', () => {
-    expect(normalize(null)).toBeNull();
-    expect(normalize(undefined)).toBeNull();
+  test('nothing saved means Right-Wing Modern Orthodox (owner, 2026-11-11: no first-launch chooser)', () => {
+    expect(normalize(null)).toBeNull();          // the raw shape: nothing saved
+    expect(DEFAULT_PRESET).toBe('rwmo');
+    expect(defaultConfig()).toEqual(cfg('rwmo'));
+    expect(withDefault(null)).toEqual(cfg('rwmo'));
+    expect(withDefault(undefined)).toEqual(cfg('rwmo'));
+    expect(withDefault(cfg('yeshivish'))).toEqual(cfg('yeshivish'));
+    expect(withDefault(cfg('off'))).toEqual(cfg('off'));   // "Off" is a choice, kept
+  });
+
+  test('the app state starts at RWMO with nothing saved, and a saved choice is kept', async () => {
+    await AsyncStorage.clear();
+    // initAsyncStorage: nothing saved -> the field's default
+    let state = reducer(DEFAULT_STATE, { type: STATE_ACTIONS.setContentFilter, value: null, fromAsync: true });
+    expect(state.contentFilter).toEqual(cfg('rwmo'));
+    expect(shomer.getConfig()).toEqual(cfg('rwmo'));
+    expect(shomer.isActive()).toBe(true);
+    // changed in Settings, exactly as before
+    state = reducer(state, { type: STATE_ACTIONS.setContentFilter, value: cfg('strict_charedi') });
+    expect(state.contentFilter).toEqual(cfg('strict_charedi'));
+    await new Promise(r => setTimeout(r, 0));
+    expect(JSON.parse(await AsyncStorage.getItem(shomer.STORAGE_KEY))).toEqual(cfg('strict_charedi'));
+    expect(await shomer.loadConfig()).toEqual(cfg('strict_charedi'));
+    // nothing saved: loadConfig gives the default too
+    await AsyncStorage.clear();
+    expect(await shomer.loadConfig()).toEqual(cfg('rwmo'));
+    shomer.setConfig(null);
   });
 
   test('a preset round-trips through presetOf', () => {

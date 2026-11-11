@@ -106,8 +106,9 @@ android {
         // qaAppName is passed by Fastlane/CI so each QA build shows its own label on the home screen.
         // Falls back to "SoferBooks Library" for production builds.
         resValue "string", "app_name", project.findProperty("qaAppName") ?: "SoferBooks Library"
-        // Home-screen icon label: short, so launchers do not cut it to "SoferBoo..."
-        resValue "string", "launcher_label", project.findProperty("qaAppName") ?: "SoferBooks"
+        // Home-screen icon label: the full name (owner, 2026-11-11); Hebrew phones get
+        // "ספריית SoferBooks" from res/values-iw/strings.xml
+        resValue "string", "launcher_label", project.findProperty("qaAppName") ?: "SoferBooks Library"
 
         // react-native-config finds BuildConfig by reflection, guessing its package
         // from getPackageName() -- the applicationId, which QA builds override
