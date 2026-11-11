@@ -8,7 +8,8 @@ import { useGlobalState } from '../Hooks';
 import { loadText } from '../offlineOnline';
 import Sefaria from '../sefaria';
 import { CSS_CLASS_STYLES } from '../Misc';
-import { refsForSource } from './inlineCommentaryPrefs';
+import { itemsForSource } from './inlineCommentaryPrefs';
+import { NakdanText } from './NakdanNotices';
 
 // ref -> {he, en}; shared by every segment so scrolling back does not reload.
 const _cache = new Map();
@@ -47,13 +48,16 @@ export const loadCommentTexts = (refs, load = loadText) => Promise.all(refs.map(
 export const _clearInlineCommentaryCache = () => { _cache.clear(); _inFlight.clear(); };
 
 /**
- * The chosen commentary/targum for one segment, shown under it like a translation.
+ * The chosen commentary/targum for one segment, shown under it like a translation, or the texts of
+ * one kind of connection linked to it, each under its name ("@Tanakh": the pesukim quoted).
  * `links` is the segment's links (relatedBySectionRef[sectionRef][i].links); `sourceKey` the
- * chosen source (see reader/inlineCommentaryPrefs.js).
+ * chosen source (see reader/inlineCommentaryPrefs.js); `nakdan`: add Dicta's nikud to Hebrew
+ * without it (reader/nakdanPrefs.js).
  */
-const InlineCommentary = ({ links, sourceKey }) => {
+const InlineCommentary = ({ links, sourceKey, nakdan = false }) => {
   const { theme, textLanguage, fontSize } = useGlobalState();
-  const refs = useMemo(() => refsForSource(links, sourceKey), [links, sourceKey]);
+  const items = useMemo(() => itemsForSource(links, sourceKey), [links, sourceKey]);
+  const refs = useMemo(() => items.map(x => x.ref), [items]);
   const refsKey = refs.join('|');
   const [texts, setTexts] = useState(() => refs.map(r => _cache.get(r) || null));
 
@@ -76,7 +80,13 @@ const InlineCommentary = ({ links, sourceKey }) => {
     // fall back to whichever language exists, so a Hebrew-only commentary still shows in English mode
     const he = (showHe || !t.en) ? t.he : '';
     const en = (showEn || !t.he) ? t.en : '';
-    if (he) { parts.push(<Text key={`he${i}`} style={[localStyles.he, theme.tertiaryText, { fontSize: size * 1.1, lineHeight: size * 1.6 }]}>{he}</Text>); }
+    const name = items[i] && items[i].he;
+    if (name && (he || en)) {
+      // (a connection: its name first, in the language shown)
+      const heName = textLanguage !== 'english';
+      parts.push(<Text key={`name${i}`} style={[heName ? localStyles.nameHe : localStyles.nameEn, theme.tertiaryText, { fontSize: size * 0.85 }]}>{heName ? name : items[i].ref}</Text>);
+    }
+    if (he) { parts.push(<NakdanText key={`he${i}`} text={he} on={!!nakdan} style={[localStyles.he, theme.tertiaryText, { fontSize: size * 1.1, lineHeight: size * 1.6 }]} />); }
     if (en) { parts.push(<Text key={`en${i}`} style={[localStyles.en, theme.tertiaryText, { fontSize: size, lineHeight: size * 1.45 }]}>{en}</Text>); }
   });
   if (!parts.length) { return null; }
@@ -89,6 +99,7 @@ const InlineCommentary = ({ links, sourceKey }) => {
 InlineCommentary.propTypes = {
   links:     PropTypes.array,
   sourceKey: PropTypes.string,
+  nakdan:    PropTypes.bool,
 };
 
 const localStyles = StyleSheet.create({
@@ -96,6 +107,8 @@ const localStyles = StyleSheet.create({
   he: { writingDirection: 'rtl', textAlign: 'right', fontFamily: CSS_CLASS_STYLES.hebrew.fontFamily },
   // the reader's own English text font (serif, as in the main text), not the system sans
   en: { textAlign: 'left', marginTop: 2, fontFamily: CSS_CLASS_STYLES.english.fontFamily },
+  nameHe: { writingDirection: 'rtl', textAlign: 'right', fontWeight: 'bold', marginTop: 4 },
+  nameEn: { textAlign: 'left', fontWeight: 'bold', marginTop: 4 },
 });
 
 export default React.memo(InlineCommentary);

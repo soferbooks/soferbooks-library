@@ -79,6 +79,7 @@ class TextColumn extends React.PureComponent {
     textUnavailableAlert: PropTypes.func.isRequired,
     vowelToggleAvailable: PropTypes.oneOf([VOCALIZATION.TAAMIM_AND_NIKKUD, VOCALIZATION.NIKKUD, VOCALIZATION.NONE]),
     inlineCommentary:   PropTypes.string,  // "show under each passage": source key (reader/inlineCommentaryPrefs.js) or null
+    nakdan:             PropTypes.bool,    // nikud by computer (Dicta) for texts without nikud (reader/nakdanPrefs.js)
   };
 
   constructor(props) {
@@ -416,6 +417,7 @@ class TextColumn extends React.PureComponent {
   componentDidUpdate(prevProps, prevState) {
     if (this.props.textLanguage !== prevProps.textLanguage ||
         this.props.inlineCommentary !== prevProps.inlineCommentary ||
+        this.props.nakdan !== prevProps.nakdan ||
         this.props.fontSize !== prevProps.fontSize ||
         this.props.biLayout !== prevProps.biLayout) {
       this._anchorVisiblePassage();
@@ -659,9 +661,10 @@ class TextColumn extends React.PureComponent {
           vowelToggleAvailable={this.props.vowelToggleAvailable}
           isSheet={this.props.isSheet}
           setHighlightedWord={this.props.setHighlightedWord}
+          nakdan={!!this.props.nakdan}
         />
         {this.props.inlineCommentary && item.type === ROW_TYPES.SEGMENT && !this.props.isSheet ?
-          <InlineCommentary links={item.data.related?.links} sourceKey={this.props.inlineCommentary} /> : null}
+          <InlineCommentary links={item.data.related?.links} sourceKey={this.props.inlineCommentary} nakdan={!!this.props.nakdan} /> : null}
       </View>
     );
   };
@@ -929,7 +932,7 @@ class TextColumn extends React.PureComponent {
               onScroll={this.handleScroll}
               onScrollBeginDrag={this._onScrollBeginDrag}
               onContentSizeChange={this._scheduleReanchor}
-              extraData={`${this.props.fontSize}|${this.props.inlineCommentary}`}
+              extraData={`${this.props.fontSize}|${this.props.inlineCommentary}|${!!this.props.nakdan}`}
               scrollEventThrottle={100}
               onViewableItemsChanged={this.onViewableItemsChanged}
               onScrollToIndexFailed={this.onScrollToIndexFailed}

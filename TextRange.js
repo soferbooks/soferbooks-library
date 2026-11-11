@@ -11,6 +11,7 @@ import { GlobalStateContext, getTheme } from './StateManager';
 import TextSegment from './TextSegment';
 import styles from './Styles';
 import iPad from "./isIPad";
+import { useNakdan } from './reader/nakdan';
 
 
 const TextRange = React.memo(({
@@ -29,6 +30,7 @@ const TextRange = React.memo(({
   vowelToggleAvailable,
   isSheet,
   setHighlightedWord,
+  nakdan,
 }) => {
   const { themeStr, textLanguage, biLayout, fontSize, vocalization } = useContext(GlobalStateContext);
 
@@ -38,7 +40,9 @@ const TextRange = React.memo(({
   };
 
   let enText = rowData.content.text || "";
-  let heText = Sefaria.util.applyVocalizationSettings(rowData.content.he, vocalization, vowelToggleAvailable) || "";
+  // nikud by computer (Dicta) for a text without nikud, when switched on (reader/nakdanPrefs.js)
+  const dictaHe = useNakdan(rowData.content.he, !!nakdan && !isSheet);
+  let heText = Sefaria.util.applyVocalizationSettings(dictaHe || rowData.content.he, vocalization, vowelToggleAvailable) || "";
   enText = Sefaria.util.getDisplayableHTML(enText, 'english', isSheet, false);
   heText = Sefaria.util.getDisplayableHTML(heText, 'hebrew', isSheet, true);
   let numLinks = rowData.related?.links?.length || 0;
@@ -161,6 +165,7 @@ TextRange.propTypes = {
   setRowRefInitY:     PropTypes.func.isRequired,
   shareCurrentSegment:PropTypes.func.isRequired,
   getDisplayedText:   PropTypes.func.isRequired,
+  nakdan:             PropTypes.bool,   // add Dicta's nikud to a text without nikud
 };
 
 export default TextRange;

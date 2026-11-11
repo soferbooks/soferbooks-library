@@ -116,14 +116,58 @@ export const availableInlineSources = (relatedBySectionRef, heTitleFor = () => n
   ));
 };
 
-/** The source refs (unique, in order) that a segment's links give for source `key`. */
-export const refsForSource = (links, key) => {
+/* ---------- connections under each passage ---------- */
+
+/**
+ * As in the owner's Sefaria Customizer extension (reading.js): in place of a commentary, the texts
+ * of one kind of connection linked to each line, under the line they belong to (the pesukim quoted
+ * on a daf, its Mishnah, Talmud, Midrash or halacha). Its key is "@" + Sefaria's link category
+ * ("@Tanakh"), the same key the extension stores; each text shows under its name.
+ */
+export const CONNECTION_PREFIX = '@';
+export const MAX_CONNECTIONS_PER_PASSAGE = 8;     // (the extension's MAX_PER_LINE)
+export const INLINE_CONNECTIONS = [
+  { category: 'Tanakh',   en: 'Tanakh: the pesukim quoted', he: 'תנ״ך: הפסוקים המובאים' },
+  { category: 'Mishnah',  en: 'Mishnah',  he: 'משנה' },
+  { category: 'Talmud',   en: 'Talmud',   he: 'תלמוד' },
+  { category: 'Midrash',  en: 'Midrash',  he: 'מדרש' },
+  { category: 'Halakhah', en: 'Halacha',  he: 'הלכה' },
+];
+
+export const isConnectionKey = key => typeof key === 'string' && key.startsWith(CONNECTION_PREFIX);
+
+/** The kinds of connection the loaded sections have links of: [{key: "@Tanakh", en, he, category}] */
+export const availableInlineConnections = relatedBySectionRef => {
+  const present = new Set();
+  for (const related of Object.values(relatedBySectionRef || {})) {
+    if (!Array.isArray(related)) { continue; }
+    for (const seg of related) {
+      for (const link of (seg && seg.links) || []) {
+        if (link && link.category && link.sourceRef) { present.add(link.category); }
+      }
+    }
+  }
+  return INLINE_CONNECTIONS.filter(c => present.has(c.category))
+    .map(c => ({ key: CONNECTION_PREFIX + c.category, en: c.en, he: c.he, category: c.category }));
+};
+
+/**
+ * What shows under one segment for source `key`: [{ref, he}] (unique refs, in order). `he` is the
+ * text's Hebrew name, shown above it for a connection (null for a commentary, which shows no name).
+ */
+export const itemsForSource = (links, key) => {
   if (!key) { return []; }
+  const connection = isConnectionKey(key) ? key.slice(CONNECTION_PREFIX.length) : null;
   const out = [];
   for (const link of links || []) {
-    if (linkSourceKey(link) === key && link.sourceRef && out.indexOf(link.sourceRef) === -1) {
-      out.push(link.sourceRef);
+    if (!link || !link.sourceRef || out.some(x => x.ref === link.sourceRef)) { continue; }
+    if (connection ? link.category === connection : linkSourceKey(link) === key) {
+      out.push({ ref: link.sourceRef, he: connection ? (link.sourceHeRef || link.sourceRef) : null });
+      if (connection && out.length >= MAX_CONNECTIONS_PER_PASSAGE) { break; }
     }
   }
   return out;
 };
+
+/** The source refs (unique, in order) that a segment's links give for source `key`. */
+export const refsForSource = (links, key) => itemsForSource(links, key).map(x => x.ref);

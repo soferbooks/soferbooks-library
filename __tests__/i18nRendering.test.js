@@ -451,6 +451,8 @@ describe('Settings screen', () => {
         'filter.section_header', 'filter.description', 'filter.groups_header',
         'library_sources.header', 'library_sources.description', 'library_sources.coming_soon',
         'library_sources.always_on', 'extras.source_detail',
+        'settings.nakdan_header', 'settings.nakdan_always', 'settings.nakdan_always_detail',
+        'settings.nakdan_ask', 'settings.nakdan_credit',
       ]
     );
   });
@@ -1663,6 +1665,34 @@ describe('Reader tabs', () => {
       inlineCommentary: null, setInlineCommentary: noop,
       splitViewAvailable: true, splitView: false, setSplitView: noop,
     }), ['reader.under_each_passage', 'reader.inline_none', 'tabs.split_view']);
+  });
+
+  test('the display menu offers connections under each passage and nikud by computer in both languages', () => {
+    const menuProps = {
+      theme: {}, themeStr: 'white', interfaceLanguage: 'english', textLanguage: 'hebrew',
+      textFlow: 'segmented', biLayout: 'stacked', canBeContinuous: false, canHaveAliyot: false, showAliyot: false,
+      vowelToggleAvailable: VOCALIZATION.NONE, vocalization: VOCALIZATION.TAAMIM_AND_NIKKUD,
+      setTextFlow: noop, setTextLanguage: noop, setAliyot: noop, setBiLayout: noop,
+      incrementFont: noop, setTheme: noop, setVocalization: noop,
+      inlineSources: [{ key: 'Rashi', en: 'Rashi', he: 'רש"י' }],
+      inlineConnections: [{ key: '@Tanakh', en: 'Tanakh', he: 'תנ״ך' }],
+      inlineCommentary: null, setInlineCommentary: noop,
+      nakdanAvailable: true, nakdanForCommentary: false, nakdan: false, setNakdan: noop,
+    };
+    expectScreenLocalizes(wrap(ReaderDisplayOptionsMenu, menuProps),
+      ['reader.inline_commentaries', 'reader.inline_connections', 'reader.nakdan_vowels']);
+    expectScreenLocalizes(wrap(ReaderDisplayOptionsMenu, { ...menuProps, nakdanForCommentary: true }),
+      ['reader.nakdan_commentary_vowels']);
+  });
+
+  test("the card asking about nikud, and Dicta's credit, in both languages", () => {
+    const { NakdanAskCard, NakdanCredit } = require('../reader/NakdanNotices');
+    expectScreenLocalizes(wrap(NakdanAskCard, { book: 'Rashi on Berakhot', theme: {}, interfaceLanguage: 'english' }),
+      ['reader.nakdan_ask_title', 'reader.nakdan_ask_text', 'reader.nakdan_add', 'reader.nakdan_always',
+        'reader.nakdan_not_now', 'reader.nakdan_never_ask']);
+    const queue = busy => ({ isBusy: () => busy, subscribeBusy: () => () => {} });
+    expectScreenLocalizes(wrap(NakdanCredit, { theme: {}, queue: queue(false) }), ['reader.nakdan_credit']);
+    expectScreenLocalizes(wrap(NakdanCredit, { theme: {}, queue: queue(true) }), ['reader.nakdan_working']);
   });
 
   describe('menus and messages', () => {

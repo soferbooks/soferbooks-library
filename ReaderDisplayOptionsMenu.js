@@ -36,8 +36,15 @@ class ReaderDisplayOptionsMenu extends React.Component {
     setTheme:                        PropTypes.func,
     // "Under each passage": commentaries/targumim available for this sefer ([{key, en, he}])
     inlineSources:                   PropTypes.array,
+    // ...or one kind of connection, each text under its line ([{key: "@Tanakh", en, he}])
+    inlineConnections:               PropTypes.array,
     inlineCommentary:                PropTypes.string,
     setInlineCommentary:             PropTypes.func,
+    // nikud by computer (Dicta) for this sefer's texts without nikud (reader/nakdanPrefs.js)
+    nakdanAvailable:                 PropTypes.bool,
+    nakdanForCommentary:             PropTypes.bool,   // the text has nikud: the switch is for the commentary
+    nakdan:                          PropTypes.bool,
+    setNakdan:                       PropTypes.func,
     splitViewAvailable:              PropTypes.bool,
     splitView:                       PropTypes.bool,
     setSplitView:                    PropTypes.func,
@@ -64,17 +71,8 @@ class ReaderDisplayOptionsMenu extends React.Component {
     }).start(cb);
   };
 
-  renderInlineSources() {
-    // "Under each passage": show a commentary/targum under every segment like a translation
-    const sources = this.props.inlineSources || [];
-    if (!sources.length || !this.props.setInlineCommentary) { return null; }
-    const isHeb = this.props.interfaceLanguage === "hebrew";
-    const langStyle = isHeb ? styles.heInt : styles.enInt;
-    const choices = [{key: null, en: strings.reader.inline_none, he: strings.reader.inline_none}, ...sources];
+  renderInlineChoices(choices, isHeb, langStyle) {
     return (
-      <View style={{marginTop: 4, marginBottom: 8}}>
-        <Text style={[langStyle, {textAlign: "center"}, this.props.theme.secondaryText]}>{strings.reader.under_each_passage}</Text>
-        {/* wraps onto more lines (a horizontal strip cut long names such as "Targum Jonathan on Genesis" off at the edge) */}
         <View style={{paddingHorizontal: 10, paddingTop: 6, flexDirection: isHeb ? 'row-reverse' : 'row', flexWrap: 'wrap', justifyContent: 'center'}}>
           {choices.map(src => {
             const selected = (this.props.inlineCommentary || null) === src.key;
@@ -91,6 +89,29 @@ class ReaderDisplayOptionsMenu extends React.Component {
             );
           })}
         </View>
+    );
+  }
+
+  renderInlineSources() {
+    // "Under each passage": show a commentary/targum under every segment like a translation, or
+    // (as the owner's extension offers) one kind of connection, each text under its line
+    const sources = this.props.inlineSources || [];
+    const connections = this.props.inlineConnections || [];
+    if ((!sources.length && !connections.length) || !this.props.setInlineCommentary) { return null; }
+    const isHeb = this.props.interfaceLanguage === "hebrew";
+    const langStyle = isHeb ? styles.heInt : styles.enInt;
+    const none = {key: null, en: strings.reader.inline_none, he: strings.reader.inline_none};
+    const groupLabel = label => (
+      <Text style={[langStyle, {textAlign: "center", fontSize: 12, marginTop: 6}, this.props.theme.tertiaryText]}>{label}</Text>
+    );
+    return (
+      <View style={{marginTop: 4, marginBottom: 8}}>
+        <Text style={[langStyle, {textAlign: "center"}, this.props.theme.secondaryText]}>{strings.reader.under_each_passage}</Text>
+        {/* wraps onto more lines (a horizontal strip cut long names such as "Targum Jonathan on Genesis" off at the edge) */}
+        {connections.length && sources.length ? groupLabel(strings.reader.inline_commentaries) : null}
+        {this.renderInlineChoices([none, ...sources], isHeb, langStyle)}
+        {connections.length ? groupLabel(strings.reader.inline_connections) : null}
+        {connections.length ? this.renderInlineChoices(connections, isHeb, langStyle) : null}
       </View>
     );
   }
@@ -161,6 +182,17 @@ class ReaderDisplayOptionsMenu extends React.Component {
         text: ["אָ֑", "אָ", "א"].slice(this.props.vowelToggleAvailable),
         textStyle: [styles.he, {fontSize: 26}],
         currVal: Math.max(this.props.vocalization, this.props.vowelToggleAvailable),
+        parametrized: true,
+      },
+      {
+        // nikud by computer (Dicta), this sefer's own switch, as in the owner's extension: "Vowels"
+        // where the text has none, "Commentary vowels" beside its own
+        condition: !!this.props.nakdanAvailable && !!this.props.setNakdan,
+        label: this.props.nakdanForCommentary ? strings.reader.nakdan_commentary_vowels : strings.reader.nakdan_vowels,
+        onPress: this.props.setNakdan,
+        buttons: [true, false],
+        text: [strings.common.on, strings.common.off],
+        currVal: !!this.props.nakdan,
         parametrized: true,
       },
       {
