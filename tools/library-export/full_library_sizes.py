@@ -8,7 +8,9 @@ files Sofer downloaded from the same servers (``C:\\Users\\morde\\Sofer\\data``,
               by its Hebrew name (the catalogue's heTitle);
 * dicta       each book's zip of pages and zip of pages with nikud (``dicta/files``,
               ``dicta/nikud``), by its fileName (the catalogue's id);
-* wikisource  each book's pages as the site's API sent them (``wikisource/books``), by its page.
+* wikisource  each book's pages as the site's API sent them (``wikisource/books``), by its page -
+              Once its books are hosted, each book's zip in the release instead, written by
+              ``build_wikisource_release.js`` with ``wikisourceRelease`` (then kept here as they are).
 
 Sizes are kB.  ``ratios`` (the space a book takes on the phone after it is converted - its zip
 and its search lines - for each byte downloaded) come from ``full_library_sizes.js``, which
@@ -111,12 +113,16 @@ def main() -> int:
                 encoding="utf-8")
 
     old = json.loads(OUT.read_text(encoding="utf-8")) if OUT.is_file() else {}
+    # (Wikisource's books downloaded from its release: their sizes are the release's)
+    hosted = {"wikisourceRelease": old["wikisourceRelease"]} if old.get("wikisourceRelease") else {}
+    if hosted:
+        wikisource = old.get("wikisource", wikisource)
     OUT.write_text(json.dumps({
         "made": date.today().isoformat(),
         "unit": "kB",
         "ratios": old.get("ratios", {}),
         "totals": old.get("totals", {}),
-        "otzaria": otzaria, "dicta": dicta, "wikisource": wikisource,
+        "otzaria": otzaria, "dicta": dicta, "wikisource": wikisource, **hosted,
     }, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     print(f"{OUT}: otzaria {len(otzaria)}, dicta {len(dicta)}, wikisource {len(wikisource)} books; "
           f"{OUT.stat().st_size / 1024:.0f} kB")

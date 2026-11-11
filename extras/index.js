@@ -14,8 +14,9 @@
  *   toTree(text, entry) -> [Node, author]        extras/tree.js
  *   isRestricted(text, entry) -> bool            the book's own notice forbids it
  *   versionOf(entry, text) -> {versionTitle, versionSource, license, librarySource, ...}
- *   (optional) convert(entry, text) -> {files, firstSection, companions}  in place of toTree and
- *     the conversion, for books that come ready made in the library's layout (extras/sofer.js)
+ *   (optional) convert(entry, text) -> {files, firstSection, companions, tree}  in place of toTree
+ *     and the conversion, for books that come ready made in the library's layout (extras/sofer.js;
+ *     null: convert this one as usual - Wikisource's pages from the site, not its release)
  *   (optional) versionsOf(entry, text, tree) -> [{version, tree}]  more than one edition of the
  *     book, laid out alike, the one shown first (Dicta's with nikud, then the plain text)
  *   (optional) linksOf(entry, text) -> {otzariaPath, dictaPages}  where the book's connections
@@ -258,7 +259,10 @@ function forgetCaches() {
 /** The book's files, converted from the source's text (pure apart from the source). */
 export function convertBook(entry, text) {
   const source = EXTRA_SOURCES[entry.source];
-  if (source.convert) { return source.convert(entry, text); }   // (books that come ready made: extras/sofer.js)
+  // (books that come ready made: extras/sofer.js; Wikisource's from its release - null for its
+  //  pages from the site, converted below)
+  const ready = source.convert ? source.convert(entry, text) : null;
+  if (ready) { return ready; }
   const [tree, author] = source.toTree(text, entry);
   const {files, firstSection, sections} = bookFiles(tree, {
     title: entry.title,

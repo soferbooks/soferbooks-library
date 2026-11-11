@@ -150,11 +150,19 @@ function sizeOfEntry(sizes, b) {
   return all.length ? Math.round(all.reduce((x, y) => x + y, 0) / all.length) : 0;
 }
 
-(async () => {
-  const samples = process.argv[2];
-  const data = JSON.parse(fs.readFileSync(OUT, 'utf8'));
-  data.ratios = await ratios(samples);
-  data.totals = await totals(data, data.ratios);
-  data.totalsMade = new Date().toISOString().slice(0, 10);
-  fs.writeFileSync(OUT, JSON.stringify(data));
-})().catch(e => { console.error(e); process.exit(1); });
+module.exports = {phoneBytes, totals, OUT};
+
+if (require.main === module) {
+  (async () => {
+    const samples = process.argv[2];
+    const data = JSON.parse(fs.readFileSync(OUT, 'utf8'));
+    const before = data.ratios || {};
+    data.ratios = await ratios(samples);
+    // (Wikisource's books downloaded from its release: its ratio is the release's,
+    //  build_wikisource_release.js)
+    if (data.wikisourceRelease && before.wikisource) { data.ratios.wikisource = before.wikisource; }
+    data.totals = await totals(data, data.ratios);
+    data.totalsMade = new Date().toISOString().slice(0, 10);
+    fs.writeFileSync(OUT, JSON.stringify(data));
+  })().catch(e => { console.error(e); process.exit(1); });
+}

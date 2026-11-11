@@ -27,6 +27,19 @@
  * without any are left out (the others keep the book's keys, so the refs still meet), and the
  * reader skips the empty entries (TextColumn).
  *
+ * Hosted copies (owner, 2026-11-11): the same books, converted by this same code in Node
+ * (tools/library-export/build_wikisource_release.js), are a GitHub Release of
+ * github.com/soferbooks/soferbooks-library-data (HOSTED_TAG), so a book is one fast download
+ * instead of a request a page:
+ *   index      <release>/wikisource-index.json   each book (by its page): file, size, md5, sha256,
+ *              hash (its newest revision), its pages, the date fetched, first section, and the
+ *              editors' notes book that comes with it (companions)
+ *   one book   <release>/<file>   a zip of the files the phone would have made (the book's and its
+ *              notes book's schema-7 files), byte for byte
+ * A book the release does not have (or that does not arrive) is downloaded from the site as before.
+ * The update check of a book the release has is the release's hash (a newer copy taken from the
+ * site before is kept); of the others, the site's revisions.
+ *
  * Licence: CC BY-SA (the site's texts); the edition names the page, the site, the date it was
  * fetched and the page history (the contributors), as the licence asks.
  */
@@ -60,6 +73,13 @@ export function withCurrentShelf(entry) {
 export const NOTES_PREFIX = 'הערות המהדיר על ';
 export const MAX_DEPTH = 3;                 // wikisource.fetch_book
 export const BATCH = 50;                    // titles in one query (the API's limit)
+
+// The hosted copies: THE ONE LINE a new release of them changes (made with --latest=false)
+export const HOSTED_TAG = 'wikisource-2026-11-11';
+export const HOSTED_REPO = 'soferbooks/soferbooks-library-data';
+export const HOSTED_URL = `https://github.com/${HOSTED_REPO}/releases/download/${HOSTED_TAG}`;
+export const HOSTED_INDEX = 'wikisource-index.json';
+export const HOSTED_FORMAT = 1;
 
 // ---------------------------------------------------------------- the catalogue
 
@@ -333,22 +353,143 @@ export function versionOf(entry, book) {
 
 /** The installed book's record: its pages and the newest revision among them (the update check) */
 export function installRecord(entry, book) {
+  if (book && book.hosted) { return {hash: book.hash, pages: book.pages, hosted: HOSTED_TAG}; }
   const revids = book.pages.map(p => p.revid || 0);
   return {hash: String(Math.max(0, ...revids)), pages: book.pages.map(p => p.page)};
 }
 
 /**
- * The catalogue: the bundled list; for the books on the phone, the newest revision of their pages
- * now (their hash), so "Check for updates" finds the books edited since they were downloaded.
- * installed: [{id, pages}] of this source's downloaded books.
+ * The book's files made from the site's pages, as extras/index.js convertBook makes them for this
+ * source: {files, firstSection, companions, tree}. (The release is built with this, so its files are
+ * the phone's own; __tests__/wikisource.test.js checks the two agree.)
  */
-export async function loadCatalog({installed = [], client = apiClient(), data = CATALOG} = {}) {
+export function convertPages(entry, book) {
+  const tree = wikiTree(book);
+  const author = wikiAuthor(book);
+  const {files, firstSection, sections} = bookFiles(tree, {
+    title: entry.title,
+    heTitle: entry.heTitle,
+    categories: entry.categories,
+    heCategories: entry.heCategories,
+    authors: author ? [{he: author, en: ''}] : null,
+    version: versionOf(entry, book),
+  });
+  const companions = notesBook(tree, entry, {files, sections}, versionOf(entry, book));
+  return {files, firstSection, companions, tree};
+}
+
+// ---------------------------------------------------------------- the hosted copies
+
+const isFileOf = (name, title) => name === `${title}_index.json` || name.startsWith(`${title}, `)
+  || name.startsWith(`${title}.`);
+
+/**
+ * The book's sections as a tree, from its files (its index's schema and its sections' texts): what
+ * extras/links.js reads of a book (schema7.sectionsOf gives the same sections, keys and paragraphs
+ * as on the tree the book was made from). An unnamed part (S0, S0_2) has no title.
+ */
+export function treeOf(files, title, heTitle) {
+  const index = files[`${title}_index.json`];
+  const hash = md5(((index && index.versions && index.versions[0]) || {}).versionTitle || 'Wikitext').substring(0, 8);
+  const build = (nodes, keys) => (nodes || []).map(n => {
+    const node = new Node(/^S0(_\d+)?$/.test(n.key) ? '' : n.heTitle);
+    const path = keys.concat(n.key);
+    if (n.nodes) { node.children = build(n.nodes, path); } else {
+      node.paras = files[`${title}, ${path.join(', ')}.${hash}.he.json`] || [];
+    }
+    return node;
+  });
+  const root = new Node(heTitle);
+  root.children = build(index && index.schema && index.schema.nodes, []);
+  return root;
+}
+
+let hostedIndexPromise = null;
+/** The release's index ({page: book}), or null (not there, not readable, or made by another converter) */
+export function hostedIndex(fetchFn = (...a) => fetch(...a)) {
+  if (!hostedIndexPromise) {
+    hostedIndexPromise = (async () => {
+      const response = await fetchFn(`${HOSTED_URL}/${HOSTED_INDEX}`);
+      if (!response || !response.ok) { throw new Error(`Wikisource release: HTTP ${response && response.status}`); }
+      const data = await response.json();
+      if (!data || data.format !== HOSTED_FORMAT || data.converterVersion !== CONVERTER_VERSION || !data.books) {
+        return null;
+      }
+      return data.books;
+    })().catch(e => {
+      hostedIndexPromise = null;       // (tried again next time: offline now, perhaps)
+      console.log('wikisource: the release\'s index', e && e.message);
+      return null;
+    });
+  }
+  return hostedIndexPromise;
+}
+export const _forgetHostedIndex = () => { hostedIndexPromise = null; };
+
+/** The book from the release: {hosted, title, fetched, hash, pages, files, firstSection, companions} */
+export async function fetchHosted(entry, hosted, job = null) {
+  const {bookZipFiles} = require('./sofer');     // (lazily: the build tools load this module in Node)
+  if (job) { job.progress(0, 100, 'percent'); }
+  const share = f => { if (job) { job.progress(Math.round(100 * f), 100, 'percent'); } };
+  const files = await bookZipFiles({title: entry.title, file: hosted.file, md5: hosted.md5 || null},
+    {job, share, url: `${HOSTED_URL}/${encodeURIComponent(hosted.file)}`});
+  return {hosted: true, title: hosted.title || entry.id, fetched: hosted.fetched, hash: String(hosted.hash),
+    pages: hosted.pages || [], files, firstSection: hosted.firstSection, companions: hosted.companions || []};
+}
+
+/** The book: from the release when it has it, else (or when it does not arrive) from the site */
+export async function fetchBook(entry, job = null, {fetchFn} = {}) {
+  const books = await hostedIndex(fetchFn);
+  const hosted = books && books[entry.id];
+  if (hosted && hosted.file) {
+    try {
+      return await fetchHosted(entry, hosted, job);
+    } catch (e) {
+      if (job && job.cancelled) { throw e; }
+      console.log('wikisource: the release\'s copy of', entry.id, e && e.message);
+    }
+  }
+  return fetchPages(entry.id, {job, expected: entry.pageCount || 0});
+}
+
+/** A book from the release as extras/index.js puts it in the library; null for pages from the site */
+export function convert(entry, book) {
+  if (!book || !book.hosted) { return null; }
+  const titles = book.companions.map(c => c.entry.title);
+  const files = {};
+  const theirs = titles.map(() => ({}));
+  for (const [name, data] of Object.entries(book.files)) {
+    const k = titles.findIndex(t => isFileOf(name, t));
+    (k >= 0 ? theirs[k] : files)[name] = data;
+  }
+  return {
+    files,
+    firstSection: book.firstSection || entry.title,
+    companions: book.companions.map((c, k) => ({entry: c.entry, files: theirs[k], firstSection: c.firstSection})),
+    tree: treeOf(files, entry.title, entry.heTitle),
+  };
+}
+
+/**
+ * The catalogue: the bundled list; for the books on the phone, their hash now, so "Check for
+ * updates" finds the books changed since they were downloaded: the release's (unless the copy on
+ * the phone is newer: taken from the site later), else the newest revision of their pages on the site.
+ * installed: [{id, pages, hash}] of this source's downloaded books.
+ */
+export async function loadCatalog({installed = [], client = apiClient(), data = CATALOG, fetchFn} = {}) {
   const entries = parseCatalog(data);
   const byId = {};
   entries.forEach(e => { byId[e.id] = e; });
-  for (const rec of installed) {
+  const recs = installed.filter(rec => byId[rec.id]);
+  const books = recs.length ? await hostedIndex(fetchFn) : null;    // (nothing downloaded: no request)
+  for (const rec of recs) {
     const e = byId[rec.id];
-    if (!e || !rec.pages || !rec.pages.length) { continue; }
+    const hosted = books && books[rec.id];
+    if (hosted && hosted.hash) {
+      e.hash = Number(rec.hash) > Number(hosted.hash) ? String(rec.hash) : String(hosted.hash);
+      continue;
+    }
+    if (!rec.pages || !rec.pages.length) { continue; }
     const now = await revisions(client, rec.pages);
     const revids = Object.values(now);
     if (revids.length) { e.hash = String(Math.max(...revids)); }
@@ -362,8 +503,10 @@ export default {
   catalogUrl: null,
   parseCatalog: () => parseCatalog(),
   loadCatalog: installed => loadCatalog({installed}),
-  fetchBook: (entry, job = null) => fetchPages(entry.id, {job, expected: entry.pageCount || 0}),
+  fetchBook: (entry, job = null) => fetchBook(entry, job),
   bookUrl: entry => pageUrl(entry.id),
+  // (a book from the release comes ready made; pages from the site are converted: null)
+  convert,
   toTree: book => [wikiTree(book), wikiAuthor(book)],
   isRestricted: () => false,           // (the site's texts are all CC BY-SA)
   versionOf,

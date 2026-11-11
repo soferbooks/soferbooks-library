@@ -89,15 +89,17 @@ async function download(url, path, job, share) {
   return res;
 }
 
-/** One book's zip: downloaded, checked (md5), unzipped and read -> {file name: its JSON} */
-export async function bookZipFiles(entry, {job = null, share = null} = {}) {
+/**
+ * One book's zip: downloaded, checked (md5), unzipped and read -> {file name: its JSON}.
+ * entry: {title, file, md5}; url: where it is (this release's, or another's: extras/wikisource.js)
+ */
+export async function bookZipFiles(entry, {job = null, share = null, url = bookUrl(entry)} = {}) {
   const dir = `${FileSystem.cacheDirectory}extras/`;
   const base = `${dir}sofer-${md5(entry.file)}`;
   const zipPath = `${base}.zip`;
   const filesDir = `${base}/`;
   await FileSystem.makeDirectoryAsync(dir, {intermediates: true}).catch(() => {});
   try {
-    const url = bookUrl(entry);
     const res = await download(url, zipPath, job, share);
     if (res.status < 200 || res.status >= 300) { throw new Error(`sofer library: HTTP ${res.status} for ${url}`); }
     if (entry.md5) {
