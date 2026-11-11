@@ -6,7 +6,6 @@ import {
   openScheduleRef, effectiveInlineCommentary, clearSessionInlineCommentary,
 } from '../reader/inlineCommentaryPrefs';
 import { rowSubtitle } from '../learningSchedules/LearningSchedulesBox';
-import CHOK from '../learningSchedules/data/chokLeYisrael.json';
 import {
   makeScheduleSequence, stepSequence, sequenceAt, hasSequence, currentReading, scheduleKey,
 } from '../learningSchedules/scheduleSequence';
@@ -96,34 +95,17 @@ describe('Mishnah Berurah Yomi (Dirshu Daf HaYomi B\'Halacha, from @hebcal/learn
   });
 });
 
-describe('Chok LeYisrael (Sefaria\'s collection, bundled)', () => {
-  test('the bundled index has every portion, Sunday to Friday and Thursday night', () => {
-    expect(Object.keys(CHOK.portions)).toHaveLength(54);
-    for (const p of Object.values(CHOK.portions)) {
-      expect(Object.keys(p).sort()).toEqual(['fri', 'he', 'mon', 'sun', 'thu', 'thu_night', 'tue', 'wed']);
-    }
-  });
-
-  test('a weekday gives that day\'s references, as on the sheet', () => {
-    const item = chokLeYisrael(day(2026, 11, 10), sefariaItems);   // Tuesday, Toldot
+describe('Chok LeYisrael (the sefer itself, by the Hebrew calendar)', () => {
+  test('a weekday gives the week\'s parsha and the day', () => {
+    const item = chokLeYisrael(day(2026, 11, 10));   // Tuesday, Toldot
     expect(item.summary).toEqual({ en: 'Toldot, Tuesday', he: 'תולדות, יום שלישי' });
-    // sheet 389760, "חק לישראל - פרשת תולדות יום שלישי"
-    expect(item.sheets).toEqual([389760]);
-    expect(item.refs.slice(0, 3)).toEqual(['Genesis 25:29-33', 'Malachi 1:11-2:1', 'Proverbs 6:1-5']);
-    expect(item.subs[0]).toMatchObject({ en: 'Genesis 25:29-33', section: 'Torah' });
-    expect(item.refs).toHaveLength(item.subs.length);
+    expect(item.refs).toEqual(['Chok LeYisrael']);
+    expect(item.chok).toEqual({ date: '2026-11-10', israel: false });
+    expect(item.subs).toEqual([{ en: 'Toldot, Tuesday', he: 'תולדות, יום שלישי' }]);
   });
 
-  test('Thursday adds Thursday night; Shabbat has none', () => {
-    const thu = chokLeYisrael(day(2026, 11, 12), sefariaItems);
-    expect(thu.sheets).toHaveLength(2);
-    expect(thu.subs.some(s => s.day.en === 'Thursday night')).toBe(true);
-    expect(chokLeYisrael(day(2026, 11, 14), sefariaItems)).toBeNull();
-  });
-
-  test('a combined week reads both portions', () => {
-    const combined = [{ title: { en: 'Parashat Hashavua' }, subs: [{ en: 'Vayakhel-Pekudei' }], refs: ['Exodus 35:1-40:38'] }];
-    expect(chokLeYisrael(day(2026, 11, 9), combined).sheets).toHaveLength(2);
+  test('Shabbat has none', () => {
+    expect(chokLeYisrael(day(2026, 11, 14))).toBeNull();
   });
 });
 
@@ -147,34 +129,33 @@ describe('Shnayim Mikra and the merged list', () => {
 
   test('without Sefaria\'s calendar, the computed schedules still show', () => {
     expect(withExtraSchedules([], day(2026, 11, 10)).map(i => i.title.en))
-      .toEqual(['Mishnah Berurah Yomi', 'Tehillim (Monthly)', 'Tehillim (Weekly)']);
+      .toEqual(['Mishnah Berurah Yomi', 'Chok LeYisrael', 'Tehillim (Monthly)', 'Tehillim (Weekly)']);
   });
 
   test('the home row shows every reading of a multi-part item, or its summary', () => {
     expect(rowSubtitle(sefariaItems[2]).en).toBe('Neighbors 13-14, Agents and Partners 1');
-    expect(rowSubtitle(chokLeYisrael(day(2026, 11, 10), sefariaItems)).en).toBe('Toldot, Tuesday');
+    expect(rowSubtitle(chokLeYisrael(day(2026, 11, 10))).en).toBe('Toldot, Tuesday');
   });
 });
 
-describe("a day's readings as a sequence (Chok LeYisrael)", () => {
-  const chok = () => chokLeYisrael(day(2026, 11, 10), sefariaItems);
+describe("a day's readings as a sequence", () => {
+  // (Daily Rambam, 3 chapters: two readings)
+  const rambam = () => sefariaItems[2];
 
   test('every reading of the day is in the sequence, in order, starting at the one opened', () => {
-    const item = chok();
+    const item = rambam();
     const seq = makeScheduleSequence(item, 0);
-    expect(seq.key).toBe('Chok LeYisrael');
-    expect(scheduleKey(item)).toBe('Chok LeYisrael');
+    expect(seq.key).toBe('Daily Rambam (3 Chapters)');
+    expect(scheduleKey(item)).toBe('Daily Rambam (3 Chapters)');
     expect(seq.items.map(i => i.ref)).toEqual(item.refs);
-    expect(seq.items.length).toBeGreaterThan(1);
     expect(hasSequence(seq)).toBe(true);
     expect(currentReading(seq).ref).toBe(item.refs[0]);
-    expect(seq.items[0].section).toBe(item.subs[0].section);
-    expect(makeScheduleSequence(item, 2).index).toBe(2);
+    expect(makeScheduleSequence(item, 1).index).toBe(1);
     expect(makeScheduleSequence(item, 99).index).toBe(item.refs.length - 1);
   });
 
   test('next and previous walk through the readings and stop at the ends', () => {
-    const seq = makeScheduleSequence(chok(), 0);
+    const seq = makeScheduleSequence(rambam(), 0);
     expect(stepSequence(seq, -1)).toBeNull();
     let s = seq;
     for (let i = 1; i < seq.items.length; i++) {
@@ -194,7 +175,7 @@ describe("a day's readings as a sequence (Chok LeYisrael)", () => {
   test("schedule rows open through the reader's schedule-tab opener when it is available", () => {
     const openRef = jest.fn();
     const openScheduleItem = jest.fn();
-    const item = chok();
+    const item = chokLeYisrael(day(2026, 11, 10));
     openScheduleRef(item, 0, openRef, openScheduleItem);
     expect(openScheduleItem).toHaveBeenCalledWith(item, 0);
     expect(openRef).not.toHaveBeenCalled();

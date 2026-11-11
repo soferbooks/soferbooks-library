@@ -2,8 +2,8 @@
  * Learning schedules the app adds to Sefaria's calendar (calendar.json), all computed offline.
  *
  *   Shnayim Mikra         the week's parsha (from Sefaria's "Parashat Hashavua" item)
- *   Chok LeYisrael        that day's references, from Sefaria's "חק לישראל" collection
- *                         (data/chokLeYisrael.json, built by tools/buildChokLeYisrael.js);
+ *   Chok LeYisrael        the day's portion of the sefer itself, all its parts, read offline
+ *                         (chokDay.js; the book: extras/chok.js, from Otzaria's library);
  *                         replaces Sefaria's own item, which is only a link to the website
  *   Mishnah Berurah Yomi  Dirshu's Daf HaYomi B'Halacha, from @hebcal/learning (BSD-2-Clause)
  *                         (data/hebcalSchedules.json, built by tools/buildHebcalSchedules.mjs)
@@ -18,7 +18,7 @@
  */
 import { HDate, gematriya } from '@hebcal/core';
 import HEBCAL from './data/hebcalSchedules.json';
-import CHOK from './data/chokLeYisrael.json';
+import { chokCalendarItem } from './chokDay';
 
 export const TITLES = {
   shnayimMikra: { en: 'Shnayim Mikra', he: 'שניים מקרא ואחד תרגום' },
@@ -27,17 +27,6 @@ export const TITLES = {
   psalmsMonthly: { en: 'Tehillim (Monthly)', he: 'תהלים לפי ימי החודש' },
   psalmsWeekly: { en: 'Tehillim (Weekly)', he: 'תהלים לפי ימי השבוע' },
 };
-
-const DAYS = [
-  { key: 'sun', en: 'Sunday', he: 'יום ראשון' },
-  { key: 'mon', en: 'Monday', he: 'יום שני' },
-  { key: 'tue', en: 'Tuesday', he: 'יום שלישי' },
-  { key: 'wed', en: 'Wednesday', he: 'יום רביעי' },
-  { key: 'thu', en: 'Thursday', he: 'יום חמישי' },
-  { key: 'fri', en: 'Friday', he: 'יום שישי' },
-  { key: 'shabbat', en: 'Shabbat', he: 'שבת' },
-];
-const THURSDAY_NIGHT = { en: 'Thursday night', he: 'ליל שישי' };
 
 // The traditional division of Tehillim over the week (Sunday to Shabbat), as printed in siddurim
 export const WEEKLY_PSALMS = [[1, 29], [30, 50], [51, 72], [73, 89], [90, 106], [107, 119], [120, 150]];
@@ -103,48 +92,9 @@ export function mishnahBerurah(date) {
 
 // ---------- Chok LeYisrael ----------
 
-// The week's parsha names, from Sefaria's Chok item ("Toldot") or its parsha ("Vayakhel-Pekudei")
-function weekPortions(sefariaItems) {
-  const find = t => sefariaItems.find(i => i.title && i.title.en === t);
-  const name = (find('Chok LeYisrael') || find('Parashat Hashavua'))?.subs?.[0]?.en;
-  if (!name) { return []; }
-  if (CHOK.portions[name]) { return [name]; }
-  return name.split('-').map(s => s.trim()).filter(p => CHOK.portions[p]);
-}
-
-export function chokLeYisrael(date, sefariaItems) {
-  const day = DAYS[date.getDay()];
-  const portions = weekPortions(sefariaItems);
-  if (!portions.length || day.key === 'shabbat') { return null; }
-  const parts = [];
-  for (const p of portions) {
-    const days = [[day, CHOK.portions[p][day.key]]];
-    if (day.key === 'thu') { days.push([THURSDAY_NIGHT, CHOK.portions[p].thu_night]); }
-    for (const [label, entry] of days) { if (entry) { parts.push({ portion: p, label, entry }); } }
-  }
-  if (!parts.length) { return null; }
-  const refs = [];
-  const subs = [];
-  for (const { label, entry } of parts) {
-    for (const r of entry.refs) {
-      refs.push(r.ref);
-      subs.push({ en: r.ref, he: r.heRef || r.ref, section: r.section, day: label });
-    }
-  }
-  const first = parts[0];
-  return {
-    title: TITLES.chok,
-    category: 'Tanakh',
-    order: 12,
-    refs,
-    subs,
-    summary: {
-      en: `${first.portion}, ${day.en}`,
-      he: `${CHOK.portions[first.portion].he}, ${day.he}`,
-    },
-    sheets: parts.map(p => p.entry.sheet),
-  };
-}
+// The whole sefer, downloaded from Otzaria's library and read as one daily unit
+// (learningSchedules/chokDay.js, extras/chok.js). Sefaria's item is only a link to its website.
+export const chokLeYisrael = (date, options = {}) => chokCalendarItem(date, options);
 
 // ---------- Shnayim Mikra ----------
 
@@ -156,12 +106,13 @@ export function shnayimMikra(sefariaItems) {
 
 /**
  * Sefaria's calendar items for `date` with the app's own schedules added (Sefaria's link-only
- * Chok LeYisrael item is replaced by the offline one), sorted by `order`.
+ * Chok LeYisrael item is replaced by the offline one), sorted by `order`. israel: the parsha
+ * as read in Israel (Chok LeYisrael's week).
  */
-export function withExtraSchedules(sefariaItems, date = new Date()) {
+export function withExtraSchedules(sefariaItems, date = new Date(), { israel = false } = {}) {
   const extra = [
     shnayimMikra(sefariaItems),
-    chokLeYisrael(date, sefariaItems),
+    chokLeYisrael(date, { israel }),
     mishnahBerurah(date),
     monthlyPsalms(date),
     weeklyPsalms(date),

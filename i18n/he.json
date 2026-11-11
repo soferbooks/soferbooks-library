@@ -195,6 +195,7 @@
     "languages.yiddish": "יידיש",
     "learning_schedules.daf_yomi": "דף יומי",
     "learning_schedules.daily_learning": "לימוד יומי",
+    "learning_schedules.day_done": "סיום {title} להיום",
     "learning_schedules.description": "מימי קדם חולקה התורה לקטעי קריאה שבועיים שנועדו לסיום הספר כולו במשך תקופת זמן של שנה. בעקבות המנהג הזה התפתחו לאורך השנים סדרי לימוד תקופתיים רבים נוספים, ובעזרתם יכולות קהילות וקבוצות של לומדים ללמוד יחד טקסטים שלמים.",
     "learning_schedules.haftara": "הפטרה",
     "learning_schedules.learning_schedules": "לוח לימוד יומי",

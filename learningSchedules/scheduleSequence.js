@@ -45,3 +45,32 @@ export const sequenceAt = (seq, index) => {
 export const stepSequence = (seq, delta) => (seq ? sequenceAt(seq, (seq.index || 0) + delta) : null);
 
 export const currentReading = seq => (seq && seq.items ? seq.items[seq.index || 0] || null : null);
+
+// ---------- a day read as one unit (Chok LeYisrael: learningSchedules/chokDay.js) ----------
+// A "bounded" sequence is read straight through, each reading after the one before, and stops
+// after the last: the reader's continuous scroll goes from one reading to the next one of the
+// day (not to the book's next section) and ends with "Today's ... - done".
+
+export const isBounded = seq => !!seq && !!seq.bounded && Array.isArray(seq.items) && seq.items.length > 0;
+
+/** The reading whose ref is `sectionRef`, or -1 */
+export const readingIndexOf = (seq, sectionRef) => (seq && Array.isArray(seq.items)
+  ? seq.items.findIndex(it => it.ref === sectionRef) : -1);
+
+/**
+ * The sections before and after `sectionRef` when reading `seq`: in a bounded sequence, the
+ * day's own previous and next readings (null at its ends); otherwise `book` (the book's own
+ * prev/next) as it is.
+ */
+export const boundedNeighbours = (seq, sectionRef, book = { prev: null, next: null }) => {
+  if (!isBounded(seq)) { return book; }
+  const i = readingIndexOf(seq, sectionRef);
+  if (i < 0) { return book; }
+  return {
+    prev: i > 0 ? seq.items[i - 1].ref : null,
+    next: i + 1 < seq.items.length ? seq.items[i + 1].ref : null,
+  };
+};
+
+/** True when `sectionRef` is the day's last reading: the end of the day's learning */
+export const isLastReading = (seq, sectionRef) => isBounded(seq) && readingIndexOf(seq, sectionRef) === seq.items.length - 1;

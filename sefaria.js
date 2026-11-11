@@ -679,7 +679,7 @@ global.Sefaria = {
     if (!Sefaria.calendar) { return []; }
     const dateString = Sefaria._dateString(date);
     const cal_obj = Sefaria.calendar[dateString];
-    if (!cal_obj) { return Sefaria._addMetadataToCalendarItems(withExtraSchedules([], date)); }
+    if (!cal_obj) { return Sefaria._addMetadataToCalendarItems(withExtraSchedules([], date, { israel: !diaspora })); }
     const preference_key = `${diaspora ? 1 : 0}|${custom[0]}`;
     const cal_items = [...(cal_obj[preference_key] || [])];
     const existing_items = new Set(cal_items.map(c => c.title.en));
@@ -688,7 +688,7 @@ global.Sefaria = {
         cal_items.push(c);
       }
     }
-    return Sefaria._addMetadataToCalendarItems(withExtraSchedules(cal_items, date));
+    return Sefaria._addMetadataToCalendarItems(withExtraSchedules(cal_items, date, { israel: !diaspora }));
   },
   _addMetadataToCalendarItems: function(calendarItems) {
     const meta = Sefaria.calendar?.metadata || {};

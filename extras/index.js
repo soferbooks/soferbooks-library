@@ -43,13 +43,16 @@ import md5 from 'md5';
 import otzaria from './otzaria';
 import dicta from './dicta';
 import wikisource, {withCurrentShelf} from './wikisource';
+import chok from './chok';
 import {bookFiles} from './schema7';
 import {chooseBooks, addToToc, categoryNames} from './catalog';
 import {bookLines} from '../localSearch';
 import {clearOfflineSearchCache} from '../offlineSearch';
 import * as shomer from '../shomer';
 
-export const EXTRA_SOURCES = {[otzaria.id]: otzaria, [dicta.id]: dicta, [wikisource.id]: wikisource};
+// (chok: Chok LeYisrael, one book from Otzaria's library, turned on by its learning schedule - no
+//  switch in Settings: extras/chok.js)
+export const EXTRA_SOURCES = {[otzaria.id]: otzaria, [dicta.id]: dicta, [wikisource.id]: wikisource, [chok.id]: chok};
 export const ENABLED_KEY = 'extraSources';
 export const CATALOG_MAX_AGE = 7 * 24 * 3600 * 1000;   // a week, as Sefaria's own update check
 const LIBRARY_DIR = `${FileSystem.documentDirectory}library/`;
