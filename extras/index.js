@@ -406,6 +406,7 @@ async function fetchAndInstall(title, job) {
   await saveState();
   await collectLinks(title, entry, source, text, tree, at);
   forgetCaches();
+  refreshInferred(title);              // (in the background: it may read the texts it is on)
   if (companions && companions.length) { await reloadToc(); }     // (the notes book joins the library)
   const index = typeof Sefaria !== 'undefined' && Sefaria.index && Sefaria.index(title);
   if (index) { index.firstSection = firstSection; }
@@ -418,10 +419,11 @@ async function fetchAndInstall(title, job) {
  * citations, a request a page, in the background (kept only if the same download is still there).
  */
 async function collectLinks(title, entry, source, text, tree, at) {
-  if (!source.linksOf) { return; }
+  // (a source with no links of its own - Wikisource - still keeps what its sections say of their
+  //  place: its obvious connections, extras/inferred.js)
   const stillThere = () => !!state.installed[title] && state.installed[title].at === at;
   try {
-    const where = source.linksOf(entry, text) || {};
+    const where = (source.linksOf && source.linksOf(entry, text)) || {};
     const {later} = await links.collect({
       title, heTitle: entry.heTitle, tree, where,
       fetchCitations: where.dictaPages && source.fetchPageCitations
@@ -432,6 +434,59 @@ async function collectLinks(title, entry, source, text, tree, at) {
   } catch (e) {
     console.log('extras: the links of', title, e);
   }
+}
+
+/**
+ * The obvious connections (extras/inferred.js) of the downloaded books, worked out again after
+ * `changed` was downloaded (or a book deleted: null): the book's own, those of the books on it,
+ * and of any book whose base is now another. One at a time; never throws.
+ */
+let inferring = Promise.resolve();
+export function refreshInferred(changed = null) {
+  inferring = inferring.then(() => inferNow(changed)).catch(e => console.log('extras: inferred links', e));
+  return inferring;
+}
+
+async function inferNow(changed) {
+  await loadExtras();
+  const titles = installedTitles().filter(t => !state.installed[t].companionOf);
+  const files = {};
+  for (const t of titles) {
+    const f = await links.readLinks(t);
+    if (f) { files[t] = f; }
+  }
+  if (!Object.keys(files).length) { return; }
+  const {loadText} = require('../offlineOnline');        // (lazily: it imports this module)
+  const loadSection = async ref => {
+    const {result} = await loadText(ref, false, null, true, true);
+    return result && result.he;
+  };
+  const done = await links.inferAll({files, books: inferenceBooks(), changed, loadSection});
+  for (const t of done) {
+    if (state.installed[t]) { await links.saveLinks(t, files[t]); }
+  }
+  if (done.length) { notify(); }
+}
+
+/** The books a commentary may be on: Sefaria's (the toc the content filter leaves) and the downloaded extra books */
+function inferenceBooks() {
+  const out = [];
+  const walk = items => {
+    for (const x of items || []) {
+      if (x.contents) { walk(x.contents); continue; }
+      if (!x.title || shomer.isBookHidden(x.title)) { continue; }
+      if (isExtraTitle(x.title)) {
+        if (state.installed[x.title] && !state.installed[x.title].companionOf) {
+          out.push({key: `extra:${x.title}`, kind: 'extra', title: x.title, heTitle: x.heTitle || books[x.title].heTitle});
+        }
+      } else {
+        out.push({key: `sefaria:${x.title}`, kind: 'sefaria', title: x.title, heTitle: x.heTitle,
+          commentary: x.dependence === 'Commentary'});
+      }
+    }
+  };
+  walk(typeof Sefaria !== 'undefined' ? Sefaria.toc : []);
+  return out;
 }
 
 /** Sefaria's links API's response for a section, with the downloaded extra books' links of it */
@@ -465,6 +520,7 @@ export async function deleteBook(title) {
   await saveState();
   if (companions.length) { await reloadToc(); }   // (its notes book leaves the library with it)
   forgetCaches();
+  refreshInferred(null);               // (the books that were on it lose those connections)
   const index = typeof Sefaria !== 'undefined' && Sefaria.index && Sefaria.index(title);
   if (index) { index.firstSection = title; }
   notify();

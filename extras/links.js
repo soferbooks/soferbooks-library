@@ -27,6 +27,13 @@
  *                                         'base' (a explains t), 'cite' (a cites t)
  *    pending: [{a, ah, book, line, r}]}   links to another Otzaria book by its line, resolved when
  *                                         that book is downloaded too
+ *    secs: [[section ref, Hebrew ref, keys, headings, signs]]   the book's sections, what their
+ *                                         headings and paragraphs say of their place (extras/inferred.js)
+ *    inferred: [{a, ah, t, th, r: 'base', c}], inferredOn   the obvious connections of a commentary
+ *                                         nobody published links for, found by its name and placed as
+ *                                         Sofer places it (extras/inferred.js); c: 'sure' | 'likely'.
+ *                                         Worked out again whenever a book is downloaded or deleted, so
+ *                                         they appear whichever of the two is downloaded first
  * The links of all downloaded books are read into one index by section (both ends), and
  * offlineOnline.loadRelated adds the section's to what Sefaria's links (online or offline) give.
  * The content filter applies as to Sefaria's links: a book it hides is not in the toc, and links
@@ -37,6 +44,7 @@ import md5 from 'md5';
 import {sectionsOf} from './schema7';
 import {normTitle} from './tree';
 import {linksUrlForPath} from './otzaria';
+import {paraSign, inferBase, inferredLinks, chaptersWanted, sefariaUnits, extraUnits} from './inferred';
 
 export const VERSION = 1;
 const DIR = () => `${FileSystem.documentDirectory}library/_extras/links/`;
@@ -191,6 +199,12 @@ async function writeJSON(path, data) {
   await FileSystem.writeAsStringAsync(path, JSON.stringify(data));
 }
 
+export const readLinks = title => readJSON(linksFile(title));
+export async function saveLinks(title, data) {
+  await writeJSON(linksFile(title), data);
+  invalidate();
+}
+
 export async function removeLinks(title) {
   await FileSystem.deleteAsync(linksFile(title), {idempotent: true}).catch(() => {});
   invalidate();
@@ -205,7 +219,7 @@ export async function removeLinks(title) {
 export async function collect({title, heTitle, tree, where, fetchCitations, stillWanted = () => true}) {
   const passages = passagesOf(tree, title, heTitle);
   const lines = lineMap(tree, passages);
-  const data = {v: VERSION, title, heTitle, links: [], pending: []};
+  const data = {v: VERSION, title, heTitle, links: [], pending: [], secs: sectionSigns(tree, heTitle, passages)};
   if (lines) {
     data.leaves = passages.leaves;
     data.lines = lines;
@@ -245,6 +259,91 @@ export async function collect({title, heTitle, tree, where, fetchCitations, stil
   return {data, later};
 }
 
+// ---------------------------------------------------------------- the obvious connections
+
+/** What extras/inferred.js needs of a book's sections: [[ref, heRef, keys, headings, signs]] */
+export function sectionSigns(tree, heTitle, passages) {
+  const {leaves} = sectionsOf(tree, heTitle);
+  return leaves.map((l, i) => [passages.leaves[i][0], passages.leaves[i][1], l.keys, l.heTitles,
+    l.paras.map(p => (String(p).trim() ? paraSign(p) : null))]);
+}
+
+/** A ref in `title` (Sefaria's "Title 1:2", an extra book's "Title, S1:2") */
+const inBook = (ref, title) => String(ref || '').startsWith(`${title} `) || String(ref || '').startsWith(`${title},`);
+
+const devLog = (...args) => {
+  if (typeof __DEV__ !== 'undefined' && __DEV__) { console.log('extras: inferred links:', ...args); }
+};
+
+/**
+ * Work out again the obvious connections of the downloaded books (extras/inferred.js) where a
+ * download or a deletion may change them: of the book `changed` itself, of the books whose base it
+ * is, and of any whose base is now another book. Pure apart from what it is given:
+ *   files    {title: its links file}            the downloaded books (changed in place)
+ *   books    [{key, kind, title, heTitle, commentary}]   the books a commentary may be on: Sefaria's
+ *            (as the content filter leaves its toc) and the downloaded extra books ('extra:<title>')
+ *   loadSection(ref) -> [paragraph html]        a section's text (offline, else Sefaria's API)
+ * Returns the titles whose file changed.
+ */
+export async function inferAll({files, books, changed = null, loadSection}) {
+  const out = [];
+  for (const [title, f] of Object.entries(files)) {
+    if (!f || !f.secs) { continue; }
+    const found = inferBase(f.heTitle, books, `extra:${title}`);
+    const on = found.book ? found.book.key : null;
+    if (title !== changed && (!changed || on !== `extra:${changed}`) && (f.inferredOn || null) === on) { continue; }
+    let inferred = [];
+    if (!found.book) {
+      if (/ על /.test(f.heTitle || '')) { devLog(f.heTitle, '-', found.why); }
+    } else {
+      const base = found.book;
+      const own = (f.links || []).some(l => l.r === 'base' && inBook(l.t, base.title))
+        || (f.pending || []).some(p => normTitle(p.book) === normTitle(base.heTitle));
+      if (own) {
+        devLog(f.heTitle, '- its own links already tie it to', base.title);
+      } else {
+        try {
+          inferred = await linksTo(f, base, files, loadSection);
+          if (found.confidence === 'likely') { inferred = inferred.map(l => ({...l, c: 'likely'})); }
+          devLog(f.heTitle, '->', base.title, `(${found.why}):`, inferred.length, 'links');
+        } catch (e) {
+          devLog(f.heTitle, '->', base.title, '- its text could not be read now:', String((e && e.message) || e));
+          continue;                 // (tried again at the next download)
+        }
+      }
+    }
+    if (!inferred.length && !(f.inferred || []).length && (f.inferredOn || null) === on) { continue; }
+    f.inferred = inferred;
+    f.inferredOn = on;
+    out.push(title);
+  }
+  return out;
+}
+
+/** The links of commentary f to `base`: a Sefaria book in chapters and verses, or a downloaded extra book */
+async function linksTo(f, base, files, loadSection) {
+  let units;
+  if (base.kind === 'extra') {
+    const g = files[base.title];
+    if (!g || !g.secs) { return []; }
+    const texts = {};
+    for (const l of g.secs) { texts[l[0]] = await loadSection(l[0]); }
+    units = extraUnits(g.secs, texts);
+  } else {
+    const chapters = [];
+    for (const n of chaptersWanted({leaves: f.secs})) {
+      const verses = await loadSection(`${base.title} ${n + 1}`);
+      if (!Array.isArray(verses) || verses.some(v => typeof v !== 'string')) {
+        devLog(f.heTitle, '-', base.title, 'is not in chapters and verses');
+        return [];
+      }
+      chapters.push([n, verses]);
+    }
+    units = sefariaUnits(base.title, base.heTitle, chapters);
+  }
+  return inferredLinks({leaves: f.secs}, {units}).map(({how, ...l}) => l);
+}
+
 // ---------------------------------------------------------------- the index: section -> links
 
 let index = null;           // Map: section ref -> [{anchor, other, otherHe, commentary}]
@@ -268,17 +367,17 @@ export function sectionOf(ref) {
 export function buildIndex(files) {
   const map = new Map();
   const seen = new Set();
-  const add = (anchor, other, otherHe, commentary) => {
+  const add = (anchor, other, otherHe, commentary, confidence) => {
     const section = sectionOf(anchor);
     const key = `${anchor}|${other}`;
     if (!section || seen.has(key)) { return; }
     seen.add(key);
     if (!map.has(section)) { map.set(section, []); }
-    map.get(section).push({anchor: rangeStart(anchor), other, otherHe, commentary});
+    map.get(section).push({anchor: rangeStart(anchor), other, otherHe, commentary, ...(confidence ? {confidence} : {})});
   };
   const both = l => {
-    add(l.a, l.t, l.th, l.r === 'commentary');
-    add(l.t, l.a, l.ah, l.r === 'base');
+    add(l.a, l.t, l.th, l.r === 'commentary', l.c);
+    add(l.t, l.a, l.ah, l.r === 'base', l.c);
   };
   const byName = new Map();
   for (const f of files) {
@@ -295,6 +394,8 @@ export function buildIndex(files) {
       both({a: p.a, ah: p.ah, t: `${leaf[0]}:${at[1]}`, th: `${leaf[1]} ${at[1]}`, r: p.r});
     }
   }
+  // the obvious connections last: a book's own link of the same two passages wins
+  for (const f of files) { ((f && f.inferred) || []).forEach(both); }
   return map;
 }
 
@@ -342,6 +443,7 @@ export function relatedFromIndex(map, sectionRef) {
       category,
       anchorRef: l.anchor,
       sourceHasEn: false,
+      ...(l.confidence ? {inferred: l.confidence} : {}),   // (an obvious connection: 'sure' | 'likely')
     });
   }
   return out;
