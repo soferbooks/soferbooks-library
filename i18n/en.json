@@ -165,7 +165,7 @@
     "filter.more_count_one": "and 1 more",
     "filter.group_shown": "Shown",
     "filter.group_hidden": "Hidden",
-    "filter.groups_header": "Customize",
+    "filter.groups_header": "Fine-tune the filter",
     "filter.hidden_message": "{title} is hidden by your content filter ({reason}). You can change the filter in Settings.",
     "filter.hidden_title": "Hidden by your filter",
     "filter.off_detail": "Nothing is hidden",

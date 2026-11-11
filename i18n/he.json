@@ -165,7 +165,7 @@
     "filter.more_count_one": "ועוד אחד",
     "filter.group_shown": "מוצג",
     "filter.group_hidden": "מוסתר",
-    "filter.groups_header": "התאמה אישית",
+    "filter.groups_header": "כוונון עדין של המסנן",
     "filter.hidden_message": "{title} מוסתר על ידי מסנן התוכן שלכם ({reason}). אפשר לשנות את המסנן בהגדרות.",
     "filter.hidden_title": "מוסתר על ידי המסנן",
     "filter.off_detail": "שום דבר לא מוסתר",
