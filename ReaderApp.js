@@ -93,7 +93,19 @@ import {
   loadInlineCommentaryPrefs,
   saveInlineCommentaryPrefs,
   availableInlineSources,
+  availableInlineConnections,
 } from "./reader/inlineCommentaryPrefs";
+import {
+  getNakdanPrefs,
+  loadNakdanPrefs,
+  subscribeNakdanPrefs,
+  nakdanWanted,
+  shouldAskNakdan,
+  sectionLacksNikud,
+  setNakdanForBook,
+} from "./reader/nakdanPrefs";
+import { NakdanAskCard, NakdanCredit } from "./reader/NakdanNotices";
+import { VOCALIZATION } from "./VocalizationEnum";
 import {
   panelFlexForTouch,
   panelReleaseAction,
@@ -123,7 +135,7 @@ const TAB_PLACE_STATE_KEYS = ['menuOpen', 'loaded', 'textTitle', 'textReference'
 // extraDownload: a book opened right after its download is saved for Back before React applies
 // "the download is over", so the snapshot still has it; restoring it brought back a "Downloading"
 // box with no download behind it (no progress, no Cancel, stuck).
-const NON_HISTORY_STATE_KEYS = ['readerTabs', 'inlineCommentaryPrefs', 'splitView', 'splitTabId', 'windowWidth',
+const NON_HISTORY_STATE_KEYS = ['readerTabs', 'inlineCommentaryPrefs', 'nakdanPrefs', 'splitView', 'splitTabId', 'windowWidth',
   'textListFlexPreference', 'hasInternet', 'extraDownload'];
 const SPLIT_VIEW_STORAGE_KEY = 'readerSplitView';
 const SPLIT_VIEW_MIN_WIDTH = 600;  // dp: tablets and large foldables
@@ -210,6 +222,7 @@ class ReaderApp extends React.PureComponent {
         currentTranslations: [],
         readerTabs: emptyTabsState(),
         inlineCommentaryPrefs: {},
+        nakdanPrefs: getNakdanPrefs(),
         scheduleBarHeight: 0,
         splitView: false,
         splitTabId: null,
@@ -235,6 +248,9 @@ class ReaderApp extends React.PureComponent {
       this.setState({ windowWidth: window.width });
     });
     this._extrasSubscription = extras.subscribe(this._onExtrasChanged);
+    // nikud by computer (Dicta): its settings, shared with the Settings page
+    this._nakdanSubscription = subscribeNakdanPrefs(nakdanPrefs => this.setState({ nakdanPrefs }));
+    loadNakdanPrefs().catch(() => {});
     this.RNShakeSubscription = RNShake.addListener(() => {
       if (this.props.groggerActive === 'on' && Sefaria.isGettinToBePurimTime()) {
         SoundPlayer.playSoundFile('grogger', 'mp3');
@@ -257,6 +273,7 @@ class ReaderApp extends React.PureComponent {
     this.RNShakeSubscription.remove();
     DownloadTracker.unsubscribe('ReaderApp')
     this._extrasSubscription && this._extrasSubscription();
+    this._nakdanSubscription && this._nakdanSubscription();
     this.dimensionsSubscription && this.dimensionsSubscription.remove();
     this._saveTabs.flush();
   }
@@ -2324,6 +2341,13 @@ class ReaderApp extends React.PureComponent {
     this.setState(prev => ({ readerTabs: updateTabPlace(prev.readerTabs, id, place) }));
   };
 
+  /* ---------- nikud by computer (Dicta): the sefer's own switch, in the Aa menu ---------- */
+
+  setNakdanForThisBook = on => {
+    setNakdanForBook(this.state.textTitle, on);
+    this.closeReaderDisplayOptionsMenu();
+  };
+
   /* ---------- "show under each passage" ---------- */
 
   setInlineCommentaryForBook = key => {
@@ -2450,6 +2474,17 @@ class ReaderApp extends React.PureComponent {
     const showSplit = splitViewAvailable && this.state.splitView;
     const inlineCommentary = (!isSheet && this.state.textFlow !== 'continuous') ?
       effectiveInlineCommentary(this.state.inlineCommentaryPrefs, this.state.textTitle) : null;
+    // Nikud by computer (Dicta) for texts without nikud, as the owner's extension adds it: only while
+    // vowels are shown, when the sefer's switch (or "Always add nikud") is on; else a card asks.
+    const nakdanBook = (!isSheet && this.state.textFlow !== 'continuous') ? this.state.textTitle : null;
+    const nakdanOn = nakdanWanted(this.state.nakdanPrefs, nakdanBook, this.props.vocalization);
+    const mainLacksNikud = !!nakdanBook && vowelToggleAvailable === VOCALIZATION.NONE &&
+      sectionLacksNikud(this.state.data[this.state.sectionIndexRef]);
+    const nakdanSwitchAvailable = !!nakdanBook && this.props.vocalization !== VOCALIZATION.NONE &&
+      (vowelToggleAvailable === VOCALIZATION.NONE || !!inlineCommentary);
+    const showNakdanAsk = !loading && !this.state.ReaderDisplayOptionsMenuVisible &&
+      shouldAskNakdan(this.state.nakdanPrefs, nakdanBook, this.props.vocalization, mainLacksNikud);
+    const showNakdanCredit = !loading && nakdanOn && (mainLacksNikud || !!inlineCommentary);
     return (
         <Animated.View
           style={[styles.container, this.props.theme.container]}
@@ -2539,7 +2574,11 @@ class ReaderApp extends React.PureComponent {
                   highlightedWordSegmentRef={this.state.highlightedWordSegmentRef}
                   setHighlightedWord={this.setHighlightedWord}
                   inlineCommentary={inlineCommentary}
+                  nakdan={nakdanOn}
                 />
+                {showNakdanCredit ? <NakdanCredit theme={this.props.theme} /> : null}
+                {showNakdanAsk ?
+                  <NakdanAskCard book={nakdanBook} theme={this.props.theme} interfaceLanguage={this.props.interfaceLanguage} /> : null}
             </View> }
 
             {this.state.textListVisible ?
@@ -2642,8 +2681,13 @@ class ReaderApp extends React.PureComponent {
                 vowelToggleAvailable={vowelToggleAvailable}
                 themeStr={this.props.themeStr}
                 inlineSources={isSheet ? [] : availableInlineSources(this.state.relatedBySectionRef, t => Sefaria.index(t)?.heTitle)}
+                inlineConnections={isSheet ? [] : availableInlineConnections(this.state.relatedBySectionRef)}
                 inlineCommentary={inlineCommentary}
                 setInlineCommentary={this.setInlineCommentaryForBook}
+                nakdanAvailable={nakdanSwitchAvailable}
+                nakdanForCommentary={vowelToggleAvailable !== VOCALIZATION.NONE}
+                nakdan={nakdanOn}
+                setNakdan={this.setNakdanForThisBook}
                 splitViewAvailable={splitViewAvailable}
                 splitView={this.state.splitView}
                 setSplitView={this.setSplitView}

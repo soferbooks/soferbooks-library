@@ -47,6 +47,7 @@ import {
 import Sefaria from "./sefaria";
 import * as FileSystem from 'expo-file-system/legacy';
 import { ContentFilterSettings, LibrarySourcesSettings } from './shomer/ContentFilterSettings';
+import { NakdanSettings } from './reader/NakdanNotices';
 const DEBUG_MODE = false;
 
 /**
@@ -332,6 +333,7 @@ const SettingsPage = ({ close, openUri }) => {
           <View style={[styles.readerDisplayOptionsMenuDivider, styles.settingsDivider, theme.readerDisplayOptionsMenuDivider]}/>
           <ContentFilterSettings langStyle={langStyle} />
           <LibrarySourcesSettings langStyle={langStyle} />
+          <NakdanSettings langStyle={langStyle} />
 
           <View style={[styles.readerDisplayOptionsMenuDivider, styles.settingsDivider, theme.readerDisplayOptionsMenuDivider]}/>
           <View>
