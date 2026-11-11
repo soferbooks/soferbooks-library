@@ -29,6 +29,7 @@ import styles from './Styles';
 import strings from './LocalizedStrings';
 import iPad from './isIPad';
 import { useGlobalState } from './Hooks.js';
+import PrintCopyLink from './PrintCopyLink';
 import {ErrorBoundary} from "react-error-boundary";
 
 // a title with brackets, "ארחות חיים (כתר ראש)", is matched as it is
@@ -118,6 +119,8 @@ const ReaderTextTableOfContents = ({
             />
 
             { extras.isDownloaded(title) ? <ExtraBookInfo title={title} textToc={textToc} close={close} /> : null }
+
+            <PrintCopyLink title={title} heTitle={heTitle} />
 
             { textToc && "dedication" in textToc ?
             (<View>

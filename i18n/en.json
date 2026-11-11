@@ -235,6 +235,7 @@
     "reader.inline_none": "None",
     "reader.language": "Language",
     "reader.layout": "Layout",
+    "reader.order_printed_copy": "Order a printed copy",
     "reader.table_of_contents": "TABLE OF CONTENTS",
     "reader.under_each_passage": "Under Each Passage",
     "reader.vocalization": "Vocalization",

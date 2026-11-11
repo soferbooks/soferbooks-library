@@ -2646,6 +2646,8 @@ class ReaderApp extends React.PureComponent {
                 splitViewAvailable={splitViewAvailable}
                 splitView={this.state.splitView}
                 setSplitView={this.setSplitView}
+                bookTitle={isSheet ? null : this.state.textTitle}
+                bookHeTitle={isSheet ? null : Sefaria.index(this.state.textTitle)?.heTitle}
                 topOffset={displayMenuTop(showTabBar ? READER_TAB_BAR_HEIGHT : 0, activeSchedule ? this.state.scheduleBarHeight : 0)}
               />) : null
             }

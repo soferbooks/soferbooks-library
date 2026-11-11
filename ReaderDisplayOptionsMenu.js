@@ -14,6 +14,7 @@ import styles from './Styles.js';
 import strings from './LocalizedStrings';
 import { VOCALIZATION } from './VocalizationEnum';
 import {iconData} from "./IconData";
+import PrintCopyLink from './PrintCopyLink';
 
 const menuIconNames = ['a_aleph', 'a_icon', 'a_icon_small', 'aleph', 'breaks', 'continuous', 'stacked', 'sidebyside', 'sidebysiderev']
 
@@ -42,6 +43,9 @@ class ReaderDisplayOptionsMenu extends React.Component {
     splitView:                       PropTypes.bool,
     setSplitView:                    PropTypes.func,
     topOffset:                       PropTypes.number,
+    // the book being read: "Order a printed copy" when Sofer sells it (PrintCopyLink.js)
+    bookTitle:                       PropTypes.string,
+    bookHeTitle:                     PropTypes.string,
   };
   constructor(props) {
     super(props);
@@ -241,6 +245,7 @@ class ReaderDisplayOptionsMenu extends React.Component {
         <Animated.View style={myStyles}>
             {rows}
             {this.renderInlineSources()}
+            {this.props.bookTitle ? <PrintCopyLink title={this.props.bookTitle} heTitle={this.props.bookHeTitle} style={{marginBottom: 6}} /> : null}
         </Animated.View>
       </View>
     );

@@ -1665,6 +1665,27 @@ describe('Reader tabs', () => {
     }), ['reader.under_each_passage', 'reader.inline_none', 'tabs.split_view']);
   });
 
+  test('the display menu offers "Order a printed copy" for a book Sofer sells, in both languages', async () => {
+    // soferbooks.com's search finds the book: it can be ordered (soferPrint.js)
+    const realFetch = global.fetch;
+    require('../soferPrint')._reset();
+    await AsyncStorage.clear();
+    global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ results: [{ title: 'Genesis', he_title: 'בראשית' }] }) }));
+    try {
+      await expectSettledScreenLocalizes(wrap(ReaderDisplayOptionsMenu, {
+        theme: {}, themeStr: 'white', interfaceLanguage: 'english', textLanguage: 'hebrew',
+        textFlow: 'segmented', biLayout: 'stacked', canBeContinuous: false, canHaveAliyot: false, showAliyot: false,
+        vowelToggleAvailable: VOCALIZATION.NONE, vocalization: VOCALIZATION.NONE,
+        setTextFlow: noop, setTextLanguage: noop, setAliyot: noop, setBiLayout: noop,
+        incrementFont: noop, setTheme: noop, setVocalization: noop,
+        bookTitle: 'Genesis', bookHeTitle: 'בראשית',
+      }), ['reader.order_printed_copy']);
+    } finally {
+      global.fetch = realFetch;
+      require('../soferPrint')._reset();
+    }
+  });
+
   describe('menus and messages', () => {
     beforeEach(() => { jest.spyOn(ActionSheet, 'showActionSheetWithOptions').mockImplementation(noop); });
     afterEach(() => { ActionSheet.showActionSheetWithOptions.mockRestore(); });
