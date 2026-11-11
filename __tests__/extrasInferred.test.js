@@ -210,6 +210,51 @@ describe('worked out whichever book comes first (extras/links.js inferAll)', () 
   });
 });
 
+describe('beyond Sofer: comments placed loosely by their opening words', () => {
+  const {looseQuote, amudOf, amudimWanted, talmudUnits, looseComments, paraOpening} = require('../extras/inferred');
+
+  test('the quote: after "גמ\'", "בתוס\' ד"ה", the daf; to "וכו\'" or a stop; an abbreviation any one word', () => {
+    expect(looseQuote('גמ\' אמר רבא האי ריהטא וכו\' דמחוזא')).toEqual(['אמר', 'רבא', 'האי', 'ריהטא']);
+    expect(looseQuote('בתוס\' ד"ה והתניא היה ישן כו\' פי\'')).toEqual(['והתניא', 'היה', 'ישן']);
+    expect(looseQuote('דף ב ע"א סברוה מאי מחיצה גודא. פי\' כותל')).toEqual(['סברוה', 'מאי', 'מחיצה', 'גודא']);
+    expect(looseQuote('שם גמ\' אמר ר"ג וכו\'')).toEqual(['אמר']);
+    expect(looseQuote('אמר ר"ג ורבנן אמרי')).toEqual(['אמר', '*', 'ורבנן', 'אמרי']);
+    expect(paraOpening('<b>גְּמָ\'</b> אמר')).toBe('גמ\' אמר');
+  });
+
+  test('the amud a heading or an opening names', () => {
+    expect(amudOf('דף ב.')).toEqual({daf: 2, side: 'a'});
+    expect(amudOf('דף י"ב:')).toEqual({daf: 12, side: 'b'});
+    expect(amudOf('דף קיב')).toEqual({daf: 112, side: null});
+    expect(amudOf('דף ב ע"ב שם')).toEqual({daf: 2, side: 'b'});
+    expect(amudOf('ע"א אמר')).toEqual({daf: null, side: 'a'});
+    expect(amudOf('אמר רבא')).toBe(null);
+    expect(amudimWanted({leaves: [['X, S1', '', ['S1'], ['דף ג.'], [''], ['גמ\' אמר']]]})).toEqual(['2b', '3a', '3b']);
+  });
+
+  test('on the Gemara: searched in the amud named and beside it, in order; not found: with its neighbour', () => {
+    const units = talmudUnits('Masechet', 'מסכת', [
+      ['2a', [`מאימתי קורין את שמע ${L}`, `אמר רבא האי ריהטא דחקלאי ${L}`]],
+      ['2b', [`תנו רבנן מאימתי ${L}`]],
+      ['5a', [`אמר רבא האי ריהטא דחקלאי ${L}`]],
+    ]);
+    const got = looseComments([
+      {path: ['S1'], heTitles: ['דף ב.'], openings: ['גמ\' מאימתי קורין את שמע וכו\'', 'גמ\' אמר רבא האי ריהטא כו\'', 'וקשה לי']},
+      {path: ['S2'], heTitles: ['דף ב:'], openings: ['גמ\' תנו רבנן מאימתי כו\'']},
+      {path: ['S3'], heTitles: ['דף ה.'], openings: ['גמ\' אמר רבא האי ריהטא כו\'']},
+    ], units);
+    expect(got.map(p => [units[p.unit].ref, p.how, p.exact])).toEqual([
+      ['Masechet 2a:1', 'loose', true],
+      ['Masechet 2a:2', 'loose', true],           // (and not 5a: out of the window)
+      ['Masechet 2a:2', 'loose-neighbour', false],
+      ['Masechet 2b:1', 'loose', true],
+      ['Masechet 5a:1', 'loose', true],
+    ]);
+    // (a book whose comments are not found: not a commentary on it - responsa named for it)
+    expect(looseComments([{path: ['S1'], heTitles: [''], openings: ['ב"ה שלום רב', 'לכבוד הרב']}], units)).toEqual([]);
+  });
+});
+
 describe('a Dicta book Sefaria has under another name is Sefaria\'s (importers.import_dicta)', () => {
   test('left out of Dicta\'s catalogue, as Sofer leaves it out', () => {
     const {parseCatalog} = require('../extras/dicta');

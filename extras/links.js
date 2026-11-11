@@ -44,7 +44,8 @@ import md5 from 'md5';
 import {sectionsOf} from './schema7';
 import {normTitle} from './tree';
 import {linksUrlForPath} from './otzaria';
-import {paraSign, inferBase, inferredLinks, chaptersWanted, sefariaUnits, extraUnits} from './inferred';
+import {paraSign, paraOpening, inferBase, inferredLinks, chaptersWanted, sefariaUnits, extraUnits, amudimWanted,
+  talmudUnits} from './inferred';
 
 export const VERSION = 1;
 const DIR = () => `${FileSystem.documentDirectory}library/_extras/links/`;
@@ -261,12 +262,15 @@ export async function collect({title, heTitle, tree, where, fetchCitations, stil
 
 // ---------------------------------------------------------------- the obvious connections
 
-/** What extras/inferred.js needs of a book's sections: [[ref, heRef, keys, headings, signs]] */
+/** What extras/inferred.js needs of a book's sections: [[ref, heRef, keys, headings, signs, openings]] */
 export function sectionSigns(tree, heTitle, passages) {
   const {leaves} = sectionsOf(tree, heTitle);
   return leaves.map((l, i) => [passages.leaves[i][0], passages.leaves[i][1], l.keys, l.heTitles,
-    l.paras.map(p => (String(p).trim() ? paraSign(p) : null))]);
+    l.paras.map(p => (String(p).trim() ? paraSign(p) : null)),
+    l.paras.map(p => (String(p).trim() ? paraOpening(p) : null))]);
 }
+
+const MAX_CHAPTERS = 160;     // (a book's chapters read one by one when the commentary does not say which)
 
 /** A ref in `title` (Sefaria's "Title 1:2", an extra book's "Title, S1:2") */
 const inBook = (ref, title) => String(ref || '').startsWith(`${title} `) || String(ref || '').startsWith(`${title},`);
@@ -329,10 +333,30 @@ async function linksTo(f, base, files, loadSection) {
     const texts = {};
     for (const l of g.secs) { texts[l[0]] = await loadSection(l[0]); }
     units = extraUnits(g.secs, texts);
+  } else if ((base.categories || [])[0] === 'Talmud') {
+    // (the Gemara: the amudim the commentary names, and those beside them)
+    const amudim = [];
+    for (const label of amudimWanted({leaves: f.secs})) {
+      let segs = null;
+      try { segs = await loadSection(`${base.title} ${label}`); } catch (e) { segs = null; }
+      if (Array.isArray(segs) && segs.every(v => typeof v === 'string')) { amudim.push([label, segs]); }
+    }
+    if (!amudim.length) {
+      devLog(f.heTitle, '-', base.title, ': no daf named, or none could be read');
+      return [];
+    }
+    units = talmudUnits(base.title, base.heTitle, amudim);
   } else {
     const chapters = [];
-    for (const n of chaptersWanted({leaves: f.secs})) {
-      const verses = await loadSection(`${base.title} ${n + 1}`);
+    const wanted = chaptersWanted({leaves: f.secs});
+    const all = !wanted.length;             // (no chapters named: all of them, for its quotes)
+    for (const n of all ? [...Array(MAX_CHAPTERS).keys()] : wanted) {
+      let verses;
+      try { verses = await loadSection(`${base.title} ${n + 1}`); } catch (e) {
+        if (all && chapters.length) { break; }
+        throw e;
+      }
+      if (all && (!Array.isArray(verses) || !verses.length)) { break; }
       if (!Array.isArray(verses) || verses.some(v => typeof v !== 'string')) {
         devLog(f.heTitle, '-', base.title, 'is not in chapters and verses');
         return [];

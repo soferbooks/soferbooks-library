@@ -481,7 +481,7 @@ function inferenceBooks() {
         }
       } else {
         out.push({key: `sefaria:${x.title}`, kind: 'sefaria', title: x.title, heTitle: x.heTitle,
-          commentary: x.dependence === 'Commentary'});
+          commentary: x.dependence === 'Commentary', categories: x.categories || []});
       }
     }
   };

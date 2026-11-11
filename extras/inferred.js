@@ -345,16 +345,274 @@ export function inferBase(heTitle, books, self = null) {
 export function inferredLinks(comm, base, likelyBook = false) {
   const leaves = comm.leaves || [];
   const paths = numberPaths(leaves.map(l => ({keys: l[2], heTitles: l[3]})));
-  const placed = placeComments(leaves.map((l, i) => ({...paths[i], signs: l[4] || []})), base.units);
+  // (the Gemara by amudim: a heading's "דף קיב" is no chapter 112 - Sofer's rules are for chapters)
+  const talmud = base.units.some(u => u.amud !== undefined);
+  let placed = talmud ? [] : placeComments(leaves.map((l, i) => ({...paths[i], signs: l[4] || []})), base.units);
+  if (!placed.some(p => p.how !== 'neighbour')) {
+    // (Sofer's rules found no place: the comments' opening words, matched loosely - beyond Sofer)
+    placed = looseComments(leaves.map((l, i) => ({path: paths[i].path, heTitles: l[3], openings: l[5] || []})),
+      base.units);
+  }
   const out = [];
   for (const p of placed) {
     const l = leaves[p.leaf];
     const u = base.units[p.unit];
-    const sure = p.how !== 'neighbour' && !paths[p.leaf].likely && !likelyBook;
+    const sure = (p.how === 'loose' ? p.exact : p.how !== 'neighbour' && p.how !== 'loose-neighbour')
+      && !paths[p.leaf].likely && !likelyBook;
     out.push({a: `${l[0]}:${p.para + 1}`, ah: `${l[1]} ${p.para + 1}`, t: u.ref, th: u.he, r: 'base',
       c: sure ? 'sure' : 'likely', how: p.how});
   }
   return out;
+}
+
+// ---------------------------------------------------------------- beyond Sofer: loose matching
+// For a commentary Sofer's rules cannot place (Dicta's pages without headings, a commentary on the
+// Gemara under "דף ב." headings): each comment's opening words - what it quotes, its dibbur
+// hamaschil - looked for in the text it is on, in order, forgiving the scan's errors (a word
+// missing or misread), a letter of prefix, and full or short spelling. Where the commentary says
+// which daf (a heading "דף ב." / "דף ב ע"א", or a comment opening "ע"ב"), only that amud and the
+// ones beside it are searched. A comment not found goes with the one before it (else the next).
+// All 'likely', except a quote found whole, and in one place only of where it was looked for.
+
+const NIKUD_ALL = /[֑-ׇ]/g;
+/** A paragraph's opening, as kept for loose matching (no tags or nikud, 80 letters) */
+export const paraOpening = html => String(html || '').replace(NIKUD_ALL, '').replace(/<[^>]+>/g, ' ')
+  .replace(/\s+/g, ' ').trim().slice(0, 80);
+
+const Q = '["\'׳״]';
+// what a comment opens with before its quote: which text it is on ("גמ'", "בתוס' ד"ה", "מתני'"),
+// its daf ("דף ב ע"א", "ע"ב"), "שם", "פי'"
+const LEADER = new RegExp(`^(?:[([]\\s*)?(?:דף\\s+[א-ת]{1,3}${Q}?[א-ת]?\\s*(?:[.:]|ע${Q}?\\s*[אב]${Q}?)?`
+  + `|ע${Q}\\s*[אב]${Q}?|ו?ב?(?:גמ(?:רא)?|מתני(?:תין)?|משנה|במשנה|רש${Q}י|פרש${Q}י|פירש${Q}י|תוס(?:פות)?|תד${Q}ה`
+  + `|ד${Q}ה|בא${Q}ד|שם|פי|פירוש|בפירוש|הרי${Q}ף|הר${Q}ן|רא${Q}ש)${Q}?)(?=[\\s.,:)\\]]|$)[\\s.,:)\\]]*`);
+const CUT = new RegExp(`ו?כו${Q}|וגו${Q}|וגומר|וכולי|[.:\\-–—]`);
+
+/** The words a comment quotes (its loose dibbur hamaschil): after its leaders, to "וכו'" or a stop */
+export function looseQuote(opening) {
+  let s = String(opening || '').trim();
+  for (let k = 0; k < 6; k++) {
+    const m = LEADER.exec(s);
+    if (!m || !m[0]) { break; }
+    s = s.slice(m[0].length);
+  }
+  // (an abbreviation - ר"ג, רשב"י - stands for words the text writes out: any one word)
+  const words = s.split(CUT)[0].replace(NIKUD_ALL, '').split(/\s+/)
+    .map(w => (new RegExp(`[א-ת]${Q}[א-ת]`).test(w) ? '*' : (hebrewWords(w)[0] || '')))
+    .filter(w => w === '*' || w.length > 1);
+  while (words.length && words[0] === '*') { words.shift(); }
+  const out = words.slice(0, 6);
+  while (out.length && out[out.length - 1] === '*') { out.pop(); }
+  return out;
+}
+
+const FINALS = {'ך': 'כ', 'ם': 'מ', 'ן': 'נ', 'ף': 'פ', 'ץ': 'צ'};
+/** supercommentary.skeleton: without ו and י, final letters as others */
+const skel = w => w.replace(/[ךםןףץ]/g, c => FINALS[c]).replace(/[וי]/g, '') || w;
+const near = (q, w) => sameWord(q, w) || sameWord(skel(q), skel(w));
+
+/**
+ * The amud a heading or a comment's opening names: {daf, side ('a' | 'b' | null)} or null.
+ * "דף ב." "דף ב:" "דף ב ע"א" "דף קיב"; an opening "ע"ב" alone: {daf: null, side}.
+ */
+export function amudOf(text) {
+  const s = String(text || '').replace(NIKUD_ALL, '').trim();
+  let m = new RegExp(`^(?:[([]\\s*)?דף\\s+([א-ת]{1,3}${Q}?[א-ת]?)\\s*(?:([.:])|ע${Q}?\\s*([אב]))?`).exec(s);
+  if (m) {
+    const daf = NUMBERS.get(m[1].replace(new RegExp(Q, 'g'), ''));
+    if (!daf) { return null; }
+    const side = m[2] === '.' || m[3] === 'א' ? 'a' : (m[2] === ':' || m[3] === 'ב' ? 'b' : null);
+    return {daf, side};
+  }
+  m = new RegExp(`^ע${Q}\\s*([אב])`).exec(s);
+  return m ? {daf: null, side: m[1] === 'א' ? 'a' : 'b'} : null;
+}
+
+/** An amud's place among a masechta's (Sefaria's: 1a is 0) */
+const amudIndex = (daf, side) => 2 * daf - 2 + (side === 'b' ? 1 : 0);
+
+/** Each comment's amud, from its section's headings and the comments' openings: [[index or null]] per leaf */
+function amudsOf(comm) {
+  let daf = null;
+  let side = null;
+  return comm.map(leaf => {
+    for (const h of leaf.heTitles || []) {
+      const a = amudOf(h);
+      if (a && a.daf) { daf = a.daf; side = a.side; }
+    }
+    return (leaf.openings || []).map(o => {
+      const a = amudOf(o);
+      if (a) {
+        if (a.daf) { daf = a.daf; }
+        if (a.side) { side = a.side; }
+      }
+      if (!daf) { return null; }
+      return side ? [amudIndex(daf, side)] : [amudIndex(daf, 'a'), amudIndex(daf, 'b')];
+    });
+  });
+}
+
+/** The amudim (Sefaria's refs' "2a") a commentary names, and the ones beside them: for loading them */
+export function amudimWanted(comm) {
+  const leaves = (comm.leaves || []).map(l => ({heTitles: l[3], openings: l[5] || []}));
+  const out = new Set();
+  for (const per of amudsOf(leaves)) {
+    for (const a of per) { (a || []).forEach(i => { out.add(i - 1); out.add(i); out.add(i + 1); }); }
+  }
+  return [...out].filter(i => i >= 2).sort((a, b) => a - b)
+    .map(i => `${Math.floor(i / 2) + 1}${i % 2 ? 'b' : 'a'}`);
+}
+
+/** The units of a masechta of Sefaria's Gemara: amudim [["2a", [segment html]]] */
+export function talmudUnits(title, heTitle, amudim) {
+  const units = [];
+  for (const [label, segs] of amudim) {
+    const m = /^(\d+)([ab])$/.exec(label);
+    if (!m) { continue; }
+    const daf = parseInt(m[1], 10);
+    const a = amudIndex(daf, m[2]);
+    (segs || []).forEach((s, i) => {
+      units.push({key: [a, i], amud: a, ref: `${title} ${label}:${i + 1}`,
+        he: `${heTitle} ${gematria(daf)}${m[2] === 'a' ? '.' : ':'} ${i + 1}`, words: hebrewWords(s)});
+    });
+  }
+  return units;
+}
+
+const LOOK_AHEAD = 40;        // units looked at past the last placed before the whole text is searched
+
+/**
+ * The comments put on the text by their quotes, loosely (see above).
+ * comm: [{path, heTitles, openings}]; units: [{key, words, amud?}]
+ * -> [{leaf, para, unit, how: 'loose' | 'loose-neighbour', exact}]
+ */
+export function looseComments(comm, units) {
+  const amuds = amudsOf(comm);
+  const byAmud = new Map();
+  units.forEach((u, i) => {
+    if (u.amud === undefined) { return; }
+    if (!byAmud.has(u.amud)) { byAmud.set(u.amud, []); }
+    byAmud.get(u.amud).push(i);
+  });
+  const chapter = new Map();          // a chapter's number -> [first unit, after the last]
+  units.forEach((u, i) => {
+    if (u.amud !== undefined || typeof u.key[0] !== 'number') { return; }
+    if (!chapter.has(u.key[0])) { chapter.set(u.key[0], [i, i]); }
+    chapter.get(u.key[0])[1] = i + 1;
+  });
+  const skels = units.map(u => (u.words || []).map(skel));
+
+  /** The longest run of the quote found at word p of unit i, a word of the text missed or misread at most once */
+  const run = (q, i, p) => {
+    const ws = units[i].words || [];
+    let n = 0;
+    let exact = true;
+    let slips = 0;
+    let k = p;
+    let wild = 0;
+    while (n < q.length && k < ws.length) {
+      if (q[n] === '*') {
+        wild += 1; exact = false; n += 1; k += 1;
+      } else if (sameWord(q[n], ws[k])) {
+        n += 1; k += 1;
+      } else if (near(q[n], ws[k])) {
+        exact = false; n += 1; k += 1;
+      } else if (slips < 1 && n > 0) {
+        slips += 1; exact = false;
+        if (k + 1 < ws.length && near(q[n], ws[k + 1])) { k += 1; } else { n += 1; k += 1; }   // (a word added, or misread)
+      } else { break; }
+    }
+    return {n: n - slips - wild, exact: exact && n === q.length};
+  };
+  const real = q => q.filter(w => w !== '*').length;
+  const findIn = (q, list) => {
+    const need = Math.min(3, real(q));
+    let best = null;
+    let count = 0;
+    const s0 = skel(q[0]);
+    for (const i of list) {
+      const ws = units[i].words || [];
+      let here = null;
+      for (let p = 0; p < ws.length; p++) {
+        if (!(sameWord(q[0], ws[p]) || skels[i][p] === s0 || near(q[0], ws[p]))) { continue; }
+        const r = run(q, i, p);
+        if (r.n >= need && (!here || r.n > here.n)) { here = {unit: i, ...r}; }
+      }
+      if (here) {
+        count += 1;
+        if (!best) { best = here; }
+      }
+    }
+    return best ? {...best, unique: count === 1} : null;
+  };
+
+  const out = [];
+  let cursor = 0;
+  comm.forEach((leaf, li) => {
+    const chap = typeof leaf.path[0] === 'number' ? chapter.get(leaf.path[0]) : null;
+    (leaf.openings || []).forEach((opening, j) => {
+      if (opening === null || opening === undefined) { return; }
+      const q = looseQuote(opening);
+      const amud = amuds[li][j];
+      let window;
+      if (amud && byAmud.size) {
+        const near3 = new Set();
+        amud.forEach(a => [a - 1, a, a + 1].forEach(x => near3.add(x)));
+        window = [...near3].sort((a, b) => a - b).flatMap(a => byAmud.get(a) || []);
+      } else if (chap) {
+        window = [];
+        for (let i = chap[0]; i < chap[1]; i++) { window.push(i); }
+      } else {
+        window = null;
+      }
+      let found = null;
+      if (real(q) >= 2 || (real(q) === 1 && window && q[0].length >= 4)) {
+        if (window) {
+          // (in order: from the last placed, then anywhere in the window)
+          found = findIn(q, window.filter(i => i >= cursor)) || findIn(q, window);
+          if (found) { found.unique = countIn(q, window) === 1; }
+        } else {
+          const ahead = [];
+          for (let i = cursor; i < Math.min(units.length, cursor + LOOK_AHEAD); i++) { ahead.push(i); }
+          found = findIn(q, ahead);
+          if (!found) {
+            const all = [];
+            for (let i = cursor; i < units.length; i++) { all.push(i); }
+            found = findIn(q, all);
+          }
+        }
+      }
+      if (found) {
+        cursor = found.unit;
+        out.push({leaf: li, para: j, unit: found.unit, how: 'loose', exact: found.exact && found.unique, window});
+      } else {
+        out.push({leaf: li, para: j, unit: null, how: 'loose-neighbour', exact: false, window});
+      }
+    });
+  });
+  function countIn(q, list) {
+    let n = 0;
+    const need = Math.min(3, real(q));
+    for (const i of list) {
+      const ws = units[i].words || [];
+      for (let p = 0; p < ws.length; p++) {
+        if (near(q[0], ws[p]) && run(q, i, p).n >= need) { n += 1; break; }
+      }
+    }
+    return n;
+  }
+  // nothing found at all: not a commentary on this text (a book of responsa named for it)
+  const found = out.filter(p => p.unit !== null).length;
+  if (found < 3 || found < 0.2 * out.length) { return []; }
+  // a comment not found: with the one before it (in its own amud or chapter when known), else the next
+  return out.map((p, k) => {
+    if (p.unit !== null) { return p; }
+    const ok = u => u !== null && (!p.window || p.window.includes(u));
+    let t = null;
+    for (let x = k - 1; x >= 0 && t === null; x--) { if (ok(out[x].unit)) { t = out[x].unit; } }
+    for (let x = k + 1; x < out.length && t === null; x++) { if (ok(out[x].unit)) { t = out[x].unit; } }
+    if (t === null && p.window && p.window.length) { t = p.window[0]; }
+    return t === null ? null : {...p, unit: t};
+  }).filter(Boolean).map(({window, ...p}) => p);
 }
 
 /** Which chapters (0-based, at the top) of a book in numbered sections a commentary needs */
