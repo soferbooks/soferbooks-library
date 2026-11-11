@@ -4,12 +4,22 @@ import PropTypes from 'prop-types';
 import URL from 'url-parse';
 import React from 'react';
 
+// First path segments of sefaria.org pages the app does not show (DeepLinkRouter hands them to the browser)
+export const WEB_ONLY_PAGES = [
+  'sheets', 'sheet', 'collections', 'groups', 'community', 'profile', 'people', 'my', 'settings',
+  'notifications', 'updates', 'calendars', 'visualizations', 'translations', 'about', 'donate',
+  'dedicate', 'help', 'jobs', 'team', 'terms', 'privacy-policy', 'contact', 'educators', 'mobile',
+  'products', 'static', 'ai', 'word-by-word', 'daf-yomi', 'torah-tab', 'remote-learning',
+  'apis', 'developers', 'api',
+];
+
 class DeepLinkRouter extends React.PureComponent {
   static propTypes = {
     openNav:                 PropTypes.func.isRequired,
     openMenu:                PropTypes.func.isRequired,
     openRef:                 PropTypes.func.isRequired,
     openUri:                 PropTypes.func.isRequired,
+    openRefInNewTab:         PropTypes.func,  // links from outside the app open their passage in a new tab
     openTextTocDirectly:     PropTypes.func.isRequired,
     openSearch:              PropTypes.func.isRequired,
     setSearchOptions:        PropTypes.func.isRequired,
@@ -25,6 +35,9 @@ class DeepLinkRouter extends React.PureComponent {
       ['^texts/(.+)?$', this.openCats, ['cats']],
       ['^search$', this.openSearch],
       ['^topics(/.*)?$', this.catchAll],  // no Topics pages in SoferBooks: open them on the web
+      // Sefaria's own pages (sheets, profiles, collections, static pages ...): not in the app, and
+      // not book titles either, so straight to the browser without a title lookup
+      [`^(${WEB_ONLY_PAGES.join('|')})(/.*)?$`, this.catchAll],
       // login/register/logout are browser-session/CSRF-bound auth flows the app can't
       // complete in-app, so they must exit to the browser via catchAll rather than fall
       // into the tref route below and get treated as a text title lookup. Sefaria-Project's
@@ -45,7 +58,7 @@ class DeepLinkRouter extends React.PureComponent {
     this.props.openNav();
     this.props.setNavigationCategories(cats);
   };
-  openRef = ({ tref, ven, vhe, version, aliyot, lang, url }) => {
+  openRef = ({ tref, ven, vhe, version, aliyot, lang, url, fromOutside }) => {
     // wrapper for openRef to convert url params to function params
     // TODO handle sheet ref case
     let { ref, title } = Sefaria.urlToRef(tref);
@@ -59,7 +72,7 @@ class DeepLinkRouter extends React.PureComponent {
           const matches = results.completion_objects.filter(obj => obj.type === 'ref' && ref.includes(obj.title));
           if (matches.length > 0) {
             ref = ref.replace(matches[0].title, matches[0].key);
-            this.openStandardRef(ref, aliyot, ven, vhe, lang);
+            this.openStandardRef(ref, aliyot, ven, vhe, lang, fromOutside);
           }
           else {
             this.catchAll({ url }); /* can't find an alt title, so just open site */
@@ -73,17 +86,24 @@ class DeepLinkRouter extends React.PureComponent {
       this.props.openTextTocDirectly(title);
     } else {
       // standard ref
-      this.openStandardRef(ref, aliyot, ven, vhe, lang);
+      this.openStandardRef(ref, aliyot, ven, vhe, lang, fromOutside);
     }
   };
-  openStandardRef = (ref, aliyot, ven, vhe, lang) => {
+  openStandardRef = (ref, aliyot, ven, vhe, lang, fromOutside = false) => {
     const enableAliyot = !!aliyot && aliyot.length > 0 && aliyot !== '0';
-    ven = ven?.replace(/^[a-z]+\|/, '');  // remove version language prefix if it exists
-    vhe = vhe?.replace(/^[a-z]+\|/, '');
+    // remove version language prefix if it exists; sefaria.org writes the spaces in a version title as _
+    ven = ven?.replace(/^[a-z]+\|/, '').replace(/_/g, ' ');
+    vhe = vhe?.replace(/^[a-z]+\|/, '').replace(/_/g, ' ');
     const versions = { en: ven, he: vhe };
     const longLang = Sefaria.util.shortLangToLong(lang);
     if (longLang) {
       this.props.setTextLanguage(longLang, null, true);
+    }
+    if (fromOutside && this.props.openRefInNewTab) {
+      // a sefaria.org link tapped in another app: the passage opens in a new tab, and the
+      // reader's open tabs stay where they were
+      this.props.openRefInNewTab(ref, (ven || vhe) ? versions : null);
+      return;
     }
     this.props.openRef(ref, 'deep link', versions, true, enableAliyot);
   }
@@ -154,7 +174,7 @@ class Route {
         const key = fromOutside ? 'fromOutside' : 'fromInside';
         func = func[key];
       }
-      func({ ...groups, ...query, url });
+      func({ ...groups, ...query, url, fromOutside });
       return true;
     }
     return false;

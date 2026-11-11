@@ -2,8 +2,9 @@
 
 SoferBooks Library is a free Android app for reading the classic Jewish texts: Tanakh, Talmud,
 halacha, commentaries and more, online or downloaded for offline reading. It needs no account;
-reading history and saved texts stay on the phone. A content filter (chosen on first launch,
-changeable in Settings) hides books, translations and sheets the reader does not want to see.
+reading history and saved texts stay on the phone. A content filter (Right-Wing Modern Orthodox by
+default, changeable in Settings) hides books, translations and sheets the reader does not want to see.
+Sefaria links (sefaria.org) can open in the app: Settings, "Open Sefaria links in this app".
 
 The texts come from [Sefaria](https://www.sefaria.org)'s free library and keep their own licences
 (shown under "About this text" in the reader).

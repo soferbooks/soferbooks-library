@@ -53,8 +53,8 @@ export function groupsFor(presetId) {
   return groups;
 }
 
-// Any saved settings -> the current shape. Unlike the extension, `null` stays `null`: the app
-// asks the reader to choose a preset on first launch instead of picking one silently.
+// Any saved settings -> the current shape. `null` (nothing saved) stays `null`; the app reads
+// that as the default preset (withDefault below).
 export function normalize(stored) {
   if (!stored || typeof stored !== 'object') { return null; }
   const s = stored;
@@ -90,6 +90,14 @@ export function presetOf(groups) {
 export function configForPreset(presetId) {
   return normalize({ preset: presetId });
 }
+
+// No chooser at first launch (owner, 2026-11-11): until the reader picks something in Settings,
+// the filter is Right-Wing Modern Orthodox.
+export const DEFAULT_PRESET = 'rwmo';
+export const defaultConfig = () => configForPreset(DEFAULT_PRESET);
+
+// A saved setting, or the default when nothing (or nothing usable) is saved
+export const withDefault = stored => normalize(stored) || defaultConfig();
 
 // A config with one group switched by hand (switching one on while "Off" turns the filter on)
 export function toggleGroup(cfg, groupId, hidden) {

@@ -12,6 +12,7 @@ import {
   Alert,
   Platform,
   PermissionsAndroid, Button, TextInput, KeyboardAvoidingView, Keyboard, Modal,
+  Linking,
 } from 'react-native';
 import VersionNumber from 'react-native-version-number';
 import NetInfo from "@react-native-community/netinfo";
@@ -213,6 +214,34 @@ function abstractUpdateChecker(disableUpdateComponent, networkMode) {
 
 const defaultBaseHost = Sefaria.api._baseHost;
 
+/**
+ * "Open Sefaria links in this app" (Android). The manifest lists sefaria.org links, but Android 12+
+ * opens them in an app only when the site vouches for it (we don't own sefaria.org) or the user
+ * turns on "Open supported links" for the app. This opens the app's page in Android's settings,
+ * with a line saying what to tap there.
+ *
+ * (The "Open by default" page itself, Settings.ACTION_APP_OPEN_BY_DEFAULT_SETTINGS, needs a
+ * `package:` data URI, which React Native's Linking.sendIntent cannot attach - it sends only
+ * extras, so that intent would not resolve. Linking.openSettings opens the app's info page,
+ * one tap away from "Open by default".)
+ */
+export const openSefariaLinkSettings = () =>
+  Linking.openSettings().catch(e => console.log('could not open the app settings', e));
+
+export const SefariaLinksSetting = ({ langStyle }) => {
+  const globalState = useContext(GlobalStateContext);
+  const theme = getTheme(globalState.themeStr);
+  if (Platform.OS !== 'android') { return null; }
+  return (
+    <View style={styles.settingsSection} testID="sefaria-links-setting">
+      <SystemButton onPress={openSefariaLinkSettings} text={strings.settings.open_sefaria_links} />
+      <Text style={[langStyle, theme.secondaryText, { fontSize: 13, marginTop: 6, marginHorizontal: 4 }]}>
+        {strings.settings.open_sefaria_links_explanation}
+      </Text>
+    </View>
+  );
+};
+
 const AppVersionSection = ({ versionNumber, langStyle, headerStyle }) => {
   // changing host in 7 clicks
   const clickCount = useRef(0);
@@ -368,6 +397,7 @@ const SettingsPage = ({ close, openUri }) => {
           }}>
             <Text style={[langStyle, styles.settingsSectionHeader, theme.tertiaryText]}>{strings.settings.system}</Text>
           </TouchableWithoutFeedback>
+          <SefariaLinksSetting langStyle={langStyle} />
           <AppVersionSection
             versionNumber={VersionNumber.appVersion}
             langStyle={langStyle}

@@ -40,6 +40,22 @@
      <action android:name="android.intent.action.DOWNLOAD_COMPLETE"/>
               <category android:name="android.intent.category.MULTIWINDOW_LAUNCHER" />
           </intent-filter>
+          <!-- Sefaria links open in the app (DeepLinkRouter.js routes them): the hosts
+               Sefaria-Mobile listed. No android:autoVerify - we don't own sefaria.org, so
+               Android can't verify the links for us; on Android 12+ the reader turns on
+               "Open supported links" (Settings: "Open Sefaria links in this app"). -->
+          <intent-filter>
+              <action android:name="android.intent.action.VIEW" />
+              <category android:name="android.intent.category.DEFAULT" />
+              <category android:name="android.intent.category.BROWSABLE" />
+
+              <data android:scheme="http" />
+              <data android:scheme="https" />
+              <data android:host="sefaria.org" />
+              <data android:host="www.sefaria.org" />
+              <data android:host="sefaria.org.il" />
+              <data android:host="www.sefaria.org.il" />
+          </intent-filter>
       </activity>
 
       <activity

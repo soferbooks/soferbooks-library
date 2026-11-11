@@ -7,14 +7,14 @@
 // The helpers below cover what does not go through the TOC: versions/translations, search hits,
 // autocomplete, related sheets, downloads, and the "hidden by your filter" message.
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { normalize } from './presets';
+import { normalize, withDefault } from './presets';
 import {
   match, filterToc, versionMatch, filterVersions as filterVersionList, sheetMatch,
 } from './matcher';
 
 export const STORAGE_KEY = 'contentFilter';  // same key StateManager persists the setting under
 
-let config = null;          // normalized config, or null while the reader has not chosen yet
+let config = null;          // normalized config (null only before loadConfig, or in tests: no filter)
 let hiddenBooks = {};       // title -> reason, every book the filter took out of the TOC
 let fullToc = null;         // the unfiltered toc.json
 let fullSearchToc = null;   // the unfiltered search_toc.json
@@ -33,7 +33,7 @@ export function subscribe(fn) {
 export async function loadConfig() {
   try {
     const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    setConfig(raw ? JSON.parse(raw) : null);
+    setConfig(withDefault(raw ? JSON.parse(raw) : null));  // nothing saved yet: the default preset
   } catch (e) {
     console.log('content filter: could not read settings', e);
   }

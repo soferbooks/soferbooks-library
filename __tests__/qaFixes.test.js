@@ -1,5 +1,6 @@
 // QA round 1 (2026-11-10): content-filter leaks in preview text, counts in the connections panel,
-// and the first-launch library prompt showing over the content-filter chooser.
+// and the first-launch library prompt (since 2026-11-11 there is no content-filter chooser:
+// the default is RWMO, and the prompt only waits for the setting to load).
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert } from 'react-native';
 import { ERRORS } from '../errors';
@@ -77,7 +78,7 @@ describe('connection counts count only visible books', () => {
   });
 });
 
-describe('first launch: the library prompt waits for the content-filter choice', () => {
+describe('first launch: the offer to download books for offline use', () => {
   const makeApp = contentFilter => {
     const app = Object.create(ReaderApp.prototype);
     app.props = { contentFilter };
@@ -92,14 +93,14 @@ describe('first launch: the library prompt waits for the content-filter choice',
   });
   afterEach(() => Alert.alert.mockRestore());
 
-  test('no alert while the chooser is up, then exactly one once a filter is chosen', async () => {
-    const app = makeApp(null);
+  test('waits while the filter setting is loading, then shows exactly once', async () => {
+    const app = makeApp(undefined);   // StateManager: undefined until loaded from storage
     await app.promptLibraryDownload();
     expect(Alert.alert).not.toHaveBeenCalled();
     expect(await AsyncStorage.getItem('libraryDownloadPrompted')).toBeNull();
 
     const prevProps = app.props;
-    app.props = { contentFilter: configForPreset('yeshivish') };
+    app.props = { contentFilter: configForPreset('rwmo') };   // nothing saved: the default
     app.componentDidUpdate(prevProps, app.state);
     await new Promise(r => setTimeout(r, 0));
     await new Promise(r => setTimeout(r, 0));
