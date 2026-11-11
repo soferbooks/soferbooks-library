@@ -320,17 +320,21 @@ release must stay latest):
 
 ```powershell
 # Sofer's own Python (his dependencies); reads Sofer's library, never writes to it
-C:\Users\morde\Sofer\.venv\Scripts\python.exe tools\library-export\build_sofer_library.py --out C:\Users\morde\Soferia\sofer-library --tag sofer-library-2026-11-11
-python tools\library-export\verify_release_licences.py --sofer-library C:\Users\morde\Soferia\sofer-library\release
-gh release create sofer-library-2026-11-11 (Get-ChildItem C:\Users\morde\Soferia\sofer-library\release).FullName --repo soferbooks/soferbooks-library-data --title "Sofer Library 2026-11-11" --latest=false --notes "..."
+C:\Users\morde\Sofer\.venv\Scripts\python.exe tools\library-export\build_sofer_library.py --out C:\Users\morde\Soferia\sofer-library-b --tag sofer-library-2026-11-11b
+python tools\library-export\verify_release_licences.py --sofer-library C:\Users\morde\Soferia\sofer-library-b\release
+gh release create sofer-library-2026-11-11b (Get-ChildItem C:\Users\morde\Soferia\sofer-library-b\release).FullName --repo soferbooks/soferbooks-library-data --title "Sofer Library 2026-11-11b" --latest=false --notes "..."
 ```
 
 `build_sofer_library.py` finds the books from Sofer's manifests (`extra_import_manifest.json`,
 `combined_manifest.json`) and `sofer.splits`, skipping any book Sefaria's mobile export has
 (`--sefaria-titles`) or that Dicta / Otzaria / Wikisource serve; exports them with `export_v7`
 (Sofer's corrections applied by his provider, `sofer.not_offered` books and translations left
-out); keeps only editions with an open licence (public domain, CC0, CC-BY(-SA), CC-BY-NC(-SA); a
-combined edition only when every edition it was made of is open); files each book on Sofer's
+out); keeps the editions with an open licence (public domain, CC0, CC-BY(-SA), CC-BY-NC(-SA)) and -
+owner's decision, 2026-11-11 - those whose licence is unknown, never one whose notice forbids giving
+it out (a combined edition: every edition it was made of so too); gives Return to Your Homes as the
+English edition of Shuvu Lachem LeOhaleichem, laid out on the Hebrew's passages
+(`align_translation.py`: NLTK's Gale-Church aligner, `third_party/`, on the chapters, then the
+sections, then the paragraphs; `<out>\alignments.json` shows what went with what); files each book on Sofer's
 shelf (`sofer.api.catalog.shelf_of`: poems on "שירה ופיוט"); and writes
 `release\sofer-library-catalog.json` (title, Hebrew title, kind, shelf, licences, size, sha256,
 md5, first section, the editors' notes that come with it), one ASCII-named zip per book and
@@ -340,6 +344,23 @@ lists the books when "Sofer Library" is turned on in Settings, downloads a book 
 when it is opened, checks its md5 and puts its files in the library as they came, marked
 `librarySource: sofer_library` ("Report an error" goes to corrections@soferbooks.com); the
 content filter applies to them as to every book.
+
+**Full library** (`fullLibrary.js`, `extrasQueue.js`, `FullLibraryPanel.js`; owner, 2026-11-11). The
+reader who downloads the whole library gets the extra sources' books too: Settings shows each part
+(Sefaria's library, Dicta, Otzaria, Wikisource, the Sofer Library) as a tick box, all ticked, with
+its download and its space on the phone after conversion, and the total; the first-launch offer
+lists the same. The extra sources' books then download in the background, one at a time with a
+pause between them, never a book the content filter hides, on Wi-Fi only unless switched off, with
+Pause / Resume / Cancel, and go on after the app is restarted. The sources' catalogues list no
+sizes (the Sofer Library's does), so `fullLibrarySizes.json` holds each book's download size (from
+the files Sofer downloaded from the same servers), each source's measured conversion ratio (sample
+books converted with the app's code) and its totals (the live catalogues after Sefaria's copies,
+licences and the default filter):
+
+```powershell
+python -I tools\library-export\full_library_sizes.py --samples C:\tmp\size-samples --sofer-release C:\Users\morde\Soferia\sofer-library-b\release
+node -r @babel/register tools\library-export\full_library_sizes.js C:\tmp\size-samples
+```
 
 ### Superseded: hosted extras packs
 

@@ -92,7 +92,7 @@ describe('the Sofer Library source', () => {
     expect(RELEASE_URL).toBe(`https://github.com/soferbooks/soferbooks-library-data/releases/download/${RELEASE_TAG}`);
     expect(CATALOG_URL).toBe(`${RELEASE_URL}/sofer-library-catalog.json`);
     expect(sofer.catalogUrl).toBe(CATALOG_URL);
-    expect(RELEASE_TAG).toMatch(/^sofer-library-\d{4}-\d\d-\d\d$/);
+    expect(RELEASE_TAG).toMatch(/^sofer-library-\d{4}-\d\d-\d\d[a-z]?$/);
   });
 
   test('registered as an extra source, off by default, named Sofer Library / ספריית סופר', () => {

@@ -146,6 +146,18 @@ def licence_open(licence) -> bool:
     return licence_key(licence) in OPEN_LICENCES
 
 
+# The Sofer Library release (build_sofer_library.py) is more lenient - owner's decision,
+# 2026-11-11: "treat unknown licences leniently". An edition whose licence is unknown or not
+# given is included as well; anything that says it may not be given out (copyright, all rights
+# reserved, personal use only, no derivatives, anything else not open) still stays out.
+UNKNOWN_LICENCES = {"", "unknown", "none", "n-a", "n/a"}
+
+
+def licence_sofer_library(licence) -> bool:
+    """May the Sofer Library release carry an edition with this licence?"""
+    return licence is None or licence_open(licence) or licence_key(licence) in UNKNOWN_LICENCES
+
+
 def book_licences(z: zipfile.ZipFile) -> dict[tuple[str, str], object]:
     """{(language, versionTitle): Sefaria's licence} from the zip's <Title>_index.json."""
     out = {}

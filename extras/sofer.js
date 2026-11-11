@@ -27,7 +27,7 @@ export const ID = 'sofer_library';
 export const REPO = 'soferbooks/soferbooks-library-data';
 // THE ONE LINE a new release of the Sofer Library changes (made with --latest=false: the
 // repository's "latest" release is the Sefaria search packs' one, packs.js)
-export const RELEASE_TAG = 'sofer-library-2026-11-11';
+export const RELEASE_TAG = 'sofer-library-2026-11-11b';
 export const RELEASE_URL = `https://github.com/${REPO}/releases/download/${RELEASE_TAG}`;
 export const CATALOG_NAME = 'sofer-library-catalog.json';
 export const CATALOG_URL = `${RELEASE_URL}/${CATALOG_NAME}`;

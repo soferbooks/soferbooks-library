@@ -12,8 +12,10 @@ then every hosted file of <work>/release:
 
 The Sofer Library release (build_sofer_library.py) is checked with --sofer-library <release dir>:
 every book (and editors'-notes book) in sofer-library-catalog.json must be there with its size
-and sha256; every edition in its <Title>_index.json must have an open licence (a combined
-edition: every edition it was made of too) and be one the catalogue lists; every section file
+and sha256; every edition in its <Title>_index.json must have a licence the Sofer Library may
+carry (a combined edition: every edition it was made of too) and be one the catalogue lists -
+an open licence or, by the owner's decision of 2026-11-11 ("treat unknown licences leniently"),
+an unknown or missing one, never one that forbids giving it out (bsp.licence_sofer_library); every section file
 (<ref>.<version hash>.<lang>.json) must belong to one of those editions; and the release may hold
 no other file.
 
@@ -37,7 +39,8 @@ EXAMPLES = ("On Your Way", "The Tosefta according to codex Vienna",
 
 
 def verify_sofer_library(release: Path) -> int:
-    """The Sofer Library release: only open editions, only the files the catalogue lists."""
+    """The Sofer Library release: only editions it may carry, only the files the catalogue lists.
+    (Owner, 2026-11-11: unknown licences are accepted; anything that forbids distribution is not.)"""
     catalog = json.loads((release / "sofer-library-catalog.json").read_text(encoding="utf-8"))
     problems = []
     books = []
@@ -67,9 +70,9 @@ def verify_sofer_library(release: Path) -> int:
             cat = catalogued.get((lang, vt))
             if cat is None:
                 problems.append(f"{title}: edition {vt!r} ({lang}) is not in the catalogue")
-            elif "parts" in cat and not (cat["parts"] and all(bsp.licence_open(p["license"]) for p in cat["parts"])):
-                problems.append(f"{title}: combined edition {vt!r} is made of an edition that is not open")
-            if not bsp.licence_open(licence):
+            elif "parts" in cat and not (cat["parts"] and all(bsp.licence_sofer_library(p["license"]) for p in cat["parts"])):
+                problems.append(f"{title}: combined edition {vt!r} is made of an edition it may not carry")
+            if not bsp.licence_sofer_library(licence):
                 problems.append(f"{title}: edition {vt!r} ({lang}) has licence {licence!r}")
         for name in names:
             if name.endswith("_index.json") or name.endswith(".metadata.json"):
@@ -83,7 +86,7 @@ def verify_sofer_library(release: Path) -> int:
     for p in problems[:50]:
         print("  !", p)
     print(f"sofer library: {len(books)} books, {editions} editions, {len(problems)} problems")
-    print("FAIL" if problems else "OK: only open editions in the Sofer Library release")
+    print("FAIL" if problems else "OK: only editions the Sofer Library may carry (open or unknown licence)")
     return 1 if problems else 0
 
 

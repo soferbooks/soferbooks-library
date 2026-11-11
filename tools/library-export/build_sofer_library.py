@@ -23,10 +23,15 @@ Everything goes through the existing tools, as thin a layer as possible:
   that another extra source serves is not taken;
 * ``export_v7`` exports them (Sofer's reading-time corrections applied by his own provider;
   Sofer's never-offered books and translations left out: ``sofer.not_offered``);
-* licences: only editions whose licence allows public redistribution are kept
-  (``build_sefaria_packs.licence_open``: public domain, CC0, CC-BY(-SA), CC-BY-NC(-SA)); a
-  combined edition only when every edition it was made of is open; a book with no such
-  edition, or listed in ``NO_PERMISSION``, is left out (``<out>/left-out.json``);
+* licences (``build_sefaria_packs.licence_sofer_library``): editions with an open licence
+  (public domain, CC0, CC-BY(-SA), CC-BY-NC(-SA)) and - owner's decision, 2026-11-11 - those
+  whose licence is unknown or not given; never one that says it may not be given out (copyright,
+  all rights reserved, personal use only ...).  A combined edition: every edition it was made of
+  so too.  A book with no such edition, or listed in ``NO_PERMISSION``, is left out
+  (``<out>/left-out.json``);
+* a translation Sofer keeps as a book of its own (``TRANSLATIONS``: Return to Your Homes) is
+  laid out on its original's passages (``align_translation.py``) and given as that book's
+  English edition, so the app shows the two side by side;
 * the shelves are Sofer's (``sofer.api.catalog.shelf_of``: poems on "שירה ופיוט" ...).
 
 Writes ``<out>/release/``: one ``<asset>.zip`` per book (ASCII names: GitHub renames others),
@@ -57,7 +62,8 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import export_v7 as ev  # noqa: E402  (puts Sofer's src on the path)
-from build_sefaria_packs import licence_open, sha256  # noqa: E402
+from build_sefaria_packs import licence_open, licence_sofer_library, sha256  # noqa: E402
+from align_translation import align  # noqa: E402
 
 from sofer import licenses, not_offered, splits, saba  # noqa: E402
 from sofer.library import Library  # noqa: E402
@@ -81,11 +87,15 @@ CATALOG_FORMAT = 1
 # Hebrew names of shelves Sofer's catalogue has no Hebrew name for
 SHELF_HE = {"Tehillim": "תהלים"}
 
-# Books with no clear permission to give them out publicly (left out, reported)
-NO_PERMISSION = {
-    "Out of the Iron Furnace": "Rabbi Yaakov Feitman's English translation and adaptation: the family's Word "
-                               "file carries no permission from the translator to give it out",
-    "הערות המהדיר על מכור הברזל": "the editors' notes on Out of the Iron Furnace (left out with it)",
+# Books with no clear permission to give them out publicly (left out, reported).  (2026-11-11:
+# Rabbi Yaakov Feitman gave permission for Out of the Iron Furnace, and Return to Your Homes is
+# confirmed - none is left.)
+NO_PERMISSION: dict[str, str] = {}
+
+# A translation Sofer keeps as a book of its own -> (its original, the edition's name): given as
+# the original's English edition, passage by passage (owner, 2026-11-11)
+TRANSLATIONS = {
+    "Return to Your Homes": ("Shuvu Lachem LeOhaleichem", "Return to Your Homes (English translation, family edition)"),
 }
 
 
@@ -142,9 +152,25 @@ def is_open(v) -> bool:
     if v.version_title == COMBINED:
         parts = v.extra.get("sofer_combined") or []
         return bool(parts) and all(
-            licence_open(licenses.LICENSE_CORRECTIONS.get(p.get("versionTitle"), p.get("license")))
+            licence_sofer_library(licenses.LICENSE_CORRECTIONS.get(p.get("versionTitle"), p.get("license")))
             for p in parts)
-    return licence_open(v.license)
+    return licence_sofer_library(v.license)
+
+
+def translation_edition(provider, found: dict, original_text, title: str, name: str):
+    """A translation book's text laid out on its original's passages, as an edition of the
+    original (None when it cannot be given out); with the alignment's report."""
+    book = found.get(title)
+    if book is None:
+        return None, None
+    ev.load_book_versions(provider, book)
+    versions = [v for v in book.versions if is_open(v)]
+    book.versions = []
+    if not versions:
+        return None, None
+    v = versions[0]
+    text, report = align(original_text, v.text)
+    return dataclasses.replace(v, text=text, version_title=name, title=TRANSLATIONS[title][0]), report
 
 
 class RenamedProvider:
@@ -235,7 +261,8 @@ def main() -> int:
         wanted = {t: k for t, k in wanted.items() if t in only}
     originals = {t: (t[: -len(COMBINED_EN)] if k == "combined" else t) for t, k in wanted.items()}
     blocked = ev.blocked_titles(Path(provider.root))
-    found = ev.discover_books(Path(provider.root), set(originals.values()), None)
+    found = ev.discover_books(Path(provider.root), set(originals.values()) | set(TRANSLATIONS), None)
+    alignments = {}
     print(f"{len(wanted)} Sofer-only books found", flush=True)
 
     left_out: dict[str, str] = {}
@@ -245,6 +272,8 @@ def main() -> int:
         if title in NO_PERMISSION:
             left_out[title] = NO_PERMISSION[title]
             continue
+        if title in TRANSLATIONS:
+            continue                       # (an edition of its original: below)
         if original in blocked or title in blocked:
             left_out[title] = blocked.get(original) or blocked[title]
             continue
@@ -262,19 +291,29 @@ def main() -> int:
         if kind == "combined":
             book.versions_paths = [p for p in book.versions_paths if p.stem == COMBINED]
         ev.load_book_versions(provider, book)
-        kept = [v for v in book.versions if is_open(v)]
+        # (an edition with no licence is said to have an unknown one, as Sefaria writes it)
+        kept = [v if v.license else dataclasses.replace(v, license="Unknown") for v in book.versions if is_open(v)]
         closed = sorted({f"{v.version_title} ({v.license or 'no licence'})" for v in book.versions if not is_open(v)})
         if not kept:
             left_out[title] = "no edition whose licence allows giving it out: " + "; ".join(closed)
             book.versions = []
             continue
+        for tr, (orig, name) in TRANSLATIONS.items():
+            if orig == original and kept:
+                edition, report = translation_edition(provider, found, kept[0].text, tr, name)
+                if edition is not None:
+                    kept.append(edition)
+                    alignments[tr] = {"edition of": orig, **report}
         he_title = sofer_book.he_title + (COMBINED_HE if kind == "combined" else "")
         prov = provider
         if kind == "combined":
             prov = RenamedProvider(provider, original, title, he_title)
             book.title = title
-            # (the combined edition's licence: the parts', as Sofer prints it - none is unknown)
-            kept = [dataclasses.replace(v, license=v.license or "CC-BY-SA") for v in kept]
+            # (the combined edition's licence: the parts', as Sofer prints it; "Unknown" when any
+            #  part's licence is unknown - included under the owner's 2026-11-11 rule)
+            kept = [dataclasses.replace(v, license=v.license if all(
+                licence_open(p.get("license")) for p in v.extra.get("sofer_combined") or []) else "Unknown")
+                for v in kept]
         book.versions = kept
         zip_path = books_dir / f"{title}.zip"
         if not (args.skip_export and zip_path.is_file()):
@@ -343,6 +382,7 @@ def main() -> int:
     }
     (release / CATALOG_NAME).write_text(json.dumps(catalog, ensure_ascii=False, indent=1), encoding="utf-8")
     (out / "left-out.json").write_text(json.dumps(left_out, ensure_ascii=False, indent=1), encoding="utf-8")
+    (out / "alignments.json").write_text(json.dumps(alignments, ensure_ascii=False, indent=1), encoding="utf-8")
     with (release / "SHA256SUMS.txt").open("w", encoding="utf-8", newline="\n") as fh:
         for f in sorted(release.iterdir()):
             if f.name != "SHA256SUMS.txt":
