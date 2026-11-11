@@ -16,6 +16,8 @@
  *   versionOf(entry, text) -> {versionTitle, versionSource, license, librarySource, ...}
  *   (optional) versionsOf(entry, text, tree) -> [{version, tree}]  more than one edition of the
  *     book, laid out alike, the one shown first (Dicta's with nikud, then the plain text)
+ *   (optional) linksOf(entry, text) -> {otzariaPath, dictaPages}  where the book's connections
+ *     come from (extras/links.js): downloaded with it
  * and, for a source whose book is not one file (extras/wikisource.js):
  *   loadCatalog(installedRecords) -> [entry]     in place of catalogUrl + parseCatalog
  *   fetchBook(entry) -> text                     in place of fetching bookUrl (any value toTree takes)
@@ -44,6 +46,7 @@ import otzaria from './otzaria';
 import dicta from './dicta';
 import wikisource, {withCurrentShelf} from './wikisource';
 import {bookFiles} from './schema7';
+import * as links from './links';
 import {chooseBooks, addToToc, categoryNames} from './catalog';
 import {bookLines} from '../localSearch';
 import {clearOfflineSearchCache} from '../offlineSearch';
@@ -214,6 +217,7 @@ export async function checkUpdates(id) {
 }
 
 async function removeFiles(title) {
+  await links.removeLinks(title);
   for (const path of [`${LIBRARY_DIR}${title}.zip`, `${LIBRARY_DIR}${title}_search.txt`,
     `${FileSystem.documentDirectory}${title}_index.json`]) {
     await FileSystem.deleteAsync(path, {idempotent: true}).catch(() => {});
@@ -253,7 +257,7 @@ export function convertBook(entry, text) {
     ...(source.versionsOf ? {versions: source.versionsOf(entry, text, tree)} : {version: source.versionOf(entry, text)}),
   });
   const companions = source.companions ? source.companions(tree, entry, {files, sections}, text) : [];
-  return {files, firstSection, companions};
+  return {files, firstSection, companions, tree};
 }
 
 /** A converted book's files as library/<title>.zip and its offline search lines */
@@ -379,7 +383,7 @@ async function fetchAndInstall(title, job) {
     await reloadToc();
     throw new RestrictedBookError(title);
   }
-  const {files, firstSection, companions} = convertBook(entry, text);
+  const {files, firstSection, companions, tree} = convertBook(entry, text);
   job.check();                         // (the last moment to cancel: nothing is written yet)
   await writeBook(title, files);
   const at = new Date().toISOString();
@@ -397,12 +401,53 @@ async function fetchAndInstall(title, job) {
     books[c.entry.title] = {...c.entry, source: entry.source};
   }
   await saveState();
+  await collectLinks(title, entry, source, text, tree, at);
   forgetCaches();
   if (companions && companions.length) { await reloadToc(); }     // (the notes book joins the library)
   const index = typeof Sefaria !== 'undefined' && Sefaria.index && Sefaria.index(title);
   if (index) { index.firstSection = firstSection; }
   notify();
   return firstSection;
+}
+
+/**
+ * The book's connections, from its source (extras/links.js): Otzaria's link file now; Dicta's
+ * citations, a request a page, in the background (kept only if the same download is still there).
+ */
+async function collectLinks(title, entry, source, text, tree, at) {
+  if (!source.linksOf) { return; }
+  const stillThere = () => !!state.installed[title] && state.installed[title].at === at;
+  try {
+    const where = source.linksOf(entry, text) || {};
+    const {later} = await links.collect({
+      title, heTitle: entry.heTitle, tree, where,
+      fetchCitations: where.dictaPages && source.fetchPageCitations
+        ? () => source.fetchPageCitations(entry, {get cancelled() { return !stillThere(); }}) : null,
+      stillWanted: () => stillThere(),
+    });
+    later.then(added => { if (added) { notify(); } });
+  } catch (e) {
+    console.log('extras: the links of', title, e);
+  }
+}
+
+/** Sefaria's links API's response for a section, with the downloaded extra books' links of it */
+export async function withExtraLinks(sectionRef, response) {
+  const extra = await extraLinksFor(sectionRef);
+  return links.withExtraLinks(response, extra);
+}
+
+/** The downloaded extra books' links of a section (both ends: theirs and the passages they explain) */
+export async function extraLinksFor(sectionRef) {
+  try {
+    await loadExtras();
+    const titles = installedTitles().filter(t => !state.installed[t].companionOf);
+    if (!titles.length) { return []; }
+    return links.relatedFromIndex(await links.ready(titles), sectionRef);
+  } catch (e) {
+    console.log('extras: links of', sectionRef, e);
+    return [];
+  }
 }
 
 /** Delete one downloaded book (it stays in the library, to be downloaded again). */
@@ -437,5 +482,6 @@ export function _reset(next = {}) {
   state = {installed: {}, blocked: {}, ...(next.state || {})};
   books = next.books || {};
   Object.keys(downloads).forEach(t => { delete downloads[t]; });
+  links._reset();
   loaded = next.loaded === false ? null : Promise.resolve();
 }

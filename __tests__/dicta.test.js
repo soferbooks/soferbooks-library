@@ -19,7 +19,7 @@ import {unzip} from 'react-native-zip-archive';
 import dicta, {
   parseCatalog, otzariaCopies, choose, versionOf, versionTitle, dictaTree, shareIn, bookUrl,
   CATALOG_URL, OTZARIA_MANIFEST_URL, LICENSE, CREDIT_HE_DICTA,
-  vowelize, nikudWords, nikudEdition, versionsOf, putMarks, NIKUD_MIN,
+  vowelize, nikudWords, nikudEdition, versionsOf, putMarks, NIKUD_MIN, pagesBase,
 } from '../extras/dicta';
 import {Node} from '../extras/tree';
 import md5 from 'md5';
@@ -354,10 +354,10 @@ describe('Dicta catalogue', () => {
 
   test('Otzaria\'s copies: its layout of the book, and other collections the app offers', () => {
     const copies = otzariaCopies(MANIFEST, NO_RULES);
-    expect(copies['ספר א'].otzaria).toEqual({path: 'DictaToOtzaria/ערוך/ספרים/אוצריא/שות/אחרונים/ספר א.txt', hash: 'o1'});
+    expect(copies['ספר א'].otzaria).toEqual({path: 'DictaToOtzaria/ערוך/ספרים/אוצריא/שות/אחרונים/ספר א.txt', hash: 'o1', links: true});
     // (not wiki Jewish books, Beit Aharon VeYisrael, MoreBooks without permission, or a restricted book)
     expect(copies['ספר ב'].copies).toEqual([
-      {collection: 'Orayta', path: 'OraytaToOtzaria/ספרים/אוצריא/שות/ספר ב.txt', hash: 'o2', license: 'unknown'}]);
+      {collection: 'Orayta', path: 'OraytaToOtzaria/ספרים/אוצריא/שות/ספר ב.txt', hash: 'o2', links: false, license: 'unknown'}]);
     const [a, b] = parseCatalog(BOOKS, MANIFEST, NO_RULES);
     expect(a.otzaria.path).toMatch(/^DictaToOtzaria\//);
     expect(b.copies).toHaveLength(1);
@@ -390,6 +390,9 @@ describe('one copy of each sefer: Sefaria, then Dicta, then Otzaria', () => {
 // ---------------------------------------------------------------- on the phone
 
 /** global.fetch serving {url: text}; Dicta's zips through FileSystem.downloadAsync */
+// the requests for the book (not its connections: Dicta's page citations, extras/links.js)
+const bookFetches = () => global.fetch.mock.calls.map(c => c[0]).filter(u => !u.endsWith('/pages.json'));
+
 function serve(map) {
   global.fetch = jest.fn(async url => {
     if (!(url in map)) { return {ok: false, status: 404, text: async () => ''}; }
@@ -423,7 +426,8 @@ describe('downloading a Dicta book', () => {
     const first = await extras.downloadBook(entry.title);
     expect(FileSystem.downloadAsync.mock.calls.map(c => c[0])).toEqual([fx.book.textFileURL, fx.book.nikudMetegFileURL]);
     FileSystem.downloadAsync.mock.calls.forEach(c => expect(c[0]).toMatch(/^https:\/\/files\.dicta\.org\.il\//));
-    expect(global.fetch).not.toHaveBeenCalled();
+    // (only the page citations, in the background after the book: extras/links.js)
+    expect(global.fetch.mock.calls.map(c => c[0])).toEqual([`${pagesBase(entry)}pages.json`]);
     expect(first).toBe(`${entry.title}, S1`);
     const zipped = JSON.parse(await FileSystem.readAsStringAsync(`library/${entry.title}.zip`));
     const index = JSON.parse(zipped[`${entry.title}_index.json`]);
@@ -442,7 +446,7 @@ describe('downloading a Dicta book', () => {
       expect((await FileSystem.getInfoAsync(tmp)).exists).toBe(false);
     }
     const state = JSON.parse(await FileSystem.readAsStringAsync('library/_extras/state.json'));
-    expect(state.installed[entry.title]).toMatchObject({source: 'dicta', id: fx.book.fileName, converter: 2});
+    expect(state.installed[entry.title]).toMatchObject({source: 'dicta', id: fx.book.fileName, converter: 3});
     // (offline search: the edition shown, the one with nikud; an unvowelled query still finds it)
     const lines = (await FileSystem.readAsStringAsync(`library/${entry.title}_search.txt`)).trim().split('\n');
     expect(lines.every(l => l.split('\t')[3] === index.versions[0].versionTitle)).toBe(true);
@@ -474,7 +478,7 @@ describe('downloading a Dicta book', () => {
     serve({[bookUrlForPath(p)]: fx.otzaria[0].text});
     FileSystem.setRemote(fx.book.nikudMetegFileURL, zipOf(fx.nikudPages));
     await extras.downloadBook(entry.title);
-    expect(global.fetch.mock.calls.map(c => c[0])).toEqual([bookUrlForPath(p)]);
+    expect(bookFetches()).toEqual([bookUrlForPath(p)]);
     expect(global.fetch.mock.calls[0][0]).toMatch(/^https:\/\/raw\.githubusercontent\.com\/Otzaria\/otzaria-library\/main\/DictaToOtzaria\//);
     expect(FileSystem.downloadAsync.mock.calls.map(c => c[0])).toEqual([fx.book.nikudMetegFileURL]);
     const index = JSON.parse(JSON.parse(await FileSystem.readAsStringAsync(`library/${entry.title}.zip`))[`${entry.title}_index.json`]);
@@ -550,7 +554,7 @@ describe('downloading a Dicta book', () => {
     serve({[bookUrlForPath(p)]: fx.otzaria[0].text});
     FileSystem.setRemote(fx.book.textFileURL, zipOf(fx.pages));
     await extras.downloadBook(entry.title);
-    expect(global.fetch.mock.calls.map(c => c[0])).toEqual([bookUrlForPath(p)]);
+    expect(bookFetches()).toEqual([bookUrlForPath(p)]);
     const index = JSON.parse(JSON.parse(await FileSystem.readAsStringAsync(`library/${entry.title}.zip`))[`${entry.title}_index.json`]);
     expect(index.versions[0]).toMatchObject({versionTitle: 'Otzaria (Orayta)', license: 'CC-BY-SA', librarySource: 'dicta'});
 
@@ -559,7 +563,7 @@ describe('downloading a Dicta book', () => {
     serve({});
     FileSystem.setRemote(withSections.book.textFileURL, zipOf(withSections.pages));
     await extras.downloadBook(e2.title);
-    expect(global.fetch).not.toHaveBeenCalled();
+    expect(bookFetches()).toEqual([]);
   });
 
   test('turning Dicta on downloads its list and Otzaria\'s list of copies', async () => {
