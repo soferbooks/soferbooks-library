@@ -318,7 +318,7 @@ describe('downloading and deleting a book', () => {
     expect(extras.isDownloaded('ספר בדיקה מקונן')).toBe(true);
     expect(extras.firstSectionOf('ספר בדיקה מקונן')).toBe(first);
     const state = JSON.parse(await FileSystem.readAsStringAsync('library/_extras/state.json'));
-    expect(state.installed['ספר בדיקה מקונן']).toMatchObject({source: 'otzaria', hash: 'v1', converter: 1});
+    expect(state.installed['ספר בדיקה מקונן']).toMatchObject({source: 'otzaria', hash: 'v1', converter: 2});
     // nothing to update until the source changes the book
     expect(extras.booksToUpdate('otzaria')).toEqual([]);
     extras._reset({enabled: {otzaria: true}, state, catalogs: {otzaria: {entries: CATALOG.map(e => ({...e, hash: 'v2'}))}}});

@@ -31,7 +31,8 @@ export const RAW_BASE = `https://raw.githubusercontent.com/${REPO}/${BRANCH}`;
 export const CATALOG_URL = `${RAW_BASE}/files_manifest.json`;
 export const HOME_URL = `https://github.com/${REPO}`;
 // The converter's own version: books converted by an older one are converted again (as an update)
-export const CONVERTER_VERSION = 1;
+// (2: the book's links are downloaded with it - books converted by 1 are updated to get them)
+export const CONVERTER_VERSION = 2;
 
 // Otzaria's credit line, as its README asks for every use of its content
 export const CREDIT_HE = "התכנים שלפניכם נאספו, מוינו, סוננו ונערכו בעמל רב ובמסירות על ידי צוות פרויקט 'אוצריא' (otzaria.org).";
@@ -125,7 +126,11 @@ export function parseCatalog(manifestText, rules = RULES) {
   for (const [path, info] of Object.entries(manifest || {})) {
     if (!path.endsWith('.txt')) { continue; }
     const e = entryForPath(path, info && info.hash, rules);
-    if (e) { out.push(e); }
+    if (e) {
+      // (whether Otzaria has links for it: downloaded with it - extras/links.js)
+      e.links = !!manifest[linksPathFor(path)];
+      out.push(e);
+    }
   }
   return out;
 }
@@ -134,35 +139,73 @@ const encodePath = path => path.split('/').map(encodeURIComponent).join('/');
 export const bookUrlForPath = path => `${RAW_BASE}/${encodePath(path)}`;
 export const bookUrl = entry => bookUrlForPath(entry.id);
 
+/**
+ * Otzaria's links of a book (its lines tied to the texts it explains, to its commentaries and to its
+ * notes), in the same repository: "<collection>[/<sub>]/links/<name>_links.json" beside
+ * "<collection>[/<sub>]/ספרים/אוצריא/.../<name>.txt". A JSON list of {line_index_1 (the book's
+ * line, from 1), path_2 (the other book's file name), line_index_2, ref_2 (Sefaria's ref, when the
+ * other book is Sefaria's), heRef_2, "Conection Type" (source / commentary / footnotes / reference)}.
+ */
+export function linksPathFor(path) {
+  const m = /^(.*?)ספרים\/אוצריא\/(?:.+\/)?([^/]+)\.txt$/.exec(path || '');
+  return m ? `${m[1]}links/${m[2]}_links.json` : null;
+}
+export const linksUrlForPath = path => {
+  const p = linksPathFor(path);
+  return p ? bookUrlForPath(p) : null;
+};
+
 // ---------------------------------------------------------------- the text
 
 const H = /^\s*<h([1-6])[^>]*>(.*?)<\/h\1>\s*$/i;
 
-/** importers._otzaria_tree: [sections, author line] */
+/**
+ * importers._otzaria_tree: [sections, author line].
+ * The tree also gets lineParas ({line: paragraph}, as importers' root.para_lines): the line of the
+ * file (from 1, as Otzaria's link files count them) of each paragraph, counted over all the
+ * book's paragraphs in order; a heading's line goes with the paragraph under it. Not kept when the
+ * paragraphs were cut at headings inside the text (no longer a line each).
+ */
 export function otzariaTree(text) {
   const root = new Node('');
   const stack = [];
   let author = '';
-  for (const raw of splitLines(String(text || '').replace(/^﻿/, ''))) {
-    const ln = raw.trim();
-    if (!ln) { continue; }
-    const m = H.exec(ln);
-    if (m) {
-      const level = parseInt(m[1], 10);
-      if (level === 1) { continue; }
-      const depth = level - 1;                  // h2 = top-level section
-      while (stack.length && stack[stack.length - 1][0] >= depth) { stack.pop(); }
-      const parent = stack.length ? stack[stack.length - 1][1] : root;
-      stack.push([depth, parent.addChild(plain(m[2]))]);
-      continue;
+  let paras = 0;
+  const lineParas = {};
+  let headings = [];                            // heading lines waiting for their first paragraph
+  // (Otzaria counts lines by '\n'; the pieces a line splits into besides are on the same line)
+  String(text || '').replace(/^﻿/, '').split('\n').forEach((whole, i) => {
+    const line = i + 1;
+    for (const raw of splitLines(whole)) {
+      const ln = raw.trim();
+      if (!ln) { continue; }
+      const m = H.exec(ln);
+      if (m) {
+        const level = parseInt(m[1], 10);
+        if (level === 1) { continue; }
+        const depth = level - 1;                // h2 = top-level section
+        while (stack.length && stack[stack.length - 1][0] >= depth) { stack.pop(); }
+        const parent = stack.length ? stack[stack.length - 1][1] : root;
+        stack.push([depth, parent.addChild(plain(m[2]))]);
+        headings.push(line);
+        continue;
+      }
+      if (!author && !stack.length && !root.paras.length && ln.length < 60 && !ln.includes('<')) {
+        author = ln;                            // the line under the title
+        continue;
+      }
+      (stack.length ? stack[stack.length - 1][1] : root).addPara(ln);
+      for (const h of headings.concat(line)) { if (!(h in lineParas)) { lineParas[h] = paras; } }
+      headings = [];
+      paras += 1;
     }
-    if (!author && !stack.length && !root.paras.length && ln.length < 60 && !ln.includes('<')) {
-      author = ln;                              // the line under the title
-      continue;
-    }
-    (stack.length ? stack[stack.length - 1][1] : root).addPara(ln);
+  });
+  const tree = inlineSections(root);
+  if (tree === root) {
+    tree.lineParas = lineParas;
+    tree.paraCount = paras;
   }
-  return [inlineSections(root), author];
+  return [tree, author];
 }
 
 /** Whether the book may not be offered: its own notice (unless its holder gave permission). */
@@ -190,4 +233,6 @@ export default {
   toTree: text => otzariaTree(text),
   isRestricted,
   versionOf,
+  // where the book's connections come from (extras/links.js): Otzaria's links of this file
+  linksOf: entry => (entry.links === false ? {} : {otzariaPath: entry.id}),
 };

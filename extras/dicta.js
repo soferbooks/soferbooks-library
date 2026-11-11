@@ -40,15 +40,16 @@ import * as FileSystem from 'expo-file-system/legacy';
 import {unzip} from 'react-native-zip-archive';
 import md5 from 'md5';
 import {Node, normTitle, safe, splitLines, inlineSections, restricted, permission} from './tree';
-import {otzariaTree, bookUrlForPath, COLLECTIONS, CATEGORY_HE, CREDIT_HE, HOME_URL as OTZARIA_HOME} from './otzaria';
+import {otzariaTree, bookUrlForPath, linksPathFor, COLLECTIONS, CATEGORY_HE, CREDIT_HE, HOME_URL as OTZARIA_HOME} from './otzaria';
 import RULES from './otzariaRules.json';
 
 export const ID = 'dicta';
 export const CATALOG_URL = 'https://raw.githubusercontent.com/Dicta-Israel-Center-for-Text-Analysis/Dicta-Library-Download/main/books.json';
 export const OTZARIA_MANIFEST_URL = 'https://raw.githubusercontent.com/Otzaria/otzaria-library/main/files_manifest.json';
 export const HOME_URL = 'https://library.dicta.org.il';
-// (2: the edition with nikud; books converted by 1 are converted again, as an update)
-export const CONVERTER_VERSION = 2;
+// (2: the edition with nikud; 3: the book's connections - books converted before are converted
+//  again, as an update)
+export const CONVERTER_VERSION = 3;
 
 // importers.DICTA_LICENSE / DICTA_SOURCE / OTZARIA_LAYOUT_NOTE / DICTA_IN_COPY
 export const LICENSE = 'CC-BY-SA';
@@ -99,8 +100,9 @@ export function otzariaCopies(manifest, rules = RULES) {
     const name = normTitle(he);
     const slot = out[name] || (out[name] = {otzaria: null, copies: []});
     const hash = (info && info.hash) || null;
+    const links = !!manifest[linksPathFor(path)];     // (Otzaria's links of the copy: extras/links.js)
     if (coll.source === 'Dicta') {
-      if (!slot.otzaria) { slot.otzaria = {path, hash}; }
+      if (!slot.otzaria) { slot.otzaria = {path, hash, links}; }
       continue;
     }
     if (!coll.offered) { continue; }
@@ -108,7 +110,7 @@ export function otzariaCopies(manifest, rules = RULES) {
     const permitted = (rules.permitted || {})[key];
     if (coll.offered === 'permitted' && !permitted) { continue; }
     if ((rules.restricted || []).includes(key) && !permitted) { continue; }
-    slot.copies.push({collection: coll.source, path, hash, license: permitted || coll.license});
+    slot.copies.push({collection: coll.source, path, hash, links, license: permitted || coll.license});
   }
   return out;
 }
@@ -250,7 +252,8 @@ export function choose(doc) {
   let choice;
   const otz = otzariaLayout(doc.otzaria);
   if (otz) {
-    choice = {tree: otz, kind: 'Dicta/Otzaria', license: LICENSE, versionSource: SOURCE + OTZARIA_LAYOUT_NOTE, librarySource: ID};
+    choice = {tree: otz, kind: 'Dicta/Otzaria', license: LICENSE, versionSource: SOURCE + OTZARIA_LAYOUT_NOTE, librarySource: ID,
+      layout: doc.otzariaCopy || null};
   } else {
     choice = {tree: dictaTreeOf(doc), kind: 'Dicta', license: LICENSE, versionSource: SOURCE, librarySource: ID};
     if (choice.tree.children.length < 2) {
@@ -265,12 +268,14 @@ export function choose(doc) {
           choice = {
             tree: other, kind: `Otzaria/${c.collection}`, license: LICENSE, librarySource: ID,
             versionSource: `${SOURCE}; laid out by the Otzaria library, from ${c.collection} (${OTZARIA_HOME})`,
+            layout: c,
           };
         } else {
           // (another collection's text, under its own licence: corrections go to Otzaria)
           choice = {
             tree: other, kind: `Otzaria/${c.collection}`, license: permission(c.text) || c.license, librarySource: 'otzaria',
             versionSource: `Otzaria library, from ${c.collection} (${OTZARIA_HOME})`,
+            layout: c,
           };
         }
         break;
@@ -530,6 +535,80 @@ export async function dictaPages(url, {job = null, share = null} = {}) {
   }
 }
 
+// ---------------------------------------------------------------- the book's connections
+// Dicta's library site reads, for each page of a book, a zip of one JSON file beside the book's
+// text files: files.dicta.org.il/library-1-0/<fileName>/pages.json lists the pages
+// ({displayName, fileName: "<fileName>-010.zip", nakdanResponseFile}); each page's JSON has its
+// words (tokens[].str, which make the page's text) and data.explicitCitationsResults: the sources
+// the page cites, found by Sefaria's Linker (meta.ECInfo), as [{baseStartChar, baseTextLength,
+// baseMatchedText, sources: [{url: "sefaria.org/Yevamot.37", compNameHe: "יבמות ל״ז"}]}]. These are
+// the "source citations" the library shows (its About: "אזכור של מקורות בטקסטים שונים"); the
+// pages are the same server's public files as the books, which are CC BY-SA. (data.postProcessedSources
+// - Dicta's parallels - is empty in the books looked at, 2026-11.)
+
+/** Where a book's page files are: the folder of its text zip */
+export const pagesBase = entry => String(entry.textUrl || '').replace(/[^/]*$/, '');
+
+/** One page's JSON as {text, citations: [{start, length, matched, sources: [{url, he}]}]} */
+export function pageCitations(json) {
+  const d = typeof json === 'string' ? JSON.parse(json.replace(/^﻿/, '')) : json;
+  const text = ((d && d.tokens) || []).map(t => t.str || '').join('');
+  const found = ((d && d.data && d.data.explicitCitationsResults) || []).map(c => ({
+    start: c.baseStartChar, length: c.baseTextLength, matched: c.baseMatchedText || '',
+    sources: (c.sources || []).filter(s => s && s.url).map(s => ({url: s.url, he: s.compNameHe || ''})),
+  })).filter(c => c.sources.length);
+  return {text, citations: found};
+}
+
+/**
+ * The citations of every page of a book, read from Dicta's server one page at a time (its zips are
+ * ~30 KB): [{text, citations}] in page order. job: {cancelled} (stops between pages).
+ */
+export async function fetchPageCitations(entry, job = null) {
+  const base = pagesBase(entry);
+  if (!base) { return []; }
+  const list = JSON.parse((await getText(`${base}pages.json`)).replace(/^﻿/, ''));
+  const dir = `${FileSystem.cacheDirectory}extras/`;
+  await FileSystem.makeDirectoryAsync(dir, {intermediates: true}).catch(() => {});
+  const out = [];
+  for (const page of Array.isArray(list) ? list : []) {
+    if (job && job.cancelled) { break; }
+    if (!page || !page.fileName) { continue; }
+    const stem = `${dir}dicta-page-${md5(base + page.fileName)}`;
+    try {
+      const res = await FileSystem.downloadAsync(`${base}${page.fileName}`, `${stem}.zip`);
+      if (res && res.status >= 200 && res.status < 300) {
+        await FileSystem.makeDirectoryAsync(`${stem}/`, {intermediates: true}).catch(() => {});
+        await unzip(`${stem}.zip`, `${stem}/`);
+        for (const name of (await FileSystem.readDirectoryAsync(`${stem}/`)).filter(n => n.endsWith('.json'))) {
+          out.push(pageCitations(await FileSystem.readAsStringAsync(`${stem}/${name}`)));
+        }
+      }
+    } catch (e) {
+      console.log('dicta: a page\'s citations', page.fileName, e);
+    } finally {
+      await FileSystem.deleteAsync(`${stem}.zip`, {idempotent: true}).catch(() => {});
+      await FileSystem.deleteAsync(`${stem}/`, {idempotent: true}).catch(() => {});
+    }
+  }
+  return out;
+}
+
+/**
+ * Where the book's connections come from (extras/links.js): Otzaria's links of the copy it is laid
+ * out from, if any, and Dicta's citations of its pages (when the text is Dicta's: its own pages, or
+ * a copy of the same words laid out by Otzaria).
+ */
+export function linksOf(entry, doc) {
+  const c = doc ? choose(doc) : {};
+  const out = {};
+  if (c.layout && c.layout.path && c.layout.links !== false) { out.otzariaPath = c.layout.path; }
+  if (c.librarySource === ID && entry.textUrl) {      // (Dicta's words: found in the book by their letters)
+    out.dictaPages = true;
+  }
+  return out;
+}
+
 /**
  * What the book is made from, fetched as needed: Otzaria's layout of it if usable (then Dicta's
  * plain pages are not needed), else Dicta's pages, and the other copies only when those have no
@@ -542,6 +621,7 @@ export async function fetchBook(entry, job = null) {
   if (job) { job.progress(0, 100, 'percent'); }
   if (entry.otzaria) {
     doc.otzaria = await getText(bookUrlForPath(entry.otzaria.path));
+    doc.otzariaCopy = entry.otzaria;
     check();
   }
   const own = !(entry.otzaria && otzariaLayout(doc.otzaria));
@@ -584,4 +664,6 @@ export default {
   isRestricted: () => false,
   versionOf,
   versionsOf,
+  linksOf,
+  fetchPageCitations,
 };
