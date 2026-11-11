@@ -209,3 +209,15 @@ describe('worked out whichever book comes first (extras/links.js inferAll)', () 
     expect(notes.inferred).toEqual([]);
   });
 });
+
+describe('a Dicta book Sefaria has under another name is Sefaria\'s (importers.import_dicta)', () => {
+  test('left out of Dicta\'s catalogue, as Sofer leaves it out', () => {
+    const {parseCatalog} = require('../extras/dicta');
+    const books = [
+      {fileName: 'a', displayName: 'פירוש בדיקה הקצר על ספר', textFileURL: 'https://x/a.zip'},
+      {fileName: 'b', displayName: 'ספר בדיקה אחר', textFileURL: 'https://x/b.zip'},
+    ];
+    expect(parseCatalog(books, null, {}, ['פירוש בדיקה הקצר על ספר']).map(e => e.heTitle)).toEqual(['ספר בדיקה אחר']);
+    expect(require('../extras/dictaRules.json').in_sefaria).toContain('אבן עזרא הקצר על שמות');
+  });
+});

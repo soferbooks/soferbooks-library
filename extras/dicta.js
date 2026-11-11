@@ -42,6 +42,8 @@ import md5 from 'md5';
 import {Node, normTitle, safe, splitLines, inlineSections, restricted, permission} from './tree';
 import {otzariaTree, bookUrlForPath, linksPathFor, COLLECTIONS, CATEGORY_HE, CREDIT_HE, HOME_URL as OTZARIA_HOME} from './otzaria';
 import RULES from './otzariaRules.json';
+// (Dicta's books that are Sefaria's already, under another of their Hebrew names: tools/library-export/dicta_rules.py)
+import DICTA_RULES from './dictaRules.json';
 
 export const ID = 'dicta';
 export const CATALOG_URL = 'https://raw.githubusercontent.com/Dicta-Israel-Center-for-Text-Analysis/Dicta-Library-Download/main/books.json';
@@ -116,14 +118,18 @@ export function otzariaCopies(manifest, rules = RULES) {
 }
 
 /** Dicta's books.json (and Otzaria's files_manifest.json, for its copies) -> the catalogue */
-export function parseCatalog(booksText, manifestText = null, rules = RULES) {
+export function parseCatalog(booksText, manifestText = null, rules = RULES, inSefaria = DICTA_RULES.in_sefaria) {
   const books = typeof booksText === 'string' ? JSON.parse(booksText.replace(/^﻿/, '')) : booksText;
   const manifest = typeof manifestText === 'string' ? JSON.parse(manifestText) : manifestText;
   const copies = manifest ? otzariaCopies(manifest, rules) : {};
+  const sameNames = new Set((inSefaria || []).map(normTitle));
   const out = [];
   for (const b of books || []) {
     const he = pyStrip(String(b.displayName || ''));
     if (!he || !b.textFileURL || !b.fileName) { continue; }
+    // (Sofer's import_dicta: a sefer Sefaria has under another of its Hebrew names is Sefaria's - its
+    //  copy there is linked to its text; Dicta's would be a second, unconnected one)
+    if (sameNames.has(normTitle(he))) { continue; }
     const en = pyStrip(String(b.displayNameEnglish || ''));
     const top = CATEGORIES[b.categoryEnglish || ''] || 'Reference';
     const sub = safe(b.subcategoryEnglish || 'General');

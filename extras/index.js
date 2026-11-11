@@ -456,8 +456,8 @@ async function inferNow(changed) {
     if (f) { files[t] = f; }
   }
   if (!Object.keys(files).length) { return; }
-  const {loadText} = require('../offlineOnline');        // (lazily: it imports this module)
   const loadSection = async ref => {
+    const {loadText} = require('../offlineOnline');      // (lazily, when a text is needed: it imports this module)
     const {result} = await loadText(ref, false, null, true, true);
     return result && result.he;
   };
