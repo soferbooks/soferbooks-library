@@ -448,7 +448,8 @@ describe('Settings screen', () => {
         'settings.download_network_setting', 'settings.wifi_only', 'settings.mobile_network',
         'settings.offline_access', 'settings.system',
         'settings.app_version',
-        'filter.section_header', 'filter.description', 'filter.groups_header',
+        'filter.section_header', 'filter.description', 'filter.groups_header', 'filter.groups_hint',
+        'filter.more_count',
         'library_sources.header', 'library_sources.description',
         'library_sources.always_on', 'extras.source_detail',
         'settings.nakdan_header', 'settings.nakdan_always', 'settings.nakdan_always_detail',
@@ -474,17 +475,13 @@ describe('Content filter', () => {
         'filter.group_reform_short',
         'filter.group_reconstructionist_short',
         'filter.group_conservative_short',
-        'filter.group_biblical_criticism_short',
-        'filter.group_christian_translations_short',
         'filter.group_sefarim_chitzoniim_short',
         'filter.group_polemics_short',
         'filter.group_non_orthodox_translations_short',
-        'filter.group_open_orthodox_short',
         'filter.group_haskalah_secular_short',
         'filter.group_feminist_translations_short',
         'filter.group_jps_1917_short',
         'filter.group_academic_orthodox_short',
-        'filter.group_community_sheets_short',
         'filter.group_women_authors_short',
         'filter.group_religious_zionist_thought_short']);
   });
@@ -492,21 +489,18 @@ describe('Content filter', () => {
   test('a hand-switched group shows "Custom" in both languages', () => {
     const custom = toggleGroup(configForPreset('rwmo'), 'jps_1917', true);
     expectScreenLocalizes(wrapWithState(ContentFilterSettings, { langStyle: {} }, { contentFilter: custom }),
-      ['filter.section_header', 'filter.custom', 'filter.groups_header',
+      // (only the groups that have books in the library: groupExamples.json)
+      ['filter.section_header', 'filter.custom', 'filter.groups_header', 'filter.groups_hint', 'filter.more_count',
         'filter.group_reform',
         'filter.group_reconstructionist',
         'filter.group_conservative',
-        'filter.group_biblical_criticism',
-        'filter.group_christian_translations',
         'filter.group_sefarim_chitzoniim',
         'filter.group_polemics',
         'filter.group_non_orthodox_translations',
-        'filter.group_open_orthodox',
         'filter.group_haskalah_secular',
         'filter.group_feminist_translations',
         'filter.group_jps_1917',
         'filter.group_academic_orthodox',
-        'filter.group_community_sheets',
         'filter.group_women_authors',
         'filter.group_religious_zionist_thought']);
   });
@@ -1156,6 +1150,7 @@ describe('Strings with placeholders', () => {
     'search.more_versions': { count: 3 },
     'download.updates_available_message': { count: 7 },
     'filter.hidden_message': { title: 'Orot', reason: 'Rav Kook' },
+    'filter.more_count': { count: 4 },
     'topics.this_source_is_connected_to': { title: 'Passover', sources: '4 sources' },
     'versions.merged_from': { sources: 'two editions' },
     'tabs.archived_tabs_count': { count: 4 },
@@ -1906,6 +1901,14 @@ describe('The app-wide error alert', () => {
  * scenario — do not append to this list without a reason written down.
  */
 const NOT_YET_COVERED = [
+  // ---------------------------------------------------------------------------------------
+  // Filter groups with no books in the library (shomer/groupExamples.json) are not listed in
+  // Settings; "and 1 more" shows only for a group with exactly five; the shown/hidden words
+  // are the switches' accessibility hints.
+  'filter.group_biblical_criticism', 'filter.group_christian_translations', 'filter.group_community_sheets',
+  'filter.group_open_orthodox', 'filter.more_count_one', 'filter.group_shown', 'filter.group_hidden',
+  'filter.group_biblical_criticism_short', 'filter.group_christian_translations_short',
+  'filter.group_open_orthodox_short', 'filter.group_community_sheets_short',
   // ---------------------------------------------------------------------------------------
   // Dead: nothing in the app reads these at all. They are the same set `KNOWN_UNUSED` in
   // i18n.test.js lists, and no render test can reach a string that no code looks up. They

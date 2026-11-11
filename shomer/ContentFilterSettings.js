@@ -9,6 +9,9 @@ import { CHOICES, GROUPS, configForPreset, toggleGroup } from './presets';
 import { SOURCES } from '../sources';
 import * as extras from '../extras';
 import { ExtraDownloadStatus } from '../ExtraDownloadProgress';
+// What each group really hides in the library (tools/library-export/shomer_group_examples.js):
+// groups with nothing in the library are not listed
+import GROUP_EXAMPLES from './groupExamples.json';
 
 export const useSetContentFilter = () => {
   const dispatch = useContext(DispatchContext);
@@ -56,9 +59,20 @@ export const presetName = p => localized(PRESET_NAMES[p.id], p.name);
 export const groupName = g => localized(GROUP_NAMES[g.id]?.[0], g.name);
 export const groupShort = g => localized(GROUP_NAMES[g.id]?.[1], g.short);
 
+/** The groups that hide something in the library, and what ("A, B, C and 4 more") */
+export const LISTED_GROUPS = GROUPS.filter(g => GROUP_EXAMPLES.groups[g.id]);
+export const groupExamples = (g, hebrew) => {
+  const found = GROUP_EXAMPLES.groups[g.id];
+  if (!found) { return ''; }
+  // (each example is [English] or [English, Hebrew])
+  const shown = found.examples.slice(0, 4).map(e => (hebrew && e[1]) || e[0]);
+  const more = found.count - shown.length;
+  return shown.join(', ') + (more > 0 ? ' ' + countString(strings.filter.more_count, strings.filter.more_count_one, more) : '');
+};
+
 // What each preset adds on top of the one before it ("Off": nothing)
 export const presetDetail = preset => (preset.id === 'off' ? strings.filter.off_detail
-  : GROUPS.filter(g => g.level === preset.level).map(groupShort).join(', '));
+  : LISTED_GROUPS.filter(g => g.level === preset.level).map(groupShort).join(', '));
 
 export const ContentFilterSettings = ({ langStyle }) => {
   const { themeStr, contentFilter } = useContext(GlobalStateContext);
@@ -75,19 +89,25 @@ export const ContentFilterSettings = ({ langStyle }) => {
       ))}
       {preset === 'custom' ? <Text style={[langStyle, theme.text, local.presetName]}>{'◉ '}{strings.filter.custom}</Text> : null}
       <Text style={[langStyle, styles.settingsSectionHeader, theme.tertiaryText, local.groupsHeader]}>{strings.filter.groups_header}</Text>
-      {GROUPS.map(g => (
-        <View key={g.id} style={local.groupRow}>
-          <View style={local.groupText}>
-            <Text style={[langStyle, theme.text]}>{groupName(g)}</Text>
-            <Text style={[langStyle, theme.tertiaryText, local.detail]}>{g.examples}</Text>
+      <Text style={[langStyle, theme.secondaryText, local.detail]}>{strings.filter.groups_hint}</Text>
+      {/* On = shown, off = hidden (the switch says whether you see the group) */}
+      {LISTED_GROUPS.map(g => {
+        const hidden = !!(contentFilter && contentFilter.active !== false && contentFilter.groups && contentFilter.groups[g.id]);
+        return (
+          <View key={g.id} style={local.groupRow}>
+            <View style={local.groupText}>
+              <Text style={[langStyle, theme.text]}>{groupName(g)}</Text>
+              <Text style={[langStyle, theme.tertiaryText, local.detail]}>{groupExamples(g, strings.getLanguage() === 'he')}</Text>
+            </View>
+            <Switch
+              accessibilityLabel={groupName(g)}
+              accessibilityHint={hidden ? strings.filter.group_hidden : strings.filter.group_shown}
+              value={!hidden}
+              onValueChange={shown => setContentFilter(toggleGroup(contentFilter, g.id, !shown))}
+            />
           </View>
-          <Switch
-            accessibilityLabel={groupName(g)}
-            value={!!(contentFilter && contentFilter.groups && contentFilter.groups[g.id])}
-            onValueChange={hidden => setContentFilter(toggleGroup(contentFilter, g.id, hidden))}
-          />
-        </View>
-      ))}
+        );
+      })}
     </View>
   );
 };

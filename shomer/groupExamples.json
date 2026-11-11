@@ -1,0 +1,254 @@
+{
+ "made": "2026-11-11",
+ "groups": {
+  "reform": {
+   "count": 3,
+   "examples": [
+    [
+     "The Torah; A Women's Commentary",
+     "התורה: פירושן של נשים"
+    ],
+    [
+     "Siddur Ashkenaz (one translation)",
+     "סידור אשכנז (תרגום אחד)"
+    ],
+    [
+     "Lekutei Heber ben Chaim",
+     "ליקוטי חבר בן חיים"
+    ]
+   ]
+  },
+  "reconstructionist": {
+   "count": 1,
+   "examples": [
+    [
+     "Standing Again at Sinai; Judaism from a Feminist Perspective",
+     "עומדות שוב בסיני; יהדות מנקודת מבט פמיניסטית"
+    ]
+   ]
+  },
+  "conservative": {
+   "count": 79,
+   "examples": [
+    [
+     "Daf Shevui",
+     "דף שבועי"
+    ],
+    [
+     "Rereading the Rabbis; A Woman's Voice",
+     "קריאה מחדש של חז\"ל; קולה של אישה"
+    ],
+    [
+     "Siddur Ashkenaz (one translation)",
+     "סידור אשכנז (תרגום אחד)"
+    ],
+    [
+     "Bereshit Rabbah (one translation)",
+     "בראשית רבה (תרגום אחד)"
+    ],
+    [
+     "Devarim Rabbah (one translation)",
+     "דברים רבה (תרגום אחד)"
+    ],
+    [
+     "English Explanation of Mishnah",
+     "ביאור אנגלי"
+    ]
+   ]
+  },
+  "polemics": {
+   "count": 2,
+   "examples": [
+    [
+     "הערות על תולדות ישו"
+    ],
+    [
+     "תולדות ישו"
+    ]
+   ]
+  },
+  "feminist_translations": {
+   "count": 3,
+   "examples": [
+    [
+     "Keset HaSofer, trans. Jen Taylor Friedman"
+    ],
+    [
+     "Dena Weiss translation"
+    ],
+    [
+     "debra robbins adapted vayikra rabba 2;7 first paragraph"
+    ]
+   ]
+  },
+  "non_orthodox_translations": {
+   "count": 25,
+   "examples": [
+    [
+     "The Early Prophets, by Everett Fox",
+     "נביאים ראשונים, מהדורת אוורט פוקס"
+    ],
+    [
+     "The Five Books of Moses, by Everett Fox",
+     "חמשה חומשי תורה, מהדורת אוורט פוקס"
+    ],
+    [
+     "Rabbi Dr. David Mevorach Seidenberg, from \"Kabbalah and Ecology\"",
+     "רבי וד״ר דוד מבורך סיידנברג, מתוך ״קבלה ואקולוגיה״"
+    ],
+    [
+     "Rabbi Mark Greenspan",
+     "רבי מארק גרינספאן"
+    ],
+    [
+     "Rabbi Mark B Greenspan"
+    ],
+    [
+     "Tanakh: The Holy Scriptures, published by JPS"
+    ]
+   ]
+  },
+  "haskalah_secular": {
+   "count": 13,
+   "examples": [
+    [
+     "The Early Prophets, by Everett Fox",
+     "נביאים ראשונים, מהדורת אוורט פוקס"
+    ],
+    [
+     "The Five Books of Moses, by Everett Fox",
+     "חמשה חומשי תורה, מהדורת אוורט פוקס"
+    ],
+    [
+     "A New Israeli Commentary on Pirkei Avot",
+     "פירוש ישראלי חדש על פרקי אבות"
+    ],
+    [
+     "Ali Be'er on Revealment and Concealment in Language",
+     "עלי באר על גילוי וכיסוי בלשון"
+    ],
+    [
+     "Bein HaShitin on Halakhah and Aggadah",
+     "בין השיטין על הלכה ואגדה"
+    ],
+    [
+     "Commentaries on Revealment and Concealment in Language",
+     "פירושים על גילוי וכיסוי בלשון"
+    ]
+   ]
+  },
+  "jps_1917": {
+   "count": 2,
+   "examples": [
+    [
+     "The Holy Scriptures: A New Translation (JPS 1917)",
+     "כתבי הקודש: תרגום חדש (1917 JPS)"
+    ],
+    [
+     "Modernized Tanakh - Based on JPS 1917, Edited by Adam Cohn",
+     "תנ״ך מחודש - מבוסס על הוצאת JPS 1917, נערך ע״י אדם כהן"
+    ]
+   ]
+  },
+  "sefarim_chitzoniim": {
+   "count": 13,
+   "examples": [
+    [
+     "Book of Jubilees",
+     "ספר היובלים"
+    ],
+    [
+     "Book of Judith",
+     "ספר יהודית"
+    ],
+    [
+     "Book of Tobit",
+     "מעשה טוביה"
+    ],
+    [
+     "Letter of Aristeas",
+     "אגרת אריסטיאס"
+    ],
+    [
+     "Prayer of Manasseh",
+     "תְּפִלַּת מְנַשֶׁה"
+    ],
+    [
+     "Psalm 151",
+     "תהילים קנ\"א"
+    ]
+   ]
+  },
+  "academic_orthodox": {
+   "count": 2,
+   "examples": [
+    [
+     "Mishnat Eretz Yisrael",
+     "משנת ארץ ישראל"
+    ],
+    [
+     "Mishnat Eretz Yisrael on Pirkei Avot",
+     "משנת ארץ ישראל על משנה אבות"
+    ]
+   ]
+  },
+  "women_authors": {
+   "count": 25,
+   "examples": [
+    [
+     "Karati Bekhol Lev",
+     "קראתי בכל לב"
+    ],
+    [
+     "Moses; A Human Life",
+     "משה; חיי בן אנוש"
+    ],
+    [
+     "The Torah; A Women's Commentary",
+     "התורה: פירושן של נשים"
+    ],
+    [
+     "Tribal Lands",
+     "נחלת השבטים"
+    ],
+    [
+     "Rereading the Rabbis; A Woman's Voice",
+     "קריאה מחדש של חז\"ל; קולה של אישה"
+    ],
+    [
+     "Learning to Read Midrash",
+     "לפשוטו של מדרש"
+    ]
+   ]
+  },
+  "religious_zionist_thought": {
+   "count": 17,
+   "examples": [
+    [
+     "Nechama Leibowitz",
+     "נחמה ליבוביץ"
+    ],
+    [
+     "Ein Ayah",
+     "עין אי\"ה"
+    ],
+    [
+     "Kol Dodi Dofek",
+     "קול דודי דופק"
+    ],
+    [
+     "Commentary on Selected Paragraphs of Arpilei Tohar",
+     "ביאורים על קטעים נבחרים מתוך ערפילי טוהר"
+    ],
+    [
+     "Olat Reiyah",
+     "עולת ראיה"
+    ],
+    [
+     "Orot",
+     "אורות"
+    ]
+   ]
+  }
+ }
+}
