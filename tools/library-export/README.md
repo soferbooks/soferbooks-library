@@ -312,6 +312,22 @@ python tools\library-export\wikisource_fixtures.py C:\tmp\wslive
 node -r @babel/register tools\library-export\compare_wikisource.js --sofer-on C:\tmp\wslive
 ```
 
+Hosted copies (owner, 2026-11-11): the same books, converted on the PC by the phone's own code, are
+one release of `soferbooks-library-data` (NOT latest), so the phone downloads one zip a book
+instead of a request a page (`HOSTED_TAG` in `extras/wikisource.js`; a book the release lacks, or
+whose zip does not come, still comes from the site). The update check of a hosted book is the
+release's hash (its newest revision). Texts CC BY-SA 4.0: the release's notes credit Hebrew
+Wikisource and its volunteers.
+
+```powershell
+# the pages, then the release (checks each book: the zip and the phone's path give the files the
+# phone makes from the pages); --sizes also updates fullLibrarySizes.json
+node -r @babel/register tools\library-export\fetch_wikisource_live.js C:\tmp\wslive
+node tools\library-export\build_wikisource_release.js C:\tmp\wslive C:\tmp\ws-release --tag wikisource-2026-11-11 --sizes
+gh release create wikisource-2026-11-11 --repo soferbooks/soferbooks-library-data --latest=false `
+  --title "Hebrew Wikisource books (2026-11-11)" --notes-file C:\tmp\ws-release\README.md C:\tmp\ws-release\*
+```
+
 **Sofer Library (ספריית סופר)** (`extras/sofer.js`). Owner's decision (2026-11-11): SoferBooks
 hosts ONLY the books the app cannot get from their own source - Sofer's split books
 (`sofer.splits`: Ben Ish Hai's Derashos/Halachos, the Tur and its five commentaries in four parts,

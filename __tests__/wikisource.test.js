@@ -2,7 +2,10 @@
  * Hebrew Wikisource as an extra source (extras/wikisource.js, extras/wikisourceParse.js): the
  * site's rendered pages converted on the phone as Sofer converts them, the editors' notes as a
  * book of their own, the catalogue (Sofer's list), one copy of each sefer, the download through
- * the site's API, the update check by revision, and where a correction goes.
+ * the site's API, the update check by revision, and where a correction goes; the same books
+ * hosted as one GitHub release (extras/wikisource.js HOSTED_TAG, built by
+ * tools/library-export/build_wikisource_release.js): one download a book, the files the phone
+ * would have made, the site's pages when the release does not have the book.
  *
  * The conversion fixtures (__tests__/fixtures/wikisource/*.json) are books as Sofer's download
  * keeps them (the site's pages, CC BY-SA); their expected results are made by Sofer's own importer
@@ -17,7 +20,10 @@ import {wikiTree, wikiAuthor, pageParse, wikiKeys, withoutLead, unquote} from '.
 import wikisource, {
   exportOf, parseCatalog, entryFor, subLinks, fetchPages, apiClient, revisions, loadCatalog, versionOf,
   installRecord, notesBook, noteEntry, pageUrl, historyUrl, USER_AGENT, NOTES_PREFIX, formBody,
+  convertPages, convert, treeOf, HOSTED_URL, HOSTED_INDEX, HOSTED_FORMAT, CONVERTER_VERSION, _forgetHostedIndex,
 } from '../extras/wikisource';
+import {sectionsOf} from '../extras/schema7';
+import * as links from '../extras/links';
 import CATALOG_DATA from '../extras/wikisourceBooks.json';
 import {chooseBooks} from '../extras/catalog';
 import {bookFiles} from '../extras/schema7';
@@ -36,7 +42,14 @@ jest.mock('react-native-zip-archive', () => {
       await fsMock.writeAsStringAsync(target, JSON.stringify(entries));
       return target;
     }),
-    unzip: jest.fn(),
+    // ("zips" are JSON objects {name: content}, as in soferLibrary.test.js)
+    unzip: jest.fn(async (zipPath, dest) => {
+      const entries = JSON.parse(await fsMock.readAsStringAsync(zipPath));
+      for (const [name, content] of Object.entries(entries)) {
+        await fsMock.writeAsStringAsync(`${dest}${name}`, content);
+      }
+      return dest;
+    }),
   };
 });
 
@@ -213,11 +226,20 @@ describe('one copy of each sefer: Sefaria > Dicta > Otzaria > Wikisource, but So
 
 // ---------------------------------------------------------------- the site's API
 
-/** A fake he.wikisource.org: {page: html}, redirects {from: to}; records each request's form */
-function fakeSite(pages, {redirects = {}, revs = {}, busy = 0} = {}) {
+/**
+ * A fake he.wikisource.org: {page: html}, redirects {from: to}; records each request's form.
+ * hosted: the release's index (GET; none: 404), its requests in calls.gets.
+ */
+function fakeSite(pages, {redirects = {}, revs = {}, busy = 0, hosted = null} = {}) {
   const calls = [];
+  calls.gets = [];
   let left = busy;
   global.fetch = jest.fn(async (url, init) => {
+    if (!init || init.method !== 'POST') {
+      calls.gets.push(url);
+      if (hosted && url === `${HOSTED_URL}/${HOSTED_INDEX}`) { return {ok: true, status: 200, json: async () => hosted}; }
+      return {ok: false, status: 404, json: async () => ({})};
+    }
     const form = {};
     init.body.split('&').forEach(kv => { const [k, v] = kv.split('='); form[decodeURIComponent(k)] = decodeURIComponent(v); });
     calls.push({url, form, headers: init.headers, method: init.method});
@@ -297,6 +319,7 @@ describe('downloading a Wikisource book, its notes, and the update check', () =>
     FileSystem.clear();
     await AsyncStorage.clear();
     zip.mockClear();
+    _forgetHostedIndex();
     extras._reset({enabled: {wikisource: true}, catalogs: {wikisource: {fetchedAt: Date.now(), entries: CAT}}});
     extras.applyToToc(SEFARIA_TOC);
     global.Sefaria = {_loadTOC: jest.fn(async () => { toc = extras.applyToToc(SEFARIA_TOC); })};
@@ -376,7 +399,7 @@ describe('downloading a Wikisource book, its notes, and the update check', () =>
     const calls = fakeSite(site, {revs});
     const real = global.fetch;
     global.fetch = jest.fn(async (...a) => {           // (cancelled while the 3rd page is on its way)
-      if (real.mock.calls.length === 2) { extras.cancelDownload(T); }
+      if (calls.length === 2 && a[1]) { extras.cancelDownload(T); }
       return real(...a);
     });
     await expect(extras.downloadBook(T)).rejects.toBeInstanceOf(extras.DownloadCancelledError);
@@ -431,6 +454,144 @@ describe('downloading a Wikisource book, its notes, and the update check', () =>
 
   test('the installed record and the hash: the newest revision among the book\'s pages', () => {
     expect(installRecord(CAT[0], {pages: [{page: 'a', revid: 5}, {page: 'b', revid: 9}]})).toEqual({hash: '9', pages: ['a', 'b']});
+  });
+});
+
+// ---------------------------------------------------------------- the release (hosted copies)
+
+describe('the books hosted as one release: one download a book, the files the phone would make', () => {
+  const T = SYNTHETIC.title;
+  const NOTES = `${NOTES_PREFIX}${T}`;
+  const site = Object.fromEntries(SYNTHETIC.pages.map(p => [p.page, p.html]));
+  const revs = Object.fromEntries(SYNTHETIC.pages.map(p => [p.page, p.revid]));
+  const CAT = parseCatalog().filter(e => e.id === T);
+  const FILE = 'ws-000000000000.zip';
+  let book = null;           // (the book's pages as the phone's download gives them: beforeAll)
+
+  /** The release as build_wikisource_release.js makes it: the book's zip and its index */
+  function release({hash = '105', file = FILE} = {}) {
+    const made = convertPages(CAT[0], book);
+    const all = {...made.files};
+    made.companions.forEach(c => Object.assign(all, c.files));
+    const zipText = JSON.stringify(Object.fromEntries(Object.entries(all).map(([n, d]) => [n, JSON.stringify(d)])));
+    FileSystem.setRemote(`${HOSTED_URL}/${FILE}`, zipText);
+    return {format: HOSTED_FORMAT, converterVersion: CONVERTER_VERSION, books: {[T]: {
+      title: T, file, size: zipText.length, md5: null, sha256: 'x', hash, fetched: book.fetched,
+      pages: SYNTHETIC.pages.map(p => p.page), firstSection: made.firstSection,
+      companions: made.companions.map(c => ({entry: c.entry, firstSection: c.firstSection})),
+    }}};
+  }
+  const libraryZip = async title => {
+    const z = JSON.parse(await FileSystem.readAsStringAsync(`library/${title}.zip`));
+    return Object.fromEntries(Object.entries(z).map(([n, t]) => [n, JSON.parse(t)]));
+  };
+  /** The book downloaded from the site's pages, as before: its files, its notes', its links file */
+  async function fromTheSite() {
+    fakeSite(site, {revs});
+    await extras.downloadBook(T);
+    const out = {book: await libraryZip(T), notes: await libraryZip(NOTES),
+      links: JSON.parse(await FileSystem.readAsStringAsync(links.linksFile(T)))};
+    await extras.deleteBook(T);
+    _forgetHostedIndex();
+    return out;
+  }
+
+  beforeAll(async () => {
+    fakeSite(site, {revs});
+    book = await fetchPages(T, {client: apiClient({sleep: async () => {}})});
+  });
+  beforeEach(async () => {
+    FileSystem.clear();
+    await AsyncStorage.clear();
+    _forgetHostedIndex();
+    extras._reset({enabled: {wikisource: true}, catalogs: {wikisource: {fetchedAt: Date.now(), entries: CAT}}});
+    extras.applyToToc(SEFARIA_TOC);
+    global.Sefaria = {_loadTOC: jest.fn(async () => { extras.applyToToc(SEFARIA_TOC); })};
+  });
+  afterEach(() => { delete global.Sefaria; });
+
+  test('the build converts as the phone does (convertPages = extras convertBook)', () => {
+    const phone = extras.convertBook(CAT[0], book);
+    const built = convertPages(CAT[0], book);
+    expect(built.files).toEqual(phone.files);
+    expect(built.firstSection).toBe(phone.firstSection);
+    expect(built.companions).toEqual(phone.companions);
+    expect(convert(CAT[0], book)).toBeNull();          // (pages from the site: converted as before)
+  });
+
+  test('download: the index and one zip, no request to the site; the same files, notes and links as from the site', async () => {
+    const before = await fromTheSite();
+    const calls = fakeSite(site, {revs, hosted: release()});
+    FileSystem.downloadAsync.mockClear();
+    expect(await extras.downloadBook(T)).toBe(`${T}, S1`);
+    expect(calls).toHaveLength(0);                                   // (no page from the site)
+    expect(calls.gets).toEqual([`${HOSTED_URL}/${HOSTED_INDEX}`]);
+    expect(FileSystem.downloadAsync.mock.calls.map(c => c[0])).toEqual([`${HOSTED_URL}/${FILE}`]);
+    expect(await libraryZip(T)).toEqual(before.book);
+    expect(await libraryZip(NOTES)).toEqual(before.notes);
+    expect(JSON.parse(await FileSystem.readAsStringAsync(links.linksFile(T)))).toEqual(before.links);
+    expect(extras.extraBook(NOTES)).toMatchObject({dependence: 'Commentary', base_text_titles: [T]});
+    const state = JSON.parse(await FileSystem.readAsStringAsync('library/_extras/state.json'));
+    expect(state.installed[T]).toMatchObject({source: 'wikisource', id: T, hash: '105', converter: 1});
+    expect(state.installed[T].pages).toHaveLength(6);
+    expect(state.installed[NOTES]).toMatchObject({companionOf: T});
+    // (nothing left in the cache)
+    expect((await FileSystem.readDirectoryAsync('')).filter(n => n.includes('sofer-'))).toEqual([]);
+  });
+
+  test('the release does not have the book, or its zip does not come: the site\'s pages, as before', async () => {
+    let calls = fakeSite(site, {revs, hosted: {...release(), books: {}}});
+    expect(await extras.downloadBook(T)).toBe(`${T}, S1`);
+    expect(calls.length).toBeGreaterThan(5);
+    await extras.deleteBook(T);
+    _forgetHostedIndex();
+    calls = fakeSite(site, {revs, hosted: release({file: 'ws-missing.zip'})});
+    expect(await extras.downloadBook(T)).toBe(`${T}, S1`);
+    expect(calls.length).toBeGreaterThan(5);
+    expect(extras.isDownloaded(NOTES)).toBe(true);
+  });
+
+  test('"Check for updates": the release\'s hash, no request to the site; a newer copy from the site is kept', async () => {
+    fakeSite(site, {revs, hosted: release()});
+    await extras.downloadBook(T);
+    _forgetHostedIndex();
+    let calls = fakeSite(site, {revs, hosted: release()});
+    expect(await extras.checkUpdates('wikisource')).toEqual([]);
+    expect(calls).toHaveLength(0);
+    _forgetHostedIndex();
+    calls = fakeSite(site, {revs, hosted: release({hash: '200'})});
+    expect(await extras.checkUpdates('wikisource')).toEqual([T]);
+    expect(calls).toHaveLength(0);
+    // a copy taken from the site after the release was made: not "updated" back to the older one
+    await extras.deleteBook(T);
+    _forgetHostedIndex();
+    fakeSite(site, {revs: {...revs, [`${T}/ב`]: 2000}});
+    await extras.downloadBook(T);
+    _forgetHostedIndex();
+    fakeSite(site, {revs, hosted: release()});
+    expect(await extras.checkUpdates('wikisource')).toEqual([]);
+  });
+
+  test('nothing downloaded: the catalogue needs no request', async () => {
+    global.fetch = jest.fn();
+    await loadCatalog();
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  test('a book from the release: its sections as a tree, as the links read them (treeOf)', () => {
+    const leaves = (tree, he) => sectionsOf(tree, he).leaves.map(l => [l.keys, l.heTitles, l.paras]);
+    for (const name of fs.readdirSync(FIXTURES).filter(n => n.endsWith('.json') && !n.endsWith('.sofer.json'))) {
+      const b = fixture(name);
+      const entry = entryFor({page: b.title, category: 'Musar'});
+      const made = convertPages(entry, b);
+      expect(leaves(treeOf(made.files, entry.title, entry.heTitle), entry.heTitle)).toEqual(leaves(made.tree, entry.heTitle));
+    }
+  });
+
+  test('a release made by another converter is not used', async () => {
+    const calls = fakeSite(site, {revs, hosted: {...release(), converterVersion: CONVERTER_VERSION + 1}});
+    await extras.downloadBook(T);
+    expect(calls.length).toBeGreaterThan(5);
   });
 });
 
