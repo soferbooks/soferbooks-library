@@ -60,6 +60,7 @@ import ActionSheet from 'react-native-action-sheet';
 import ReaderTabBar, { ArchivedTabsModal } from '../tabs/ReaderTabBar';
 import OpenTabsStrip from '../tabs/OpenTabsStrip';
 import ScheduleSequenceBar from '../learningSchedules/ScheduleSequenceBar';
+import ScheduleEndMarker from '../learningSchedules/ScheduleEndMarker';
 import SplitTabPane from '../reader/SplitTabPane';
 import ReaderAppContext from '../context';
 import NetInfo from '@react-native-community/netinfo';
@@ -1159,6 +1160,7 @@ describe('Strings with placeholders', () => {
     'versions.merged_from': { sources: 'two editions' },
     'tabs.archived_tabs_count': { count: 4 },
     'learning_schedules.reading_n_of_m': { n: 2, m: 7 },
+    'learning_schedules.day_done': { title: 'Chok LeYisrael' },
     'extras.downloaded_count': { count: 12 },
     'extras.downloading': { title: 'זמרת הארץ' },
     'extras.license_line': { license: 'Public Domain' },
@@ -1644,6 +1646,14 @@ describe('Reader tabs', () => {
       'learning_schedules.previous_reading', 'learning_schedules.next_reading',
       'learning_schedules.reading_n_of_m', 'learning_schedules.todays_readings',
     ]);
+  });
+
+  test("the end of a day's learning renders in both languages", () => {
+    const schedule = {
+      key: 'Chok LeYisrael', title: { en: 'Chok LeYisrael · Toldot, Tuesday', he: 'חק לישראל · תולדות, יום שלישי' },
+      tabLabel: { en: 'Chok LeYisrael — Tuesday, 10 Nov', he: 'חק לישראל — יום שלישי, ל׳ חשון' }, items: [], bounded: true,
+    };
+    expectScreenLocalizes(wrap(ScheduleEndMarker, { schedule }), ['learning_schedules.day_done']);
   });
 
   test('the home page strip of open tabs renders in both languages', () => {

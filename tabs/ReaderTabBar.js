@@ -25,6 +25,9 @@ export const READER_TAB_BAR_HEIGHT = 38;
  */
 export const tabLabel = (tab, isHeb) => {
   if (!tab) { return ''; }
+  // a day read as one unit has its own name: "Chok LeYisrael — Wednesday, 11 Nov"
+  const named = tab.schedule && tab.schedule.tabLabel;
+  if (named && (isHeb ? named.he : named.en)) { return isHeb ? named.he : named.en; }
   const seg = tab.segmentRef && tab.ref && tab.segmentRef.startsWith(`${tab.ref}:`) ? tab.segmentRef : null;
   if (isHeb) {
     if (seg && tab.heRef && typeof Sefaria !== 'undefined' && Sefaria.toHeSegmentRef) {

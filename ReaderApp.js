@@ -83,7 +83,9 @@ import {
 } from "./tabs/tabState";
 import { loadTabs, makeDebouncedTabSaver } from "./tabs/tabStorage";
 import SplitTabPane from "./reader/SplitTabPane";
-import { makeScheduleSequence, sequenceAt, currentReading, hasSequence } from "./learningSchedules/scheduleSequence";
+import { makeScheduleSequence, sequenceAt, currentReading, hasSequence, isBounded, boundedNeighbours, readingIndexOf, isLastReading } from "./learningSchedules/scheduleSequence";
+import { chokDaySequence } from "./learningSchedules/chokDay";
+import { ID as CHOK_SOURCE, TITLE as CHOK_TITLE } from "./extras/chok";
 import ScheduleSequenceBar from "./learningSchedules/ScheduleSequenceBar";
 import {
   getInlineCommentary,
@@ -753,12 +755,14 @@ class ReaderApp extends React.PureComponent {
               this.loadNewText({ ref, isLoadingVersion, numTries: numTries + 1 }).then(resolve);
               return;
             }
+            // (a day read as one unit - Chok LeYisrael - goes from one of its readings to the next, and ends)
+            const around = this._readingNeighbours(textContent.sectionRef, textContent);
             let nextState = {
               data:              [textContent.content],
               relatedBySectionRef: {[textContent.sectionRef]: {links}},
               textTitle:         textContent.indexTitle,
-              next:              textContent.next,
-              prev:              textContent.prev,
+              next:              around.next,
+              prev:              around.prev,
               heTitle:           textContent.heTitle,
               heRef:             textContent.heSectionRef || textContent.heRef,
               sectionArray:      [textContent.sectionRef],
@@ -998,7 +1002,7 @@ class ReaderApp extends React.PureComponent {
 
           return {
             data: updatedData,
-            prev: textContent.prev,
+            prev: this._readingNeighbours(textContent.sectionRef, textContent).prev,
             next: prevState.next,
             sectionArray: newSectionArray,
             sectionHeArray: newSectionHeArray,
@@ -1033,7 +1037,7 @@ class ReaderApp extends React.PureComponent {
               return {
                 data: updatedData,
                 prev: prevState.prev,
-                next: textContent.next,
+                next: this._readingNeighbours(textContent.sectionRef, textContent).next,
                 sectionArray: newSectionArray,
                 sectionHeArray: newSectionHeArray,
                 linksLoaded: newLinksLoaded,
@@ -1052,10 +1056,15 @@ class ReaderApp extends React.PureComponent {
   };
 
   updateTitle = (ref, heRef, sectionIndexRef) => {
-    this.setState({
-      textReference: ref,
-      heRef,
-      sectionIndexRef,
+    this.setState(prev => {
+      const next = { textReference: ref, heRef, sectionIndexRef };
+      // a day read as one unit: its bar follows the reading on the screen
+      const tab = findTab(prev.readerTabs, prev.readerTabs.activeTabId);
+      const i = tab && isBounded(tab.schedule) ? readingIndexOf(tab.schedule, ref) : -1;
+      if (i >= 0 && i !== tab.schedule.index) {
+        next.readerTabs = updateTabPlace(prev.readerTabs, tab.id, { schedule: sequenceAt(tab.schedule, i) });
+      }
+      return next;
     }, () => {
       if (!this.state.textListVisible) {
         // otherwise saveHistoryItem is called in textListPressed
@@ -1088,8 +1097,9 @@ class ReaderApp extends React.PureComponent {
    */
   extraBookAlert = (title, open) => {
     const book = extras.extraBook(title);
-    const sourceName = (SOURCES.find(s => s.id === book?.source) || {}).name || book?.source || '';
-    const heSourceName = (SOURCES.find(s => s.id === book?.source) || {}).heName || sourceName;
+    const sourceId = book?.via || book?.source;     // (via: Chok LeYisrael's book comes from Otzaria)
+    const sourceName = (SOURCES.find(s => s.id === sourceId) || {}).name || sourceId || '';
+    const heSourceName = (SOURCES.find(s => s.id === sourceId) || {}).heName || sourceName;
     const isHe = this.props.interfaceLanguage === 'hebrew';
     return new Promise(resolve => {
       const download = async () => {
@@ -2196,7 +2206,50 @@ class ReaderApp extends React.PureComponent {
    * schedule's tab is reused for it (and moves to the new reading); a day with several readings
    * shows them in a bar above the text.
    */
-  openScheduleItem = (calendarItem, n = 0) => this._openScheduleSequence(makeScheduleSequence(calendarItem, n));
+  openScheduleItem = (calendarItem, n = 0) => (calendarItem && calendarItem.chok
+    ? this.openChokDay(calendarItem)
+    : this._openScheduleSequence(makeScheduleSequence(calendarItem, n)));
+
+  /**
+   * Today's Chok LeYisrael (learningSchedules/chokDay.js): the whole day's learning from the sefer
+   * itself (extras/chok.js, downloaded once from Otzaria's library, then read offline), in the
+   * schedule's own tab, from the prayers before learning to the day's last part, where it ends.
+   */
+  openChokDay = async calendarItem => {
+    try {
+      await extras.loadExtras();
+      if (!extras.isEnabled(CHOK_SOURCE)) { await extras.setSourceEnabled(CHOK_SOURCE, true); }
+    } catch (e) {
+      console.log('Chok LeYisrael: could not add the book', e);
+    }
+    const hidden = Sefaria.shomer?.hiddenBookForRef(CHOK_TITLE);  // content filter
+    if (hidden) {
+      Alert.alert(strings.filter.hidden_title,
+        strings.formatString(strings.filter.hidden_message, {title: hidden.title, reason: hidden.reason}),
+        [{text: strings.common.ok}]);
+      return;
+    }
+    if (!extras.isExtraTitle(CHOK_TITLE)) {
+      Alert.alert(strings.download.download_error, strings.extras.download_failed_message, [{text: strings.common.ok}]);
+      return;
+    }
+    // one tap: the download (with its progress and Cancel), then the day opens
+    if (extras.needsDownload(CHOK_TITLE) && !(await this.extraBookAlert(CHOK_TITLE, null))) { return; }
+    let index = null;
+    try { index = await Sefaria.offlineOnline.textToc(CHOK_TITLE); } catch (e) { console.log('Chok LeYisrael: index', e); }
+    const seq = chokDaySequence(index, calendarItem);
+    if (!seq) {
+      Alert.alert(strings.errors.text_unavailable, strings.extras.download_failed_message, [{text: strings.common.ok}]);
+      return;
+    }
+    await this._openScheduleSequence(seq);
+  };
+
+  /** The sections before and after `sectionRef` here: a day read as one unit keeps to its own readings */
+  _readingNeighbours = (sectionRef, book) => {
+    const tab = this.state.sheet ? null : findTab(this.state.readerTabs, this.state.readerTabs.activeTabId);
+    return boundedNeighbours(tab && tab.schedule, sectionRef, { prev: book.prev || null, next: book.next || null });
+  };
 
   _openScheduleSequence = seq => {
     const reading = currentReading(seq);
@@ -2561,6 +2614,7 @@ class ReaderApp extends React.PureComponent {
                   textListVisible={this.state.textListVisible}
                   next={this.state.next}
                   prev={this.state.prev}
+                  scheduleEnd={activeSchedule && isLastReading(activeSchedule, this.state.sectionArray[this.state.sectionArray.length - 1]) ? activeSchedule : null}
                   linksLoaded={this.state.linksLoaded}
                   loadingTextTail={this.state.loadingTextTail}
                   loadingTextHead={this.state.loadingTextHead}

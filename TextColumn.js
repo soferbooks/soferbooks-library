@@ -22,6 +22,7 @@ import { refHasSectionKeys } from './extras/schema7';
 import { createAnchor, isAnchorActive, anchorCorrection, renderedIndexRange, pickVisibleAnchor, ANCHOR_MAX_SEEKS } from './reader/scrollAnchor';
 import { VOCALIZATION } from './VocalizationEnum';
 import { stringPair } from './LocalizedStrings';
+import ScheduleEndMarker from './learningSchedules/ScheduleEndMarker';
 const ViewPort  = Dimensions.get('window');
 const COMMENTARY_LINE_THRESHOLD = 100;
 
@@ -67,6 +68,7 @@ class TextColumn extends React.PureComponent {
     textSegmentPressed: PropTypes.func,
     textListVisible:    PropTypes.bool,
     next:               PropTypes.string,
+    scheduleEnd:        PropTypes.object,   /* the day's schedule, when its last reading is loaded */
     prev:               PropTypes.string,
     loadingTextTail:    PropTypes.bool,
     loadingTextHead:    PropTypes.bool,
@@ -728,7 +730,9 @@ class TextColumn extends React.PureComponent {
 
   renderListFooter = () => {
     if (this.props.isSheet) { return null; }
-    return this.props.next ? <LoadingView category={Sefaria.primaryCategoryForTitle(this.props.textTitle)}/> : null;
+    if (this.props.next) { return <LoadingView category={Sefaria.primaryCategoryForTitle(this.props.textTitle)}/>; }
+    // the end of a day read as one unit (Chok LeYisrael): "Today's Chok LeYisrael - done"
+    return this.props.scheduleEnd ? <ScheduleEndMarker schedule={this.props.scheduleEnd} /> : null;
   };
 
   getItemLayout = (data, index) => {
