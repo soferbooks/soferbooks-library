@@ -33,12 +33,25 @@ export const createAnchor = (ref, now = Date.now(), inset = ANCHOR_TOP_INSET) =>
  * The passage the reader is looking at, to keep in place across a display change (language,
  * commentary under each passage, font size): the first cell whose top is in view, or the cell
  * that fills the top of the screen when it starts above it. `cells` is [{ref, y}] of the rendered
- * cells (y in the list content). Returns {ref, inset} (inset = its top relative to the viewport
- * top), or null.
+ * cells (y in the list content). `preferRef`: the reader's current passage, chosen whenever it is
+ * on screen. Returns {ref, inset} (inset = its top relative to the viewport top), or null.
  */
-export const pickVisibleAnchor = (cells, currentY, viewportHeight = 0) => {
+export const pickVisibleAnchor = (cells, currentY, viewportHeight = 0, preferRef = null) => {
   const sorted = (cells || []).filter(c => c && c.ref && typeof c.y === 'number').sort((a, b) => a.y - b.y);
   if (!sorted.length) { return null; }
+  // The passage the reader is on (opened at, or reached), when it is on screen: QA round 5 opened
+  // Genesis 1:4, chose Talmud under each passage, and was kept at 1:1 - the first verse on its
+  // (small-font) screen - as if it had been reading there
+  if (preferRef && viewportHeight > 0) {
+    const i = sorted.findIndex(c => c.ref === preferRef);
+    if (i >= 0) {
+      const c = sorted[i];
+      const next = sorted[i + 1];
+      const startsInView = c.y >= currentY - ANCHOR_TOLERANCE && c.y < currentY + viewportHeight - 40;
+      const coversTop = c.y < currentY && (!next || next.y > currentY);
+      if (startsInView || coversTop) { return { ref: c.ref, inset: c.y - currentY }; }
+    }
+  }
   const firstInView = sorted.find(c => c.y >= currentY - ANCHOR_TOLERANCE);
   let containing = null;
   for (const c of sorted) { if (c.y <= currentY) { containing = c; } }
@@ -59,9 +72,10 @@ export const isAnchorActive = (anchor, now = Date.now()) => !!anchor && now - an
  *   renderedRange:  [minIndex, maxIndex] of the cells currently rendered (null if unknown)
  *   viewportHeight: height of the list's viewport
  *   inset:          the anchor's place below the top of the list (anchor.inset)
+ *   renderedSpan:   [minY, maxY] of the rendered cells' tops (null if unknown)
  * Returns {offset, seek}: seek=true when the target is not rendered and we are only moving towards it.
  */
-export const anchorCorrection = ({ cellY, currentY, targetIndex, renderedRange, viewportHeight, inset = ANCHOR_TOP_INSET }) => {
+export const anchorCorrection = ({ cellY, currentY, targetIndex, renderedRange, viewportHeight, inset = ANCHOR_TOP_INSET, renderedSpan = null }) => {
   if (typeof cellY === 'number') {
     const offset = Math.max(0, cellY - inset);
     return Math.abs(offset - currentY) > ANCHOR_TOLERANCE ? { offset, seek: false } : null;
@@ -69,8 +83,16 @@ export const anchorCorrection = ({ cellY, currentY, targetIndex, renderedRange, 
   if (typeof targetIndex !== 'number' || !renderedRange) { return null; }
   const [lo, hi] = renderedRange;
   const step = Math.max(200, (viewportHeight || 0) * SEEK_FRACTION);
-  if (targetIndex < lo) { return { offset: Math.max(0, currentY - step), seek: true }; }
-  if (targetIndex > hi) { return { offset: currentY + step, seek: true }; }
+  // (at least past the cells already rendered: rows of Talmud under each verse can be tens of
+  // screens long, more than ANCHOR_MAX_SEEKS screen-sized steps)
+  const [minY, maxY] = renderedSpan || [null, null];
+  if (targetIndex < lo) {
+    const past = typeof minY === 'number' ? minY - (viewportHeight || 0) : Infinity;
+    return { offset: Math.max(0, Math.min(currentY - step, past)), seek: true };
+  }
+  if (targetIndex > hi) {
+    return { offset: Math.max(currentY + step, typeof maxY === 'number' ? maxY : -Infinity), seek: true };
+  }
   return null;
 };
 

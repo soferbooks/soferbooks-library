@@ -79,6 +79,12 @@ const notify = () => listeners.forEach(fn => { try { fn(); } catch (e) { console
 export const isExtraTitle = title => !!title && title in books;
 export const extraBook = title => books[title] || null;
 export const isDownloaded = title => !!title && title in state.installed;
+/** {downloadMB, storedMB} of a book whose source knows it (source.approxSize), else null */
+export const approxSizeOf = title => {
+  const book = books[title];
+  const source = book && EXTRA_SOURCES[book.source];
+  return (source && source.approxSize && source.approxSize(book)) || null;
+};
 export const needsDownload = title => isExtraTitle(title) && !isDownloaded(title);
 export const isEnabled = id => !!enabled[id];
 export const installedTitles = (source = null) => Object.keys(state.installed)

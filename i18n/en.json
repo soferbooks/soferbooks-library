@@ -111,6 +111,7 @@
     "extras.download_to_read_badge": "Download to read",
     "extras.downloaded_count": "{count} books downloaded",
     "extras.downloaded_count_one": "1 book downloaded",
+    "extras.download_size": "About {download} MB to download ({stored} MB on this phone).",
     "extras.downloading": "Downloading {title}...",
     "extras.license_line": "Licence: {license}",
     "extras.not_downloaded_message": "This book, \"{title}\", comes from {source}, whose books are not read online. Download it once, from {source}'s own server, and it opens on this phone, also without a connection.",

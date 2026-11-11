@@ -165,6 +165,7 @@ class TextColumn extends React.PureComponent {
       renderedRange: renderedIndexRange(this._mountedCells, this.state.jumpInfoMap),
       viewportHeight: this.state.scrollViewHeight,
       inset: this._anchor.inset,
+      renderedSpan: this._renderedSpan(),
     });
     if (!correction) { return; }
     if (correction.seek) {
@@ -181,6 +182,19 @@ class TextColumn extends React.PureComponent {
     }
   };
 
+  /** [min, max] y of the rendered cells, or null */
+  _renderedSpan = () => {
+    let lo = Infinity;
+    let hi = -Infinity;
+    for (const ref of this._mountedCells) {
+      const y = this._cellY[ref];
+      if (typeof y !== 'number') { continue; }
+      if (y < lo) { lo = y; }
+      if (y > hi) { hi = y; }
+    }
+    return lo === Infinity ? null : [lo, hi];
+  };
+
   _onScrollBeginDrag = () => { this._releaseAnchor(); };
 
   /**
@@ -194,7 +208,8 @@ class TextColumn extends React.PureComponent {
     for (const ref of this._mountedCells) {
       if (typeof this._cellY[ref] === 'number') { cells.push({ ref, y: this._cellY[ref] }); }
     }
-    const picked = pickVisibleAnchor(cells, this.currentY, this.state.scrollViewHeight);
+    const current = this.props.segmentRef || this._standardizeOffsetRef(this.props.offsetRef);
+    const picked = pickVisibleAnchor(cells, this.currentY, this.state.scrollViewHeight, current);
     if (!picked) { return; }
     this._anchor = createAnchor(picked.ref, Date.now(), picked.inset);
     this._scheduleReanchor();

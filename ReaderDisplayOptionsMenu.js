@@ -9,6 +9,7 @@ import {
   View,
   Image,
   Animated,
+  ScrollView,
 } from 'react-native';
 import styles from './Styles.js';
 import strings from './LocalizedStrings';
@@ -272,12 +273,18 @@ class ReaderDisplayOptionsMenu extends React.Component {
         }),
       },
     ];
+    // The mask reaches the bottom of the reader so the menu can never run past the screen: a
+    // long list of commentaries scrolls inside it (QA round 5: Rashi, the connection kinds and
+    // "Order a printed copy" were cut off on a phone). The mask lets touches below the menu
+    // through to the text, as before.
     return (
-      <View style={[styles.readerDisplayOptionsMenuMask, this.props.topOffset ? {top: this.props.topOffset} : null]}>
-        <Animated.View style={myStyles}>
+      <View pointerEvents="box-none" style={[styles.readerDisplayOptionsMenuMask, {bottom: 0}, this.props.topOffset ? {top: this.props.topOffset} : null]}>
+        <Animated.View style={[myStyles, {flex: 0, flexShrink: 1, maxHeight: '100%'}]}>
+          <ScrollView style={{flexGrow: 0}} keyboardShouldPersistTaps="handled" testID="readerDisplayOptionsScroll">
             {rows}
             {this.renderInlineSources()}
             {this.props.bookTitle ? <PrintCopyLink title={this.props.bookTitle} heTitle={this.props.bookHeTitle} style={{marginBottom: 6}} /> : null}
+          </ScrollView>
         </Animated.View>
       </View>
     );

@@ -39,6 +39,26 @@ describe('a display change keeps the passage the reader is on', () => {
     expect(anchorCorrection({ cellY: 1260, currentY: 1220, inset: 40 })).toBeNull();
   });
 
+  test('QA round 5: the passage the reader is on is kept, not the first verse on the screen', () => {
+    // a small font: 1:1 to 1:5 on one screen, the reader at 1:4 (Genesis 1:4 opened)
+    const cells = [{ ref: 'Genesis 1:1', y: 0 }, { ref: 'Genesis 1:2', y: 200 }, { ref: 'Genesis 1:3', y: 400 },
+      { ref: 'Genesis 1:4', y: 600 }, { ref: 'Genesis 1:5', y: 800 }];
+    expect(pickVisibleAnchor(cells, 0, 2000)).toEqual({ ref: 'Genesis 1:1', inset: 0 });
+    expect(pickVisibleAnchor(cells, 0, 2000, 'Genesis 1:4')).toEqual({ ref: 'Genesis 1:4', inset: 600 });
+    // off screen: the top of the screen as before
+    expect(pickVisibleAnchor(cells, 0, 500, 'Genesis 1:5')).toEqual({ ref: 'Genesis 1:1', inset: 0 });
+  });
+
+  test('QA round 5: seeking an unrendered passage moves past the rendered cells at once', () => {
+    // Talmud under each verse: the rendered cells (above the target) reach 40000px down
+    const step = anchorCorrection({ cellY: null, currentY: 0, targetIndex: 9, renderedRange: [0, 3],
+      viewportHeight: 1000, renderedSpan: [0, 40000] });
+    expect(step).toEqual({ offset: 40000, seek: true });
+    const back = anchorCorrection({ cellY: null, currentY: 50000, targetIndex: 1, renderedRange: [5, 8],
+      viewportHeight: 1000, renderedSpan: [45000, 52000] });
+    expect(back).toEqual({ offset: 44000, seek: true });
+  });
+
   test('the display menu opens below the schedule bar, which stays in view', () => {
     expect(displayMenuTop(0, 0)).toBeUndefined();
     expect(displayMenuTop(38, 0)).toBe(READER_HEADER_HEIGHT + 38);

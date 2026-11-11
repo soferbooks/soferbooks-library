@@ -434,13 +434,29 @@ export function clearOfflineSearchCache() {
  * A false positive only costs the per-line pass; a false negative cannot
  * happen, so results stay correct.
  */
+// A global replace over a whole book (Tanakh's merged lines run to tens of MB, with millions of
+// points) makes Hermes collect every match at once: "RangeError: Out of memory for regexp
+// results", and Hebrew search found nothing (QA round 5). Points are single characters, so
+// stripping them chunk by chunk gives exactly the same string with bounded regexp work.
+const STRIP_CHUNK = 1 << 16;
+
+/** `text` without vowel points and Hebrew quote marks, in bounded chunks (any length). */
+export function stripPointsChunked(text, chunk = STRIP_CHUNK) {
+  if (text.length <= chunk) { return text.replace(NIQQUD, '').replace(HEBREW_PUNCT, ''); }
+  const parts = [];
+  for (let i = 0; i < text.length; i += chunk) {
+    parts.push(text.slice(i, i + chunk).replace(NIQQUD, '').replace(HEBREW_PUNCT, ''));
+  }
+  return parts.join('');
+}
+
 function mayContainAll(content, terms) {
   let hebrewHaystack = null;
   let asciiHaystack = null;
   for (const term of terms) {
     if (term.hebrew) {
       if (hebrewHaystack === null) {
-        hebrewHaystack = content.replace(NIQQUD, '').replace(HEBREW_PUNCT, '');
+        hebrewHaystack = stripPointsChunked(content);
       }
       if (!hebrewHaystack.includes(term.plain)) { return false; }
     } else {

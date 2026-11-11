@@ -236,8 +236,16 @@ export function versionOf(entry) {
   };
 }
 
+/**
+ * About how big the book is, for the download prompt (measured 2026-11-11): Otzaria's five files
+ * are 20 MB of text, sent compressed (about 8 MB); kept on the phone as the converted book (6.6 MB)
+ * and its offline search lines (19 MB).
+ */
+export const APPROX_SIZE = {downloadMB: 8, storedMB: 26};
+
 export default {
   id: ID,
+  approxSize: () => APPROX_SIZE,
   converterVersion: CONVERTER_VERSION,
   catalogUrl: CATALOG_URL,
   fetchCatalog,

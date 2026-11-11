@@ -922,9 +922,13 @@ class ReaderApp extends React.PureComponent {
           // this async call to load links is for a section that is no longer being viewed
           return;
         }
-        if (this.state.segmentIndexRef !== -1 && this.state.sectionIndexRef !== -1) {
-          this.updateLinkSummary(this.state.sectionIndexRef, this.state.segmentIndexRef);
-        }
+        // (the summary is worked out from the links just stored, not the ones before them: an extra
+        // book's commentary, added to Sefaria's links, was missing from the panel until reopened)
+        const refreshSummary = () => {
+          if (this.state.segmentIndexRef !== -1 && this.state.sectionIndexRef !== -1) {
+            this.updateLinkSummary(this.state.sectionIndexRef, this.state.segmentIndexRef);
+          }
+        };
         this.setState(prevState => {
           const currSection = this.state.data[iSec];
           if (!currSection || currSection.length === 0) {
@@ -958,7 +962,7 @@ class ReaderApp extends React.PureComponent {
             relatedBySectionRef: {...this.state.relatedBySectionRef, [currSectionRef]: relatedObj},
             linksLoaded: newLinksLoaded
           };
-        });
+        }, refreshSummary);
       });
   };
 
@@ -1121,10 +1125,16 @@ class ReaderApp extends React.PureComponent {
           resolve(false);
         }
       };
+      // (how big it is, when its source says: Chok LeYisrael)
+      const size = extras.approxSizeOf(title);
+      const sizeLine = size ? `
+
+${strings.formatString(strings.extras.download_size,
+        {download: size.downloadMB, stored: size.storedMB})}` : '';
       Alert.alert(
         strings.extras.not_downloaded_title,
         strings.formatString(strings.extras.not_downloaded_message,
-          {title: isolate(book?.heTitle || title), source: isHe ? heSourceName : sourceName}),
+          {title: isolate(book?.heTitle || title), source: isHe ? heSourceName : sourceName}) + sizeLine,
         [
           {text: strings.common.cancel, style: 'cancel', onPress: () => resolve(false)},
           {text: strings.download.download, onPress: download},

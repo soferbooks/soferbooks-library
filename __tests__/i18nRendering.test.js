@@ -1161,6 +1161,7 @@ describe('Strings with placeholders', () => {
     'tabs.archived_tabs_count': { count: 4 },
     'learning_schedules.reading_n_of_m': { n: 2, m: 7 },
     'learning_schedules.day_done': { title: 'Chok LeYisrael' },
+    'extras.download_size': { download: 8, stored: 26 },
     'extras.downloaded_count': { count: 12 },
     'extras.downloading': { title: 'זמרת הארץ' },
     'extras.license_line': { license: 'Public Domain' },

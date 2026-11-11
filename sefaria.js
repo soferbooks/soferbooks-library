@@ -907,6 +907,8 @@ global.Sefaria = {
               refSet:            new Set([link.sourceRef]), // make sure refs are unique here
               heRefSet:          new Set([link.sourceHeRef]),
               hasEn:             link.sourceHasEn,
+              // a book the reader downloaded from another source (extras/): listed first
+              extra:             extras.isDownloaded(link.textTitle),
           };
         }
       }
@@ -943,6 +945,9 @@ global.Sefaria = {
         categoryData.heRefList = [];
         // Sort the books in the category
         categoryData.books = Object.values(categoryData.books).sort((a, b) => {
+          // The books downloaded from the other sources first: among Sefaria's dozens of
+          // commentaries a downloaded Otzaria commentary was lost in the middle (QA round 5)
+          if (!!a.extra !== !!b.extra) { return a.extra ? -1 : 1; }
           // First sort by predefined "top"
           let top = topByCategory[categoryData.category] || [];
           let aTop = top.indexOf(a.title);
@@ -1019,10 +1024,11 @@ global.Sefaria = {
       });
 
       // Remove "Commentary" section if it is empty or only contains greyed out items
-      if (summaryList[0].books.length == 0) { summaryList = summaryList.slice(1); }
+      if (summaryList.length && summaryList[0].books.length == 0) { summaryList = summaryList.slice(1); }
 
-      // Remove "All" section if it's count is zero
-      if (summaryList[summaryList.length-1].count == 0) { summaryList = summaryList.slice(0, -1); }
+      // Remove "All" section if it's count is zero (a passage with no links at all leaves nothing
+      // here: "Cannot read property 'count' of undefined" on every panel, QA round 5)
+      if (summaryList.length && summaryList[summaryList.length-1].count == 0) { summaryList = summaryList.slice(0, -1); }
       return summaryList;
     },
     sortRefsBySections(enRefs, heRefs, title) {

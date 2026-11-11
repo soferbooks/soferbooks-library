@@ -111,6 +111,7 @@
     "extras.download_to_read_badge": "להורדה לפני קריאה",
     "extras.downloaded_count": "{count} ספרים הורדו",
     "extras.downloaded_count_one": "ספר אחד הורד",
+    "extras.download_size": "כ־{download} מ״ב להורדה ({stored} מ״ב בטלפון).",
     "extras.downloading": "מוריד את {title}...",
     "extras.license_line": "רישיון: {license}",
     "extras.not_downloaded_message": "\"{title}\" מגיע מ{source}, שספריו אינם נקראים ברשת. הורידו אותו פעם אחת, מהשרת של {source}, והוא ייפתח בטלפון הזה, גם ללא חיבור.",

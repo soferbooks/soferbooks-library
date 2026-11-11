@@ -21,6 +21,8 @@ const _inFlight = new Map();
 // the JS thread free for the reader's own rendering.
 const _limit = pLimit(3);
 
+const LRM = String.fromCharCode(0x200E);      // left-to-right mark: the paragraph's direction, whatever its first letter
+
 const plain = html => (typeof html === 'string' ? Sefaria.util.stripHtml(html.replace(/<br\s*\/?>/gi, ' ')) : '');
 
 const flatten = x => (Array.isArray(x) ? x.flat(Infinity).filter(s => typeof s === 'string').join(' ') : x);
@@ -87,7 +89,9 @@ const InlineCommentary = ({ links, sourceKey, nakdan = false }) => {
       parts.push(<Text key={`name${i}`} style={[heName ? localStyles.nameHe : localStyles.nameEn, theme.tertiaryText, { fontSize: size * 0.85 }]}>{heName ? name : items[i].ref}</Text>);
     }
     if (he) { parts.push(<NakdanText key={`he${i}`} text={he} on={!!nakdan} style={[localStyles.he, theme.tertiaryText, { fontSize: size * 1.1, lineHeight: size * 1.6 }]} />); }
-    if (en) { parts.push(<Text key={`en${i}`} style={[localStyles.en, theme.tertiaryText, { fontSize: size, lineHeight: size * 1.45 }]}>{en}</Text>); }
+    // (LRM first: English Rashi opens with the Hebrew words it explains, and Android then laid the
+    // whole paragraph out right to left - its closing period at the start of the line, ".daytime")
+    if (en) { parts.push(<Text key={`en${i}`} style={[localStyles.en, theme.tertiaryText, { fontSize: size, lineHeight: size * 1.45 }]}>{LRM + en}</Text>); }
   });
   if (!parts.length) { return null; }
   return (

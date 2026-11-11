@@ -48,12 +48,16 @@ export const NakdanAskCard = ({ book, theme, interfaceLanguage }) => {
   const langStyle = isHeb ? styles.heInt : styles.enInt;
   const align = { textAlign: isHeb ? 'right' : 'left' };
   const button = (label, onPress, primary, testID) => (
-    <TouchableOpacity testID={testID} onPress={onPress} style={[local.button, primary ? local.primary : null]}>
+    <TouchableOpacity testID={testID} onPress={onPress} accessibilityRole="button" accessibilityLabel={label}
+      style={[local.button, primary ? local.primary : null]}>
       <Text style={[langStyle, local.buttonText, primary ? local.primaryText : theme && theme.secondaryText]}>{label}</Text>
     </TouchableOpacity>
   );
   return (
-    <View testID="nakdan-ask" accessibilityRole="alert" style={[local.card, theme && theme.mainTextPanel, theme && theme.lighterGreyBorder]}>
+    // (named for screen readers and UI tests: QA's accessibility dump did not show the card at all)
+    <View testID="nakdan-ask" accessibilityRole="alert" collapsable={false}
+      accessibilityLabel={`${strings.reader.nakdan_ask_title}. ${strings.reader.nakdan_ask_text}`}
+      style={[local.card, theme && theme.mainTextPanel, theme && theme.lighterGreyBorder]}>
       <Text style={[langStyle, local.title, align, theme && theme.text]}>{strings.reader.nakdan_ask_title}</Text>
       <Text style={[langStyle, local.body, align, theme && theme.secondaryText]}>{strings.reader.nakdan_ask_text}</Text>
       <View style={[local.buttons, { flexDirection: isHeb ? 'row-reverse' : 'row' }]}>
@@ -62,10 +66,11 @@ export const NakdanAskCard = ({ book, theme, interfaceLanguage }) => {
         {button(strings.reader.nakdan_not_now, () => notNowNakdan(book), false, 'nakdan-not-now')}
       </View>
       <View style={[local.footer, { flexDirection: isHeb ? 'row-reverse' : 'row' }]}>
-        <TouchableOpacity testID="nakdan-never" onPress={() => setNakdanSettings({ neverAsk: true })}>
+        <TouchableOpacity testID="nakdan-never" accessibilityRole="button" accessibilityLabel={strings.reader.nakdan_never_ask}
+          onPress={() => setNakdanSettings({ neverAsk: true })}>
           <Text style={[langStyle, local.never, theme && theme.tertiaryText]}>{strings.reader.nakdan_never_ask}</Text>
         </TouchableOpacity>
-        <TouchableOpacity accessibilityRole="link" onPress={openDicta}>
+        <TouchableOpacity accessibilityRole="link" accessibilityLabel="Dicta" onPress={openDicta}>
           <Text style={[local.creditText, theme && theme.tertiaryText]}>Dicta</Text>
         </TouchableOpacity>
       </View>

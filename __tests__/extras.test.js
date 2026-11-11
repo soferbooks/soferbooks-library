@@ -423,6 +423,10 @@ describe('the reader and the download controller', () => {
 // ---------------------------------------------------------------- the warning
 
 describe('opening a book that is not downloaded', () => {
+  // (each test loads the whole ReaderApp afresh after jest.resetModules: in the full run, with the
+  // other suites' workers busy, that took longer than jest's 5 s and the test failed now and then)
+  const READER_APP_TIMEOUT = 60000;
+
   test('a warning with a Download button; Download fetches, converts, then opens it', async () => {
     jest.resetModules();
     const React = require('react');
@@ -495,7 +499,7 @@ describe('opening a book that is not downloaded', () => {
     expect(alert.mock.calls[0][0]).toBe(strings.extras.not_downloaded_title);
     alert.mockRestore();
     act(() => inst.unmount());
-  });
+  }, READER_APP_TIMEOUT);
 
   test('Back after a downloaded book opens does not bring the "Downloading" box back', async () => {
     jest.resetModules();
@@ -538,7 +542,7 @@ describe('opening a book that is not downloaded', () => {
     expect(inst.root.findAllByType(ExtraDownloadModal)).toHaveLength(0);
     alert.mockRestore();
     act(() => inst.unmount());
-  });
+  }, READER_APP_TIMEOUT);
 
   test('ERRORS has the extra-book error', () => {
     expect(ERRORS.EXTRA_NOT_DOWNLOADED).toBeTruthy();

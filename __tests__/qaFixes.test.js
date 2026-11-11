@@ -78,6 +78,46 @@ describe('connection counts count only visible books', () => {
   });
 });
 
+describe('connections panel summary (QA round 5)', () => {
+  const link = (textTitle, sourceRef, category = 'Commentary') => (
+    { category, textTitle, sourceRef, sourceHeRef: sourceRef, sourceHasEn: false });
+  let saved;
+  beforeEach(() => {
+    saved = { index: Sefaria._index, list: Sefaria._commentatorListBySection };
+    Sefaria._commentatorListBySection = {};
+  });
+  afterEach(() => {
+    Sefaria._index = saved.index;
+    Sefaria._commentatorListBySection = saved.list;
+    jest.restoreAllMocks();
+  });
+
+  test('a passage with no links at all gives an empty summary, not "count of undefined"', () => {
+    Sefaria._index = {};
+    expect(Sefaria.links.linkSummary('תמר שלמה, S1, S1, S1, S1', [], 'english')).toEqual([]);
+    expect(Sefaria.links.linkSummary('X 1', [link('Hidden', 'Hidden 1:1')], 'english')).toEqual([]);
+  });
+
+  test('a downloaded extra commentary comes first under Commentary, not lost among the others', () => {
+    const extras = require('../extras');
+    jest.spyOn(extras, 'isDownloaded').mockImplementation(t => t === 'תמר שלמה');
+    Sefaria._index = {
+      'Kesef Mishneh on Mishneh Torah, Substitution': { heTitle: 'כסף משנה' },
+      'Maggid Mishneh on Mishneh Torah, Substitution': { heTitle: 'מגיד משנה' },
+      'תמר שלמה': { heTitle: 'תמר שלמה' },
+    };
+    const summary = Sefaria.links.linkSummary('Mishneh Torah, Substitution 1', [
+      link('Kesef Mishneh on Mishneh Torah, Substitution', 'Kesef Mishneh on Mishneh Torah, Substitution 1:1:1'),
+      link('תמר שלמה', 'תמר שלמה, S1, S1, S1, S1:1'),
+      link('Maggid Mishneh on Mishneh Torah, Substitution', 'Maggid Mishneh on Mishneh Torah, Substitution 1:1:1'),
+    ], 'english');
+    const commentary = summary.find(c => c.category === 'Commentary');
+    expect(commentary.books.map(b => b.title)).toEqual(['תמר שלמה',
+      'Kesef Mishneh on Mishneh Torah, Substitution', 'Maggid Mishneh on Mishneh Torah, Substitution']);
+    expect(commentary.count).toBe(3);
+  });
+});
+
 describe('first launch: the offer to download books for offline use', () => {
   const makeApp = contentFilter => {
     const app = Object.create(ReaderApp.prototype);

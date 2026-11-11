@@ -9,7 +9,7 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import {
   executeOfflineQuery, parseQuery, normalizeQueryWord, wordRegExp, termTrigrams,
-  clearOfflineSearchCache,
+  clearOfflineSearchCache, stripPointsChunked,
 } from '../offlineSearch';
 
 global.Sefaria = {
@@ -255,5 +255,46 @@ describe('ranking, exact matches and the content filter', () => {
     expect(r.hits.total).toBe(1);
     expect((await executeOfflineQuery({query: 'ברא', type: 'text'})).hits.hits
       .some(h => h._source.ref.startsWith('Rashi'))).toBe(false);
+  });
+});
+
+describe('a whole book of pointed Hebrew (QA round 5: "Out of memory for regexp results")', () => {
+  // Hermes collects every match of a global replace at once and throws on a book the size of
+  // Tanakh's merged lines; V8 does not, so the limit is imitated here: a global regex over a
+  // string longer than HERMES_LIKE_LIMIT throws as it did on the phone.
+  const HERMES_LIKE_LIMIT = 200000;
+  let spy;
+  beforeEach(() => {
+    const original = String.prototype.replace;
+    spy = jest.spyOn(String.prototype, 'replace').mockImplementation(function (pattern, replacement) {
+      if (pattern instanceof RegExp && pattern.global && this.length > HERMES_LIKE_LIMIT) {
+        throw new RangeError('Out of memory for regexp results.');
+      }
+      return original.call(this, pattern, replacement);
+    });
+  });
+  afterEach(() => { spy.mockRestore(); });
+
+  test('"בראשית ברא" over several MB finds Genesis 1:1 first', async () => {
+    const filler = [];
+    for (let i = 2; i < 40000; i++) {
+      filler.push(LINE(`Genesis ${Math.floor(i / 30) + 1}:${(i % 30) + 1}`, 'בראשית', 'he', 'merged',
+        'וַיֹּ֥אמֶר אֱלֹהִ֖ים יְהִ֣י א֑וֹר וַֽיְהִי־אֽוֹר׃ וַיַּ֧רְא אֱלֹהִ֛ים אֶת־הָא֖וֹר כִּי־ט֑וֹב'));
+    }
+    const big = [GENESIS, ...filler].join('\n');
+    expect(big.length).toBeGreaterThan(4000000);
+    await write('Genesis_search.txt', big);
+    const r = await executeOfflineQuery({query: 'בראשית ברא', type: 'text', size: 10, start: 0});
+    expect(r.hits.total).toBe(1);
+    expect(r.hits.hits[0]._source.ref).toBe('Genesis 1:1');
+  });
+
+  test('stripPointsChunked equals the one-pass strip at any chunk size', () => {
+    spy.mockRestore();
+    const text = 'בְּרֵאשִׁ֖ית בָּרָ֣א אֱלֹהִ֑ים רש״י '.repeat(50);
+    const once = text.replace(/[֑-ׇ]/g, '').replace(/[׳״'"׳״]/g, '');
+    for (const chunk of [1, 7, 64, 1 << 16]) {
+      expect(stripPointsChunked(text, chunk)).toBe(once);
+    }
   });
 });
