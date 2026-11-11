@@ -21,7 +21,8 @@ export const CORRECTIONS = {
   otzaria: { name: 'Otzaria', email: null },
   // a wiki: corrections are made on the page itself; no email
   wikisource: { name: 'Wikisource', email: null },
-  soferbooks_extras: { name: 'SoferBooks', email: FALLBACK_EMAIL },
+  // the Sofer Library (extras/sofer.js): SoferBooks' own copies
+  sofer_library: { name: 'Sofer Library', email: FALLBACK_EMAIL },
 };
 
 export const sourceOfVersion = version => (version && version.librarySource) || 'sefaria';

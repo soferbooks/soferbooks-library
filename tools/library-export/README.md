@@ -308,6 +308,39 @@ python tools\library-export\wikisource_fixtures.py C:\tmp\wslive
 node -r @babel/register tools\library-export\compare_wikisource.js --sofer-on C:\tmp\wslive
 ```
 
+**Sofer Library (ספריית סופר)** (`extras/sofer.js`). Owner's decision (2026-11-11): SoferBooks
+hosts ONLY the books the app cannot get from their own source - Sofer's split books
+(`sofer.splits`: Ben Ish Hai's Derashos/Halachos, the Tur and its five commentaries in four parts,
+Shaar HaBitachon and its commentaries), the Ben-Yehuda collections, Rabbi Eliezer Ben-David's
+sefarim (with their editors' notes), Sofer's combined editions (offered as "<Title> (Combined
+editions)" / "<he> (מהדורה משולבת)", next to Sefaria's book) and the few other books Sofer made
+(the Kiddush book, Tehillim 119 by a name). They are built on the PC as ready-made schema-7 zips
+and hosted as one release of `soferbooks-library-data`, NOT marked latest (the Sefaria packs'
+release must stay latest):
+
+```powershell
+# Sofer's own Python (his dependencies); reads Sofer's library, never writes to it
+C:\Users\morde\Sofer\.venv\Scripts\python.exe tools\library-export\build_sofer_library.py --out C:\Users\morde\Soferia\sofer-library --tag sofer-library-2026-11-11
+python tools\library-export\verify_release_licences.py --sofer-library C:\Users\morde\Soferia\sofer-library\release
+gh release create sofer-library-2026-11-11 (Get-ChildItem C:\Users\morde\Soferia\sofer-library\release).FullName --repo soferbooks/soferbooks-library-data --title "Sofer Library 2026-11-11" --latest=false --notes "..."
+```
+
+`build_sofer_library.py` finds the books from Sofer's manifests (`extra_import_manifest.json`,
+`combined_manifest.json`) and `sofer.splits`, skipping any book Sefaria's mobile export has
+(`--sefaria-titles`) or that Dicta / Otzaria / Wikisource serve; exports them with `export_v7`
+(Sofer's corrections applied by his provider, `sofer.not_offered` books and translations left
+out); keeps only editions with an open licence (public domain, CC0, CC-BY(-SA), CC-BY-NC(-SA); a
+combined edition only when every edition it was made of is open); files each book on Sofer's
+shelf (`sofer.api.catalog.shelf_of`: poems on "שירה ופיוט"); and writes
+`release\sofer-library-catalog.json` (title, Hebrew title, kind, shelf, licences, size, sha256,
+md5, first section, the editors' notes that come with it), one ASCII-named zip per book and
+`SHA256SUMS.txt`. What it left out, and why, is in `<out>\left-out.json`. A new release: build with
+a new `--tag`, upload, then change `RELEASE_TAG` in `extras/sofer.js` (the one line). The phone
+lists the books when "Sofer Library" is turned on in Settings, downloads a book (and its notes)
+when it is opened, checks its md5 and puts its files in the library as they came, marked
+`librarySource: sofer_library` ("Report an error" goes to corrections@soferbooks.com); the
+content filter applies to them as to every book.
+
 ### Superseded: hosted extras packs
 
 **Can the phone use the sources' own releases?** No, not sensibly:

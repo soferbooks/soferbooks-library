@@ -448,7 +448,7 @@ describe('Settings screen', () => {
         'settings.offline_access', 'settings.system',
         'settings.app_version',
         'filter.section_header', 'filter.description', 'filter.groups_header',
-        'library_sources.header', 'library_sources.description', 'library_sources.coming_soon',
+        'library_sources.header', 'library_sources.description',
         'library_sources.always_on', 'extras.source_detail',
         'settings.nakdan_header', 'settings.nakdan_always', 'settings.nakdan_always_detail',
         'settings.nakdan_ask', 'settings.nakdan_credit',
@@ -1961,6 +1961,11 @@ const NOT_YET_COVERED = [
   // the flows themselves are tested in __tests__/extras.test.js.
   'extras.delete_book', 'extras.delete_book_message', 'extras.download_to_read_badge',
   'extras.up_to_date',
+
+  // shomer/ContentFilterSettings.js: the "(coming soon)" after a library source that is not
+  // available yet. Since the Sofer Library works (2026-11-11) every source is available, so no
+  // render shows it; kept for the next source registered before it works.
+  'library_sources.coming_soon',
 ];
 
 describe('Counts of one', () => {
