@@ -416,7 +416,6 @@ beforeAll(() => {
   // `_loadCalendar`. It holds no entry for today, so the schedule rows come out empty — the
   // section headings, which are the localized part, still render.
   Sefaria.calendar = {};
-  Sefaria.galusOrIsrael = 'diaspora';
 });
 
 /**
@@ -446,6 +445,7 @@ describe('Settings screen', () => {
         'settings.interface_language',
         'settings.reading_history', 'common.on_fem', 'common.off_fem',
         'settings.preferred_custom', 'settings.sephardi', 'settings.ashkenazi',
+        'settings.calendar_location', 'settings.outside_israel', 'settings.israel',
         'settings.download_network_setting', 'settings.wifi_only', 'settings.mobile_network',
         'settings.offline_access', 'settings.system',
         'settings.app_version',

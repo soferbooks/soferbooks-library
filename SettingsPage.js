@@ -65,6 +65,8 @@ const SETTINGS_OPTION_STRING_IDS = {
   bilingual:     'settings.bilingual',
   sephardi:      'settings.sephardi',
   ashkenazi:     'settings.ashkenazi',
+  diaspora:      'settings.outside_israel',
+  israel:        'settings.israel',
   wifiOnly:      'settings.wifi_only',
   mobileNetwork: 'settings.mobile_network',
   on:            'common.on',
@@ -79,6 +81,7 @@ const SETTINGS_HEADER_STRING_IDS = {
   interfaceLanguage:      'settings.interface_language',
   readingHistory:         'settings.reading_history',
   preferredCustom:        'settings.preferred_custom',
+  calendarLocation:       'settings.calendar_location',
   downloadNetworkSetting: 'settings.download_network_setting',
   groggerActive:          'settings.grogger_active',
 };
@@ -452,6 +455,13 @@ const ButtonToggleSection = ({ langStyle }) => {
       time: Sefaria.util.epoch_time(),
     });
   };
+  // Israel or outside Israel: the parsha in the learning schedules (learningSchedules/calendarLocation.js)
+  const setCalendarLocation = location => {
+    dispatch({
+      type: STATE_ACTIONS.setCalendarLocation,
+      value: location,
+    });
+  };
   const setDownloadNetworkSetting = wifiOnly => {
     dispatch({
       type: STATE_ACTIONS.setDownloadNetworkSetting,
@@ -497,12 +507,13 @@ const ButtonToggleSection = ({ langStyle }) => {
     interfaceLanguageOptions: generateOptions(['english', 'hebrew'], setInterfaceLanguage),
     textLanguageOptions: generateOptions(['english', 'bilingual', 'hebrew'], setTextLanguage),
     preferredCustomOptions: generateOptions(['sephardi', 'ashkenazi'], setPreferredCustom),
+    calendarLocationOptions: generateOptions(['diaspora', 'israel'], setCalendarLocation),
     downloadNetworkSettingOptions: generateOptions(['wifiOnly', 'mobileNetwork'], setDownloadNetworkSetting),
     readingHistoryOptions: generateOptions(['onFem', 'offFem'], setReadingHistory, [true, false]),
     groggerActiveOptions: generateOptions(['on', 'off'], setGroggerActive),
   };
   /* stateKey prop is used for testing */
-  const toggleButtons = ['textLanguage', 'interfaceLanguage', 'readingHistory', 'preferredCustom', 'downloadNetworkSetting'];
+  const toggleButtons = ['textLanguage', 'interfaceLanguage', 'readingHistory', 'preferredCustom', 'calendarLocation', 'downloadNetworkSetting'];
   if (Sefaria.isGettinToBePurimTime()) { toggleButtons.push('groggerActive'); }
   return (
     <View>

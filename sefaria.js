@@ -49,7 +49,6 @@ global.Sefaria = {
     await Sefaria._loadTOC();
     await Sefaria.history._loadHistoryItems();
     await initAsyncStorage(dispatch);
-    await Sefaria.getLastGalusStatus();
     if (this._auth.token) {trackEvent("ReAuthSuccessful")};
   },
   postInitSearch: function() {
@@ -91,9 +90,6 @@ global.Sefaria = {
       lastAppUpdateTime = !!lastAppUpdateTime ? parseInt(lastAppUpdateTime) : 0;
     }
     return lastAppUpdateTime;
-  },
-  getLastGalusStatus: async function() {
-    Sefaria.lastGalusStatus = await AsyncStorage.getItem("lastGalusStatus");
   },
   refUpOne: function(ref, splitOnSpaces = false) {
     /**
@@ -659,36 +655,13 @@ global.Sefaria = {
     // returns true is `slug` is part of the top level of topic toc
     return Sefaria.topic_toc.filter(x => x.slug == slug).length > 0;
   },
-  lastGalusStatus: null,  // last recorded galus status to be used while waiting for really slow ip2c api
-  galusOrIsrael: null,
-  getDefaultGalusStatus: function(interfaceLanguage) {
-    const defaultGalusStatus = (interfaceLanguage === "hebrew" ? "israel" : "diaspora");
-    return Sefaria.galusOrIsrael || Sefaria.lastGalusStatus || defaultGalusStatus
-  },
-  getGalusStatus: async function() {
-    if (!!Sefaria.galusOrIsrael) {
-      return Sefaria.galusOrIsrael;
-    }
-    try {
-      const res = await fetch('https://ip2c.org/self');
-      const data = await res.text();
-      const [a, country_code, b, c] = data.split(';');
-      if (country_code == "IL") {
-        Sefaria.galusOrIsrael = "israel";
-      } else {
-        Sefaria.galusOrIsrael = "diaspora";
-      }
-      AsyncStorage.setItem("lastGalusStatus", Sefaria.galusOrIsrael);
-    } catch (e) {
-      // rely on defaults defined in <CalendarSection />
-      Sefaria.galusOrIsrael = null;
-    }
-    return Sefaria.galusOrIsrael;
-  },
-
-
+  // (Israel or outside Israel is a setting now - global state `calendarLocation`,
+  //  learningSchedules/calendarLocation.js - guessed from the phone's time zone and region until
+  //  chosen, in place of Sefaria's look-up of the phone's IP address on ip2c.org)
   getCalendars: function(custom, diaspora, date = new Date()) {
-    // Sefaria's calendar.json for the day, plus the app's own offline schedules
+    // Sefaria's calendar.json for the day, plus the app's own offline schedules. diaspora: outside
+    // Israel (the setting; learningSchedules/calendarLocation.js) - calendar.json's Israel entries
+    // ("0|a", "0|s") replace the default ones where the parsha differs
     // (learningSchedules/extraSchedules.js: Shnayim Mikra, Chok LeYisrael, Mishnah Berurah, Tehillim)
     if (!Sefaria.calendar) { return []; }
     const dateString = Sefaria._dateString(date);

@@ -8,6 +8,7 @@ import themeBlack from './ThemeBlack';
 import strings from './LocalizedStrings';
 import * as shomer from './shomer';
 import { defaultConfig, withDefault } from './shomer/presets';
+import { guessCalendarLocation, validCalendarLocation } from './learningSchedules/calendarLocation';
 
 const STATE_ACTIONS = {
   setTheme: "SET_THEME",
@@ -23,6 +24,7 @@ const STATE_ACTIONS = {
   setReadingHistory: "SET_READING_HISTORY",
   setGroggerActive: "SET_GROGGER_ACTIVE",
   setContentFilter: "SET_CONTENT_FILTER",
+  setCalendarLocation: "SET_CALENDAR_LOCATION",
 };
 
 const UPDATE_SETTINGS_ACTIONS = {
@@ -98,7 +100,17 @@ const ACTION_CREATORS = {
     value: config,
     fromAsync,
   }),
+  // Israel or outside Israel, for the parsha in the learning schedules ('israel' | 'diaspora';
+  // learningSchedules/calendarLocation.js)
+  setCalendarLocation: (location, fromAsync) => ({
+    type: STATE_ACTIONS.setCalendarLocation,
+    value: location,
+    fromAsync,
+  }),
 }
+
+// Until the user chooses: a guess from the phone's time zone and region (no network)
+const CALENDAR_LOCATION_GUESS = guessCalendarLocation({ locale: strings.getInterfaceLanguage() });
 
 const ASYNC_STORAGE_DEFAULTS = {
   textLanguage: {
@@ -153,6 +165,10 @@ const ASYNC_STORAGE_DEFAULTS = {
     default: defaultConfig(),  // nothing saved: Right-Wing Modern Orthodox (no first-launch chooser)
     action: ACTION_CREATORS.setContentFilter,
   },
+  calendarLocation: {
+    default: CALENDAR_LOCATION_GUESS,
+    action: ACTION_CREATORS.setCalendarLocation,
+  },
 };
 
 const DEFAULT_STATE = {
@@ -169,6 +185,7 @@ const DEFAULT_STATE = {
   biLayout: ASYNC_STORAGE_DEFAULTS.biLayout.default,
   downloadNetworkSetting: ASYNC_STORAGE_DEFAULTS.downloadNetworkSetting.default,
   groggerActive: ASYNC_STORAGE_DEFAULTS.groggerActive.default,
+  calendarLocation: ASYNC_STORAGE_DEFAULTS.calendarLocation.default,
   contentFilter: undefined,  // undefined until loaded from storage; then a config (the default preset if none saved)
 };
 
@@ -292,6 +309,15 @@ const reducer = function (state, action) {
       newState = {
         ...state,
         contentFilter: value,
+      };
+      break;
+    }
+    case STATE_ACTIONS.setCalendarLocation: {
+      const value = validCalendarLocation(action.value, CALENDAR_LOCATION_GUESS);
+      if (!action.fromAsync) { saveFieldToAsync('calendarLocation', value); }
+      newState = {
+        ...state,
+        calendarLocation: value,
       };
       break;
     }

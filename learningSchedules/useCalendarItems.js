@@ -1,13 +1,13 @@
-import React, {useState} from 'react';
+import React from 'react';
 import Sefaria from "../sefaria";
 import {useAsyncVariable, useGlobalState} from "../Hooks";
+import {isDiaspora} from "./calendarLocation";
 
 export const useCalendarItems = () => {
-    const {interfaceLanguage, preferredCustom} = useGlobalState();
+    // calendarLocation: Israel or outside Israel, from Settings (a guess from the phone until chosen)
+    const {preferredCustom, calendarLocation} = useGlobalState();
     const calendarLoaded = useAsyncVariable(!!Sefaria.calendar, Sefaria._loadCalendar);
-    const [galusOrIsrael, setGalusOrIsrael] = useState(Sefaria.getDefaultGalusStatus(interfaceLanguage));
-    useAsyncVariable(!!Sefaria.galusOrIsrael, Sefaria.getGalusStatus, setGalusOrIsrael, Sefaria.galusOrIsrael);
-    const calendarItems = Sefaria.getCalendars(preferredCustom, galusOrIsrael === 'diaspora');
+    const calendarItems = Sefaria.getCalendars(preferredCustom, isDiaspora(calendarLocation));
     return {
         calendarLoaded,
         calendarItems,
