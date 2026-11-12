@@ -24,7 +24,6 @@ import {iconData} from "../IconData";
 import {
   localNameResults, shouldCallNameApi, noteNameApiFailure, noteNameApiSuccess, NAME_DEBOUNCE_MS, withOwnBooks,
 } from './localAutocomplete';
-import * as extras from '../extras';
 
 const EXCLUDED_COMPLETION_TYPES = new Set(['topic', 'persontopic', 'authortopic', 'user', 'collection', 'group']);
 
