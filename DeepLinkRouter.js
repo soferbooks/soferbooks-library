@@ -14,6 +14,14 @@ export const WEB_ONLY_PAGES = [
   'apis', 'developers', 'api',
 ];
 
+/**
+ * The link SplashActivity hands the app when it was launched from its icon (no other link):
+ * the app opens on the Home page, also when it was still running with a book open (owner,
+ * 2026-11-12: "Open always to homepage when clicking the app"). The tabs stay as they were.
+ */
+export const APP_HOME_URL = 'soferbooks://home';
+export const isAppHomeUrl = url => typeof url === 'string' && /^soferbooks:\/\/home\/?(?:[?#].*)?$/i.test(url);
+
 class DeepLinkRouter extends React.PureComponent {
   static propTypes = {
     openNav:                 PropTypes.func.isRequired,
@@ -122,6 +130,11 @@ class DeepLinkRouter extends React.PureComponent {
     this.props.openUri(url);
   };
   route = (url, fromOutside=false) => {
+    if (isAppHomeUrl(url)) {
+      // launched from the app's icon: the Home page (SplashActivity), never the browser
+      this.props.openNav(false);
+      return;
+    }
     const tabShortcut = parseTabShortcutUrl(url);
     if (tabShortcut) {
       // a home-screen shortcut of a pinned tab (tabs/tabShortcuts.js): never goes to the browser
