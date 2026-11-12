@@ -120,4 +120,23 @@ describe('AutocompleteList', () => {
     expect(tree.root.findByType(AutocompleteList).instance.state.completions.map(c => c.title)).toContain('Genesis');
     act(() => { tree.unmount(); });
   });
+
+  // QA round 13: "Bikkurim" listed "Mishnah Bikkurim" and "Bikkurim" - one book twice
+  test("a book's other name is not listed beside the book itself", async () => {
+    Sefaria.api.name.mockResolvedValue({
+      lang: 'en', is_ref: true, is_book: true, ref: 'Mishnah Bikkurim', index: 'Mishnah Bikkurim', sections: [],
+      completion_objects: [
+        {title: 'Bikkurim', key: 'Mishnah Bikkurim', type: 'ref'},
+        {title: 'Tos. Bikkurim', key: 'Tosefta Bikkurim', type: 'ref'},
+      ],
+    });
+    let tree;
+    await act(async () => { tree = renderer.create(inContext(<AutocompleteList {...props('')} />)); });
+    await type(tree, ['Bikkurim']);
+    await act(async () => { jest.advanceTimersByTime(NAME_DEBOUNCE_MS); });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    expect(tree.root.findByType(AutocompleteList).instance.state.completions.map(c => c.title))
+      .toEqual(['Mishnah Bikkurim', 'Tos. Bikkurim', 'Search for: "Bikkurim"']);
+    act(() => { tree.unmount(); });
+  });
 });

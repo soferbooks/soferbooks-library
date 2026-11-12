@@ -3,6 +3,8 @@
  * came from another edition - it is in neither Torat Emet nor the Vilna edition, only in
  * "Version of the Gemara" and others. A section shown from another edition than the one being
  * read now says so at its start (reader/editionNotes.js, reader/EditionNote.js).
+ * QA round 13 (2026-11-12): only when the reader chose that edition - read with the default
+ * editions, the book is one continuous text, as on Sefaria.
  */
 import React from 'react';
 import renderer, { act } from 'react-test-renderer';
@@ -47,50 +49,34 @@ beforeEach(() => {
 
 afterEach(() => { jest.restoreAllMocks(); strings.setLanguage('en'); });
 
-const loadNeighbour = ref => Promise.resolve(ref);  // the cache above already holds every chapter
-
 describe('the edition being read', () => {
-  test('opened at chapter 3: its own edition; chapter 4 is shown from another, and says so', async () => {
-    const reading = await readingEditions({ sectionRef: `${BOOK} 3`, prev: `${BOOK} 2`, next: `${BOOK} 4`, loadNeighbour });
-    expect(reading).toEqual({ he: TORAT_EMET, en: GERMAN });
+  test('read with the default editions, the book is one text: no note anywhere (as on Sefaria)', () => {
+    const reading = readingEditions({ sectionRef: `${BOOK} 3` });
+    expect(reading).toEqual({});
+    for (const n of [1, 2, 3, 4]) {
+      expect(editionNotesFor(`${BOOK} ${n}`, reading, 'bilingual')).toEqual([]);
+    }
+  });
+
+  test('a chosen edition is the one being read; a section without it says so', () => {
+    const reading = readingEditions({ sectionRef: `${BOOK} 3`, selected: { he: VILNA } });
+    expect(reading).toEqual({ he: VILNA });
     expect(editionNoteFor(`${BOOK} 3`, reading, 'he')).toBeNull();
     const note = editionNoteFor(`${BOOK} 4`, reading, 'he');
-    expect(note.missing.versionTitle).toBe(TORAT_EMET);
+    expect(note.missing.versionTitle).toBe(VILNA);
     expect(note.shown.versionTitle).toBe(GEMARA);
-    expect(editionNoteFor(`${BOOK} 4`, reading, 'en')).toBeNull();  // the translation is in chapter 4 too
+    expect(editionNoteFor(`${BOOK} 4`, reading, 'en')).toBeNull();  // no translation was chosen
   });
 
-  test('opened at chapter 4 itself: the edition of chapter 3, which chapter 4 lacks', async () => {
-    const reading = await readingEditions({ sectionRef: `${BOOK} 4`, prev: `${BOOK} 3`, next: null, loadNeighbour });
-    expect(reading.he).toBe(TORAT_EMET);
-    expect(editionNoteFor(`${BOOK} 4`, reading, 'he').shown.versionTitle).toBe(GEMARA);
-    expect(editionNoteFor(`${BOOK} 3`, reading, 'he')).toBeNull();
+  test('a chosen edition the section has: no note', () => {
+    const reading = readingEditions({ sectionRef: `${BOOK} 2`, selected: { he: KAUFMANN } });
+    Sefaria.cacheCurrVersionsBySection({ he: KAUFMANN }, `${BOOK} 4`);
+    expect(editionNoteFor(`${BOOK} 4`, reading, 'he')).toBeNull();
   });
 
-  test("the section before chapter 1 is another book's: not compared with", async () => {
-    Sefaria.cacheCurrVersionsBySection({ he: 'Some other edition' }, 'Mishnah Maaser Sheni 5');
-    const reading = await readingEditions({ sectionRef: `${BOOK} 1`, prev: 'Mishnah Maaser Sheni 5', next: `${BOOK} 2`, loadNeighbour });
-    expect(reading.he).toBe(TORAT_EMET);
-  });
-
-  test('a chosen edition is the one being read; a section without it says so', async () => {
-    const reading = await readingEditions({ sectionRef: `${BOOK} 2`, selected: { he: KAUFMANN }, prev: `${BOOK} 1`, loadNeighbour });
-    expect(reading.he).toBe(KAUFMANN);
-    Sefaria.cacheCurrVersionsBySection({ he: TORAT_EMET }, `${BOOK} 2`);  // as if Kaufmann lacked it
-    Sefaria.cacheVersionsAvailableBySection(`${BOOK} 2`, have(TORAT_EMET, VILNA));
-    expect(editionNoteFor(`${BOOK} 2`, reading, 'he').missing.versionTitle).toBe(KAUFMANN);
-  });
-
-  test('a chosen edition the content filter hides is not the one being read', async () => {
-    jest.spyOn(shomer, 'isVersionHidden').mockImplementation(v => v.versionTitle === KAUFMANN);
-    const reading = await readingEditions({ sectionRef: `${BOOK} 2`, selected: { he: KAUFMANN }, loadNeighbour });
-    expect(reading.he).toBe(TORAT_EMET);
-  });
-
-  test('a book not on the phone: the section opened decides', async () => {
-    const reading = await readingEditions({ sectionRef: `${BOOK} 4`, prev: `${BOOK} 3`,
-      loadNeighbour: () => Promise.reject(new Error('not offline')) });
-    expect(reading.he).toBe(GEMARA);
+  test('a chosen edition the content filter hides is not the one being read', () => {
+    jest.spyOn(shomer, 'isVersionHidden').mockImplementation(v => v.versionTitle === VILNA);
+    expect(readingEditions({ sectionRef: `${BOOK} 2`, selected: { he: VILNA } })).toEqual({});
   });
 
   test('a text merged from several editions has no note', () => {

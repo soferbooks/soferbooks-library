@@ -119,6 +119,9 @@ class AutocompleteList extends React.Component {
             }
             const queryRef = Sefaria.addPageToWholeDafRef(results.ref, lastSectionName(results));
             this.props.setQueryRef(queryRef, results.index, this.shouldQueryOpenToc(results));
+            // one line per book: "Bikkurim" (another name of Mishnah Bikkurim) is the ref itself,
+            // as on Sefaria - not "Mishnah Bikkurim" and "Bikkurim" both (QA round 13)
+            completions = completions.filter(c => c.type !== 'ref' || (c.key !== queryRef && c.key !== results.ref));
             completions.unshift({
               title: results.ref,
               key: queryRef,

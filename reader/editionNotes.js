@@ -5,18 +5,17 @@
  *
  * Each section is loaded in the edition the reader asked for, or else in the first edition
  * that section has (offline.js populateMissingVersions; the server does the same online).
- * When a book's edition lacks a section - Mishnah Bikkurim 4 (Androginos) is in neither
- * Torat Emet nor the Vilna edition, only in "Version of the Gemara" and others - that section
- * silently comes from another edition. The reader is told so in a short note at the start of
- * the section: "This chapter is not in Torat Emet 357; shown from Version of the Gemara -
- * vocalized." (owner's decision, QA round 11).
+ * Mishnah Bikkurim 4 (Androginos) is in neither Torat Emet nor the Vilna edition, only in
+ * "Version of the Gemara" and others, so it comes from another edition.
  *
- * The edition the reader is reading (per language):
- * - the one asked for (a version chosen in Translations / a link with a version), unless the
- *   content filter hides it;
- * - else the edition of the section opened - except when that section is itself one an edition
- *   lacks: then the edition of the section next to it in the same book, when that edition is
- *   not in this section (each section lists the editions that have it, offline and online).
+ * Read with the default editions, the book is one continuous text, as on Sefaria (whose text
+ * API also gives chapter 4 from "Version of the Gemara" with no remark): no note (owner, QA
+ * round 13: "Sefaria does not have 2 Bikkurim"). Only a reader who chose an edition (in
+ * Translations, or a link with a version) is told when a section is not in it: "This chapter
+ * is not in Mishnah, ed. Romm, Vilna 1913; shown from Version of the Gemara - vocalized." (QA round 11).
+ *
+ * The edition the reader is reading (per language): the one asked for, unless the content
+ * filter hides it; none when none was asked for.
  */
 
 import Sefaria from '../sefaria';
@@ -48,64 +47,19 @@ const sectionHas = (sectionRef, lang, vtitle) => {
   return available.some(v => v && v.language === lang && v.versionTitle === vtitle);
 };
 
-// the section next to it, from the phone's copy or else the server (the same request the reader
-// makes when scrolling there, and kept by its cache)
-const loadNeighbourSection = async (ref, versions) => {
-  const { textContent } = await Sefaria.offlineOnline.loadText(ref, true, versions, true, true);
-  return textContent && textContent.sectionRef;
-};
-
 /**
- * The edition being read per language, from the section opened (`sectionRef`, loaded) and the
- * versions asked for (`selected`) alone. `open`: the languages a neighbour may still correct.
+ * The edition the reader chose, per language ({en, he}), for a text opened at `sectionRef`
+ * with the versions asked for (`selected`; the default editions are not listed there).
  */
-export const ownReadingEditions = ({ sectionRef, selected }) => {
+export const readingEditions = ({ sectionRef, selected }) => {
   const title = bookOf(sectionRef);
-  const loaded = loadedEditions(sectionRef);
   const reading = {};
-  const open = [];
   for (const lang of LANGS) {
     const asked = selected && selected[lang];
-    if (asked && !isHidden(asked, lang, title)) {
-      reading[lang] = asked;
-    } else if (loaded[lang]) {
-      reading[lang] = loaded[lang];
-      open.push(lang);
-    }
-  }
-  return { reading, open };
-};
-
-/**
- * The edition the reader is reading, per language ({en, he}), for a text opened at
- * `sectionRef` (already loaded). `selected`: the versions asked for; `prev`/`next`: the
- * sections around it. `loadNeighbour(ref, versions) -> sectionRef` loads a section.
- */
-export const readingEditions = async ({ sectionRef, selected, prev, next, loadNeighbour = loadNeighbourSection }) => {
-  const title = bookOf(sectionRef);
-  const loaded = loadedEditions(sectionRef);
-  const { reading, open } = ownReadingEditions({ sectionRef, selected });
-  // the section next to it in the same book (Bikkurim 1's prev is the end of Maaser Sheni)
-  const neighbour = [prev, next].find(r => r && title && bookOf(r) === title);
-  if (!open.length || !neighbour) { return reading; }
-  let neighbourRef;
-  try {
-    neighbourRef = await loadNeighbour(neighbour, selected || null);
-  } catch (e) {
-    return reading;  // not to be had (offline, not downloaded): nothing to compare with
-  }
-  const theirs = loadedEditions(neighbourRef);
-  for (const lang of open) {
-    const other = theirs[lang];
-    if (other && other !== loaded[lang] && !isMergedTitle(other) && sectionHas(sectionRef, lang, other) === false) {
-      reading[lang] = other;  // this section is the one the book's edition lacks
-    }
+    if (asked && !isHidden(asked, lang, title)) { reading[lang] = asked; }
   }
   return reading;
 };
-
-/** Whether two `readingEditions` say the same. */
-export const sameEditions = (a, b) => LANGS.every(lang => (a && a[lang]) === (b && b[lang]));
 
 /**
  * The note for `sectionRef` in `lang`, or null: {lang, missing, shown} (version objects) when

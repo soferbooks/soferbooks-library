@@ -119,7 +119,7 @@ import {
   setNakdanForBook,
 } from "./reader/nakdanPrefs";
 import { NakdanAskCard, NakdanCredit } from "./reader/NakdanNotices";
-import { ownReadingEditions, readingEditions, sameEditions } from "./reader/editionNotes";
+import { readingEditions } from "./reader/editionNotes";
 import { VOCALIZATION } from "./VocalizationEnum";
 import {
   panelFlexForTouch,
@@ -872,8 +872,8 @@ class ReaderApp extends React.PureComponent {
               sectionHeArray:    [textContent.heSectionRef || textContent.heRef], // backwards compatible because offline files are missing `heSectionRef`. we specifically want heSectionRef in case you load a segment ref with context
               loaded:            true,
               offsetRef:         !textContent.isSectionLevel ? textContent.requestedRef : null,
-              // the editions being read, so a section shown from another edition says so (reader/editionNotes.js)
-              readingEditions:   ownReadingEditions({sectionRef: textContent.sectionRef, selected: versions}).reading,
+              // the editions chosen, so a section not in a chosen edition says so (reader/editionNotes.js)
+              readingEditions:   readingEditions({sectionRef: textContent.sectionRef, selected: versions}),
             };
             if (!isLoadingVersion) {
               // also overwrite sidebar state
@@ -894,7 +894,6 @@ class ReaderApp extends React.PureComponent {
               Sefaria.links.reset();
             }
             this.setState(nextState, ()=>{
-              this._checkReadingEditions(loadToken, textContent, versions);
               // Preload Text TOC data into memory
               this.loadTextToc(textContent.indexTitle, textContent.sectionRef).then(() => {
                 // dependent on versions cached from offline textToc
@@ -917,17 +916,6 @@ class ReaderApp extends React.PureComponent {
         });
       });
     });
-  };
-
-  // Opened at a section the book's edition lacks (Mishnah Bikkurim 4): the edition being read is
-  // the one of the section next to it (reader/editionNotes.js)
-  _checkReadingEditions = (loadToken, textContent, versions) => {
-    readingEditions({
-      sectionRef: textContent.sectionRef, selected: versions, prev: textContent.prev, next: textContent.next,
-    }).then(reading => {
-      if (loadToken !== this._loadToken || sameEditions(reading, this.state.readingEditions)) { return; }
-      this.setState({readingEditions: reading});
-    }).catch(() => {});
   };
 
   loadTextToc = (title, sectionRef) => {

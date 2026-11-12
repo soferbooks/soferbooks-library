@@ -9,7 +9,7 @@ import strings from '../LocalizedStrings';
 import Sefaria from '../sefaria';
 import { tabResumeRef } from '../tabs/tabState';
 import { tabLabel } from '../tabs/ReaderTabBar';
-import { ownReadingEditions, readingEditions, sameEditions } from './editionNotes';
+import { readingEditions } from './editionNotes';
 
 const noop = () => {};
 const emptyText = () => '';
@@ -57,15 +57,10 @@ class SplitTabPane extends React.Component {
     Sefaria.offlineOnline.loadText(tabResumeRef(tab), true, tab.versions || null, !hasInternet, true)
       .then(({ textContent }) => {
         if (this._unmounted || token !== this._token) { return; }
-        // the editions being read: a section shown from another edition says so (editionNotes.js)
+        // the editions chosen: a section not in a chosen edition says so (editionNotes.js)
         const selected = tab.versions || null;
-        readingEditions({ sectionRef: textContent.sectionRef, selected, prev: textContent.prev, next: textContent.next })
-          .then(reading => {
-            if (this._unmounted || token !== this._token || sameEditions(reading, this.state.readingEditions)) { return; }
-            this.setState({ readingEditions: reading });
-          }).catch(() => {});
         this.setState({
-          readingEditions: ownReadingEditions({ sectionRef: textContent.sectionRef, selected }).reading,
+          readingEditions: readingEditions({ sectionRef: textContent.sectionRef, selected }),
           data: [textContent.content],
           sectionArray: [textContent.sectionRef],
           sectionHeArray: [textContent.heSectionRef || textContent.heRef],
