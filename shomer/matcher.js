@@ -62,20 +62,76 @@ function decode(s) {
  */
 export function match(cfg, text, href, rules = RULES) {
   if (!cfg || !cfg.active) { return null; }
-  const hides = group => !!(cfg.groups && cfg.groups[group]);
+  // the whole TOC goes through here at startup (thousands of names): the config's lists and
+  // the rules it turns on are worked out once per config, and each name's answer is kept
+  const c = compiled(cfg, rules);
+  const key = (text || '') + '\u0000' + (href || '');
+  if (c.seen.has(key)) { return c.seen.get(key); }
+  const m = matchCompiled(c, text, href);
+  if (c.seen.size >= SEEN_MAX) { c.seen.clear(); }
+  c.seen.set(key, m);
+  return m;
+}
+
+const SEEN_MAX = 50000;
+// config -> {rules -> compiled}; configs are replaced, never changed (presets.normalize)
+const compiledCache = new WeakMap();
+function compiled(cfg, rules) {
+  let byRules = compiledCache.get(cfg);
+  if (!byRules) { byRules = new Map(); compiledCache.set(cfg, byRules); }
+  let c = byRules.get(rules);
+  if (!c) {
+    const hides = group => !!(cfg.groups && cfg.groups[group]);
+    c = {
+      white: lower(cfg.customWhitelist),
+      black: lower(cfg.customBlacklist),
+      sheets: hides('community_sheets'),
+      rules: (rules || []).filter(r => hides(r.group)),
+      seen: new Map(),
+    };
+    // A term only matches as whole words (hasWord), so its first word must be one of the
+    // name's words: index the rules by their terms' first words, and a name checks only the
+    // terms of the rules its words point to (a rule with a term that does not start with a
+    // letter or digit is always checked).
+    c.byFirstWord = new Map();
+    c.always = new Set();
+    for (const rule of c.rules) {
+      for (const t of rule.terms) {
+        const first = t.match(FIRST_WORD);
+        if (!first) { c.always.add(rule); continue; }
+        if (!c.byFirstWord.has(first[0])) { c.byFirstWord.set(first[0], new Set()); }
+        c.byFirstWord.get(first[0]).add(rule);
+      }
+    }
+    byRules.set(rules, c);
+  }
+  return c;
+}
+
+const WORDS = /[0-9a-zÀ-ɏ֐-׿]+/g;  // runs of WORD characters
+const FIRST_WORD = /^[0-9a-zÀ-ɏ֐-׿]+/;
+
+function matchCompiled(c, text, href) {
   const raw = decode((text || '') + ' ' + (href || '')).toLowerCase();
   const hay = raw + ' ' + raw.replace(/[_/.,:()-]/g, ' ');
-  if (lower(cfg.customWhitelist).some(w => hay.includes(w))) { return null; }
-  const own = lower(cfg.customBlacklist).find(b => hay.includes(b));
+  if (c.white.some(w => hay.includes(w))) { return null; }
+  const own = c.black.find(b => hay.includes(b));
   if (own) { return { reason: 'your list: ' + own, translation: false, group: null }; }
-  if (hides('community_sheets') && /\/sheets\/|tab=sheet/.test(href || '') &&
+  if (c.sheets && /\/sheets\/|tab=sheet/.test(href || '') &&
       !KNOWN_ORTHODOX_SHEETS.some(k => hasWord(hay, k))) {
     return { reason: 'Community source sheet', translation: false, group: 'community_sheets' };
   }
+  let maybe = null;  // the rules whose terms could be in this name
+  for (const w of hay.match(WORDS) || []) {
+    const rs = c.byFirstWord.get(w);
+    if (rs) { maybe = maybe || new Set(); rs.forEach(x => maybe.add(x)); }
+  }
   let names = null;
-  for (const r of rules) {
-    if (!hides(r.group) || r.exceptions.some(x => hay.includes(x))) { continue; }
-    if (r.terms.some(t => hasWord(hay, t))) { return { reason: r.name, translation: r.translation, group: r.group }; }
+  for (const r of c.rules) {
+    const termsMayMatch = c.always.has(r) || (maybe !== null && maybe.has(r));
+    if (!termsMayMatch && !(r.titles && r.titles.length)) { continue; }
+    if (r.exceptions.some(x => hay.includes(x))) { continue; }
+    if (termsMayMatch && r.terms.some(t => hasWord(hay, t))) { return { reason: r.name, translation: r.translation, group: r.group }; }
     if (r.titles && r.titles.length) {
       names = names || namesOf(decode(text || ''), href);
       if (r.titles.some(t => names.some(n => isTitle(n, t)))) {

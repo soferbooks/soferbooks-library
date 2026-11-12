@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Resources looked up by name at run time, which the release resource shrinker cannot see:
+     the grogger sound (react-native-sound-player, from ReaderApp.js) and the string
+     react-native-config reads (build.gradle). -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@raw/grogger,@string/build_config_package" />

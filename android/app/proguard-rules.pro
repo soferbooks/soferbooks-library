@@ -8,3 +8,6 @@
 #   http://developer.android.com/guide/developing/tools/proguard.html
 
 # Add any project specific keep options here:
+
+# react-native-config finds BuildConfig by reflection (see build_config_package in build.gradle)
+-keep class org.sefaria.sefaria.BuildConfig { *; }
