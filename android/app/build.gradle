@@ -136,7 +136,8 @@ android {
         abi {
             enable true
             reset()
-            include "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
+            // 64-bit only for now (owner, 2026-11-11); 32-bit (armeabi-v7a, x86) can be added back later for cheap tablets
+            include "arm64-v8a", "x86_64"
             universalApk false
         }
     }

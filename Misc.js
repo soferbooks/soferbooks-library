@@ -783,7 +783,8 @@ class DirectedButton extends React.Component {
       <TouchableOpacity onPress={this.props.onPress}
         style={{ flexDirection: actualDirBack ? "row-reverse" : "row", alignItems: "center", opacity: this.props.placeholder ? 0 : 1 }}
         hitSlop={{top: 20, bottom: 20, left: 10, right: 10}}
-        accessibilityLabel={ this.props.accessibilityText || this.props.text || this.props.direction }
+        accessibilityRole="button"
+        accessibilityLabel={ this.props.accessibilityText || this.props.text || (this.props.direction === 'back' ? strings.common.back : this.props.direction) }
       >
         { this.props.text ?
           <SText lang={this.props.language} style={this.props.textStyle}>
@@ -820,7 +821,7 @@ const BackButton = ({ onPress }) => {
   const { interfaceLanguage } = useGlobalState();
   const iconName = interfaceLanguage === "english" ? "back" : "forward";
   return (
-      <SefariaPressable onPress={onPress} hitSlop={20}>
+      <SefariaPressable onPress={onPress} hitSlop={20} accessibilityRole="button" accessibilityLabel={strings.common.back}>
         <Icon name={iconName} length={18} />
       </SefariaPressable>
   );
@@ -1215,7 +1216,8 @@ const SaveButton = ({ historyItem, showToast, extraStyles=[] }) => {
   const iconName = isSaved ? 'bookmark-filled' : 'bookmark-unfilled';
   const src = iconData.get(iconName, themeStr);
   return (
-    <TouchableOpacity onPress={
+    <TouchableOpacity accessibilityRole="button" accessibilityLabel={isSaved ? strings.a11y.remove_saved : strings.a11y.save_text}
+      accessibilityState={{selected: isSaved}} onPress={
         () => {
           const willBeSaved = !isSaved;
           const newHistoryItem = {...historyItem, saved: willBeSaved};

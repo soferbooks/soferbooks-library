@@ -255,6 +255,51 @@ describe('beyond Sofer: comments placed loosely by their opening words', () => {
   });
 });
 
+describe('as Sofer\'s loose_placement.py: Rishon LeTzion on Berakhot', () => {
+  const {looseQuote, talmudUnits, looseComments} = require('../extras/inferred');
+  // (lines of Berakhot 45b-46b, cut short; Rishon LeTzion's openings under its daf headings)
+  const amudim = [
+    ['45b', ['דניחא להו דמקבע להו בחובה מעיקרא', 'תא שמע נשים מזמנות לעצמן ועבדים מזמנים לעצמן',
+      'שאני התם דאיכא דעות', 'אי הכי אימא סיפא נשים ועבדים אם רצו לזמן אין מזמנין']],
+    ['46a', ['רבי זירא חלש על לגביה רבי אבהו אמר ליה לא סבר לה מר להא דרבי יוחנן דאמר בעל הבית בוצע',
+      'כי מטא לברוכי אמר ליה נבריך לן מר אמר ליה לא סבר לה מר להא דרב הונא דמן בבל דאמר בוצע מברך',
+      'ואיהו כמאן סבירא ליה']],
+    ['46b', ['ויש מהן שחותם בהן בברוך ואין פותח בברוך והטוב והמטיב פותח בברוך',
+      'הטוב והמטיב אין דיין אמת לא אלא אימא אף הטוב והמטיב']],
+  ];
+  const comm = [
+    {path: ['S7', 'S2'], heTitles: ['פרק ז - שלשה שאכלו', 'דף מה:'], openings: [
+      'גמ\' שאני התם דאיכא דעות וכו\' פירוש', 'גמ\' נשים מזמנות לעצמן כו\'']},
+    {path: ['S7', 'S3'], heTitles: ['פרק ז - שלשה שאכלו', 'דף מו.'], openings: [
+      'גמ\' לא סבר לה מר להא דר"ה דאמר בוצע מברך ע"כ כתב הרמב"ם']},
+    {path: ['S7', 'S4'], heTitles: ['פרק ז - שלשה שאכלו', 'דף מו:'], openings: [
+      'גמ\' ויש מהן שחותם בהן וכו\'', 'גמ\' הטוב והמטיב אין דיין אמת כו\'']},
+  ];
+  const placed = units => looseComments(comm, units).map(p => [comm[p.leaf].path.join(' ') + ':' + p.para, units[p.unit].ref, p.how]);
+
+  test('the masechet and perek running into the first comment are not part of its quote', () => {
+    expect(looseQuote('ברכות פרק א משעה שהכהנים וכו\' רש"י כתב')).toEqual(['משעה', 'שהכהנים']);
+    expect(looseQuote('פרק ב היה קורא בתורה וכו\'')).toEqual(['היה', 'קורא', 'בתורה']);
+  });
+
+  test('"לא סבר לה מר להא" goes on 46a, the amud its heading names', () => {
+    expect(placed(talmudUnits('Berakhot', 'ברכות', amudim))).toEqual([
+      ['S7 S2:0', 'Berakhot 45b:3', 'loose'],
+      ['S7 S2:1', 'Berakhot 45b:2', 'loose'],
+      ['S7 S3:0', 'Berakhot 46a:1', 'loose'],
+      ['S7 S4:0', 'Berakhot 46b:1', 'loose'],
+      ['S7 S4:1', 'Berakhot 46b:2', 'loose'],
+    ]);
+  });
+
+  test('46a could not be read: its comment is left out, not put on 45b beside the one before', () => {
+    const without46a = amudim.filter(([label]) => label !== '46a');
+    const got = placed(talmudUnits('Berakhot', 'ברכות', without46a));
+    expect(got.map(([c]) => c)).not.toContain('S7 S3:0');
+    expect(got).toHaveLength(4);
+  });
+});
+
 describe('a Dicta book Sefaria has under another name is Sefaria\'s (importers.import_dicta)', () => {
   test('left out of Dicta\'s catalogue, as Sofer leaves it out', () => {
     const {parseCatalog} = require('../extras/dicta');

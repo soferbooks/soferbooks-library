@@ -75,10 +75,14 @@ export const presetDetail = preset => (preset.id === 'off' ? strings.filter.off_
   : LISTED_GROUPS.filter(g => g.level === preset.level).map(groupShort).join(', '));
 
 export const ContentFilterSettings = ({ langStyle }) => {
-  const { themeStr, contentFilter } = useContext(GlobalStateContext);
+  const { themeStr, contentFilter, interfaceLanguage } = useContext(GlobalStateContext);
   const theme = getTheme(themeStr);
   const setContentFilter = useSetContentFilter();
   const preset = contentFilter ? contentFilter.preset : null;
+  // "Fine-tune the filter" starts closed, like the Chrome extension's <details> card (owner,
+  // 2026-11-11): the presets stay in view, the group switches open on a tap
+  const [fineTuneOpen, setFineTuneOpen] = useState(false);
+  const isHeb = interfaceLanguage === 'hebrew';
   return (
     <View style={styles.settingsSection} testID="content-filter-settings">
       <Text style={[langStyle, styles.settingsSectionHeader, theme.tertiaryText]}>{strings.filter.section_header}</Text>
@@ -88,10 +92,20 @@ export const ContentFilterSettings = ({ langStyle }) => {
           detail={presetDetail(p)} onPress={() => setContentFilter(configForPreset(p.id))} />
       ))}
       {preset === 'custom' ? <Text style={[langStyle, theme.text, local.presetName]}>{'◉ '}{strings.filter.custom}</Text> : null}
-      <Text style={[langStyle, styles.settingsSectionHeader, theme.tertiaryText, local.groupsHeader]}>{strings.filter.groups_header}</Text>
-      <Text style={[langStyle, theme.secondaryText, local.detail]}>{strings.filter.groups_hint}</Text>
+      <TouchableOpacity
+        testID="filter-fine-tune-toggle"
+        accessibilityRole="button"
+        accessibilityLabel={strings.filter.groups_header}
+        accessibilityState={{ expanded: fineTuneOpen }}
+        onPress={() => setFineTuneOpen(open => !open)}
+        style={[local.groupsHeader, local.fineTuneRow, isHeb ? local.rowReverse : null]}
+      >
+        <Text style={[theme.tertiaryText, local.chevron]}>{fineTuneOpen ? '▾' : (isHeb ? '◂' : '▸')}</Text>
+        <Text style={[langStyle, styles.settingsSectionHeader, theme.tertiaryText, local.fineTuneTitle]}>{strings.filter.groups_header}</Text>
+      </TouchableOpacity>
+      {fineTuneOpen ? <Text style={[langStyle, theme.secondaryText, local.detail]}>{strings.filter.groups_hint}</Text> : null}
       {/* On = shown, off = hidden (the switch says whether you see the group) */}
-      {LISTED_GROUPS.map(g => {
+      {fineTuneOpen && LISTED_GROUPS.map(g => {
         const hidden = !!(contentFilter && contentFilter.active !== false && contentFilter.groups && contentFilter.groups[g.id]);
         return (
           <View key={g.id} style={local.groupRow}>
@@ -220,6 +234,10 @@ const local = StyleSheet.create({
   presetName: { fontSize: 16 },
   detail: { fontSize: 13, marginTop: 2 },
   groupsHeader: { marginTop: 16 },
+  fineTuneRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 6 },
+  rowReverse: { flexDirection: 'row-reverse' },
+  chevron: { fontSize: 16, marginHorizontal: 6 },
+  fineTuneTitle: { flexShrink: 1, marginBottom: 0 },
   groupRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6 },
   groupText: { flex: 1, paddingRight: 8 },
   link: { paddingVertical: 4 },

@@ -65,7 +65,8 @@ class ConnectionsPanelHeader extends React.Component {
         }
         content = (
           <View style={{flex: 1, flexDirection: isheb ? 'row-reverse' : 'row', justifyContent: 'flex-start', alignItems: 'center' }}>
-            <TouchableOpacity onPress={() => {this.props.setConnectionsMode(backMode)}} hitSlop={{top: 20, left: 20, right: 20, bottom: 20}}>
+            <TouchableOpacity onPress={() => {this.props.setConnectionsMode(backMode)}} hitSlop={{top: 20, left: 20, right: 20, bottom: 20}}
+              accessibilityRole="button" accessibilityLabel={strings.common.back}>
               <DirectedArrow
                 imageStyle={backImageStyle}
                 themeStr={this.props.themeStr}

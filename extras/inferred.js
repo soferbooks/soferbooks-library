@@ -382,7 +382,9 @@ export const paraOpening = html => String(html || '').replace(NIKUD_ALL, '').rep
 const Q = '["\'׳״]';
 // what a comment opens with before its quote: which text it is on ("גמ'", "בתוס' ד"ה", "מתני'"),
 // its daf ("דף ב ע"א", "ע"ב"), "שם", "פי'"
-const LEADER = new RegExp(`^(?:[([]\\s*)?(?:דף\\s+[א-ת]{1,3}${Q}?[א-ת]?\\s*(?:[.:]|ע${Q}?\\s*[אב]${Q}?)?`
+// (and the masechet and perek running into the first comment - "ברכות פרק א משעה שהכהנים" in the
+//  copy of Rishon LeTzion with nikud by computer - as Sofer's loose_placement.py _LEADER has it)
+const LEADER = new RegExp(`^(?:[([]\\s*)?(?:(?:[א-ת]+\\s+){0,2}פרק\\s+[א-ת]{1,3}${Q}?[א-ת]?|דף\\s+[א-ת]{1,3}${Q}?[א-ת]?\\s*(?:[.:]|ע${Q}?\\s*[אב]${Q}?)?`
   + `|ע${Q}\\s*[אב]${Q}?|ו?ב?(?:גמ(?:רא)?|מתני(?:תין)?|משנה|במשנה|רש${Q}י|פרש${Q}י|פירש${Q}י|תוס(?:פות)?|תד${Q}ה`
   + `|ד${Q}ה|בא${Q}ד|שם|פי|פירוש|בפירוש|הרי${Q}ף|הר${Q}ן|רא${Q}ש)${Q}?)(?=[\\s.,:)\\]]|$)[\\s.,:)\\]]*`);
 const CUT = new RegExp(`ו?כו${Q}|וגו${Q}|וגומר|וכולי|[.:\\-–—]`);
@@ -553,6 +555,14 @@ export function looseComments(comm, units) {
       if (opening === null || opening === undefined) { return; }
       const q = looseQuote(opening);
       const amud = amuds[li][j];
+      // (the amud it names could not be read - not in the offline pack, say: it is left out, not put
+      //  beside a comment of the amud before, where it does not belong - "גמ' לא סבר לה מר להא" of
+      //  Rishon LeTzion on 46a was shown on Berakhot 45b. Sofer reads the whole masechet, so its
+      //  loose_placement.py never meets this.)
+      if (amud && byAmud.size && !amud.some(a => byAmud.has(a))) {
+        out.push({leaf: li, para: j, unit: null, how: 'loose-neighbour', exact: false, window: [], unread: true});
+        return;
+      }
       let window;
       if (amud && byAmud.size) {
         const near3 = new Set();
@@ -602,10 +612,11 @@ export function looseComments(comm, units) {
   }
   // nothing found at all: not a commentary on this text (a book of responsa named for it)
   const found = out.filter(p => p.unit !== null).length;
-  if (found < 3 || found < 0.2 * out.length) { return []; }
+  if (found < 3 || found < 0.2 * out.filter(p => !p.unread).length) { return []; }
   // a comment not found: with the one before it (in its own amud or chapter when known), else the next
   return out.map((p, k) => {
     if (p.unit !== null) { return p; }
+    if (p.unread) { return null; }
     const ok = u => u !== null && (!p.window || p.window.includes(u));
     let t = null;
     for (let x = k - 1; x >= 0 && t === null; x--) { if (ok(out[x].unit)) { t = out[x].unit; } }

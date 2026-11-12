@@ -87,6 +87,7 @@ class ReaderDisplayOptionsMenu extends React.Component {
               <TouchableOpacity
                 key={src.key || '|none'}
                 onPress={() => this.props.setInlineCommentary(src.key)}
+                accessibilityRole="button"
                 accessibilityState={{selected}}
                 style={[styles.readerDisplayOptionsMenuItem, this.props.theme.readerDisplayOptionsMenuItem,
                         {flex: 0, height: undefined, minHeight: 40, maxWidth: '100%', paddingHorizontal: 12, paddingVertical: 4, marginHorizontal: 3, marginVertical: 3, borderRadius: 5},
@@ -134,6 +135,7 @@ class ReaderDisplayOptionsMenu extends React.Component {
         onPress: this.props.setTextLanguage,
         buttons: ["english","bilingual","hebrew"],
         icons: [icons.a_icon, icons.a_aleph, icons.aleph],
+        names: [strings.languages.english, strings.settings.bilingual, strings.languages.hebrew],
         currVal: this.props.textLanguage,
         parametrized: true
       },
@@ -143,6 +145,7 @@ class ReaderDisplayOptionsMenu extends React.Component {
         onPress: this.props.setTextFlow,
         buttons: ["segmented","continuous"],
         icons: [icons.breaks, icons.continuous],
+        names: [strings.a11y.layout_segmented, strings.a11y.layout_continuous],
         currVal: this.props.textFlow,
         parametrized: true
       },
@@ -152,6 +155,7 @@ class ReaderDisplayOptionsMenu extends React.Component {
         onPress: this.props.setBiLayout,
         buttons: ["stacked", "sidebyside", "sidebysiderev"],
         icons: [icons.stacked, icons.sidebyside, icons.sidebysiderev],
+        names: [strings.a11y.layout_stacked, strings.a11y.layout_side_by_side, strings.a11y.layout_side_by_side_reversed],
         currVal: this.props.biLayout,
         parametrized: true,
         iconLength: 19,
@@ -161,6 +165,7 @@ class ReaderDisplayOptionsMenu extends React.Component {
         onPress: this.props.setTheme,
         buttons:["white","black"],
         colors:["#ffffff", "#444444"],
+        names: [strings.a11y.theme_light, strings.a11y.theme_dark],
         currVal: this.props.themeStr,
         parametrized: true
       },
@@ -178,6 +183,7 @@ class ReaderDisplayOptionsMenu extends React.Component {
         onPress: this.props.incrementFont,
         buttons:["smaller","larger"],
         icons: [icons.a_icon_small, icons.a_icon],
+        names: [strings.a11y.font_smaller, strings.a11y.font_larger],
         currVal: null,
         parametrized: true
       },
@@ -188,6 +194,7 @@ class ReaderDisplayOptionsMenu extends React.Component {
         onPress: this.props.incrementCommentaryFont,
         buttons:["smaller","larger"],
         icons: [icons.a_icon_small, icons.a_icon],
+        names: [strings.a11y.font_smaller, strings.a11y.font_larger],
         currVal: null,
         parametrized: true
       },
@@ -197,6 +204,7 @@ class ReaderDisplayOptionsMenu extends React.Component {
         onPress: this.props.setVocalization,
         buttons:[VOCALIZATION.TAAMIM_AND_NIKKUD, VOCALIZATION.NIKKUD, VOCALIZATION.NONE].slice(this.props.vowelToggleAvailable),
         text: ["אָ֑", "אָ", "א"].slice(this.props.vowelToggleAvailable),
+        names: [strings.a11y.vocalization_all, strings.a11y.vocalization_vowels, strings.a11y.vocalization_none].slice(this.props.vowelToggleAvailable),
         textStyle: [styles.he, {fontSize: 26}],
         currVal: Math.max(this.props.vocalization, this.props.vowelToggleAvailable),
         parametrized: true,
@@ -233,6 +241,9 @@ class ReaderDisplayOptionsMenu extends React.Component {
         for (let i = 0; i < optionRow.buttons.length; i++) {
           let option = optionRow.buttons[i];
           let selected = optionRow.currVal === option;
+          // what a screen reader says: "Font Size: Larger" (an icon alone says nothing)
+          const name = optionRow.names ? optionRow.names[i] : (optionRow.text ? optionRow.text[i] : null);
+          const a11yLabel = name ? strings.formatString(strings.a11y.setting_option, {setting: optionRow.label, option: name}) : optionRow.label;
   
           if (isColor) {
             let color = optionRow.colors[i];
@@ -244,6 +255,7 @@ class ReaderDisplayOptionsMenu extends React.Component {
                 onPress={optionRow.onPress}
                 parametrized={optionRow.parametrized}
                 color={color}
+                accessibilityLabel={a11yLabel}
                 align={alignments[optionRow.buttons.length-2][i]}
                 selected={selected} />
             );
@@ -261,6 +273,7 @@ class ReaderDisplayOptionsMenu extends React.Component {
                 iconLength={optionRow.iconLength}
                 text={text}
                 textStyle={optionRow.textStyle}
+                accessibilityLabel={a11yLabel}
                 align={alignments[optionRow.buttons.length-2][i]}
                 selected={selected}
                 interfaceLanguage={this.props.interfaceLanguage} />
@@ -339,7 +352,8 @@ class ReaderDisplayOptionsMenuItem extends React.Component {
     align:        PropTypes.string,
     onPress:      PropTypes.func.isRequired,
     parametrized: PropTypes.bool, /* should onPress() use option as a paremeter*/
-    selected:     PropTypes.bool
+    selected:     PropTypes.bool,
+    accessibilityLabel: PropTypes.string,
   };
 
   render() {
@@ -359,7 +373,8 @@ class ReaderDisplayOptionsMenuItem extends React.Component {
       iconStyles.push({width: this.props.iconLength, height: this.props.iconLength});
     }
     return (
-      <TouchableOpacity onPress={onPress} style={tempStyles}>
+      <TouchableOpacity onPress={onPress} style={tempStyles} accessibilityRole="button"
+        accessibilityLabel={this.props.accessibilityLabel} accessibilityState={{selected: !!this.props.selected}}>
         {this.props.icon ?
           <Image resizeMode={'contain'} style={iconStyles} source={this.props.icon}/> :
           <Text style={[langStyle, this.props.theme.secondaryText].concat(this.props.textStyle)}>{this.props.text}</Text>
@@ -377,7 +392,8 @@ class ReaderDisplayOptionsMenuColor extends React.Component {
     align:        PropTypes.string,
     onPress:      PropTypes.func.isRequired,
     parametrized: PropTypes.bool, /* should onPress() use option as a paremeter*/
-    selected:     PropTypes.bool
+    selected:     PropTypes.bool,
+    accessibilityLabel: PropTypes.string,
   };
 
   render() {
@@ -392,7 +408,8 @@ class ReaderDisplayOptionsMenuColor extends React.Component {
       tempStyles.push(styles.readerDisplayOptionsMenuColorSelected);
     }
     return (
-      <TouchableOpacity onPress={onPress} style={tempStyles}/>
+      <TouchableOpacity onPress={onPress} style={tempStyles} accessibilityRole="button"
+        accessibilityLabel={this.props.accessibilityLabel} accessibilityState={{selected: !!this.props.selected}}/>
     );
   }
 }

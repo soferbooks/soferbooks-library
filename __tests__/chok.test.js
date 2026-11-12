@@ -226,3 +226,62 @@ describe("the day's learning as one unit", () => {
     expect(partKind('משהו אחר')).toBeNull();
   });
 });
+
+describe('weeks without a regular parsha: the upcoming one (Chok LeYisrael\'s custom)', () => {
+  const week = (d, israel = false) => weekParshiot(d, israel).map(p => p.en);
+
+  test('Pesach 5787: Acharei Mot in the week of Chol HaMoed and again in the week it is read', () => {
+    // 15 Nisan 5787 is Thursday 22 April 2027: Shabbat 24 April is Chol HaMoed, 1 May Acharei Mot
+    for (const israel of [false, true]) {
+      for (let d = 18; d <= 23; d++) { expect(week(day(2027, 4, d), israel)).toEqual(['Achrei Mot']); }
+      for (let d = 25; d <= 30; d++) { expect(week(day(2027, 4, d), israel)).toEqual(['Achrei Mot']); }
+      expect(week(day(2027, 5, 2), israel)).toEqual(['Kedoshim']);
+    }
+    expect(chokCalendarItem(day(2027, 4, 22)).summary).toEqual({en: 'Achrei Mot, Thursday', he: 'אחרי מות, יום חמישי'});
+  });
+
+  test('Pesach 5788: Shemini in the week of Chol HaMoed, then Tazria-Metzora', () => {
+    // 15 Nisan 5788 is Tuesday 11 April 2028: Shabbat 15 April is Chol HaMoed, 22 April Shemini
+    for (const israel of [false, true]) {
+      for (let d = 9; d <= 14; d++) { expect(week(day(2028, 4, d), israel)).toEqual(['Shmini']); }
+      for (let d = 16; d <= 21; d++) { expect(week(day(2028, 4, d), israel)).toEqual(['Shmini']); }
+      expect(week(day(2028, 4, 23), israel)).toEqual(['Tazria', 'Metzora']);
+    }
+  });
+
+  test('Shavuot on Shabbat (diaspora 5787) and Yom Kippur on Shabbat (5789): the next parsha read', () => {
+    // the second day of Shavuot is Shabbat 12 June 2027 in the diaspora; in Israel Naso is read then
+    expect(week(day(2027, 6, 7))).toEqual(['Nasso']);
+    expect(week(day(2027, 6, 14))).toEqual(['Nasso']);
+    expect(week(day(2027, 6, 7), true)).toEqual(['Nasso']);
+    expect(week(day(2027, 6, 14), true)).toEqual(["Beha'alotcha"]);
+    // Yom Kippur 5789 is Shabbat 30 September 2028: Vezot Haberakhah, as in the week of Sukkot
+    expect(week(day(2028, 9, 26))).toEqual(['Vezot Haberakhah']);
+    expect(week(day(2028, 10, 3))).toEqual(['Vezot Haberakhah']);
+    expect(week(day(2028, 10, 9))).toEqual(['Bereshit']);
+    // Rosh Hashanah 5787 is Shabbat 12 September 2026: Ha'azinu, read on Shabbat Shuva
+    expect(week(day(2026, 9, 8))).toEqual(["Ha'Azinu"]);
+  });
+
+  test('every day but Shabbat has a portion of the sefer, 5787-5789, in Israel and the diaspora', () => {
+    const missing = [];
+    for (const israel of [false, true]) {
+      for (let d = day(2026, 9, 1); d < day(2029, 9, 1); d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)) {
+        const info = chokDayInfo(d, {israel});
+        if (d.getDay() === 6) { if (info) { missing.push(`Shabbat ${d.toDateString()}`); } continue; }
+        if (!info || !info.parshiot.length || info.parshiot.some(p => !PARSHIOT_HE.includes(p.he))) {
+          missing.push(`${israel ? 'IL' : 'DI'} ${d.toDateString()}`);
+        }
+      }
+    }
+    expect(missing).toEqual([]);
+  });
+
+  test('a Chol HaMoed day opens its parsha\'s day in the sefer', () => {
+    const index = INDEX().files[`${TITLE}_index.json`];
+    // (the cut-down book has Toldot: a weekday in Toldot's week is opened as any other)
+    expect(chokDaySequence(index, chokCalendarItem(day(2026, 11, 10))).items.length).toBeGreaterThan(1);
+    // Chol HaMoed Pesach 5787 learns Acharei Mot, not in the cut-down book: nothing to open, no wrong day
+    expect(chokDaySequence(index, chokCalendarItem(day(2027, 4, 25)))).toBeNull();
+  });
+});

@@ -100,7 +100,7 @@ const addRecentlyClosed = (state, closedTabs, now) => {
 export const isPinned = tab => !!(tab && tab.pinned);
 
 /** Pinned tabs first, each group keeping its order. Returns the same array when already so. */
-const pinnedFirst = tabs => {
+export const pinnedFirst = tabs => {
   const pinned = tabs.filter(isPinned);
   if (tabs.slice(0, pinned.length).every(isPinned)) { return tabs; }
   return [...pinned, ...tabs.filter(t => !isPinned(t))];

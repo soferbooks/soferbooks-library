@@ -55,8 +55,9 @@ const showOptions = (options, onChoose) => {
 
 // The title is capped and ends in "…"; the pin mark and × keep their full width (QA: a long
 // title squeezed the × out of the tab).
-const TabChip = ({ tab, active, isHeb, onSelect, onClose, onLongPress, theme }) => (
+const TabChip = ({ tab, active, isHeb, onSelect, onClose, onLongPress, theme, onLayout }) => (
   <TouchableOpacity
+    onLayout={onLayout}
     onPress={() => onSelect(tab.id)}
     onLongPress={() => onLongPress(tab.id)}
     accessibilityRole={'tab'}
@@ -127,12 +128,18 @@ const ReaderTabBar = ({
   const scrollRef = useRef(null);
   const activeIndex = tabs.findIndex(t => t.id === activeTabId);
 
-  useEffect(() => {
-    // keep the active tab in view (approximate: chips are about the same width)
-    if (scrollRef.current && activeIndex > 2) {
-      scrollRef.current.scrollTo({ x: Math.max(0, (activeIndex - 1) * 120), animated: true });
-    }
-  }, [activeIndex]);
+  const sizes = useRef({ content: 0, view: 0, chips: {} });
+  // keep the active tab in view, centred by where it really is, once the strip and its tabs are
+  // laid out (QA round 10: the active tab was left cut off under the ⋮ - the old estimate took
+  // every tab as 120 wide; in Hebrew, where the tabs run from the right, it showed the last ones)
+  const showActive = (animated = true) => {
+    const { content, view, chips } = sizes.current;
+    const chip = chips[activeTabId];
+    if (!scrollRef.current || !chip || !content || !view) { return; }
+    const x = Math.min(Math.max(0, chip.x + chip.width / 2 - view / 2), Math.max(0, content - view));
+    scrollRef.current.scrollTo({ x, animated });
+  };
+  useEffect(() => { showActive(); }, [activeIndex, activeTabId, isHeb]);
 
   const tabById = id => tabs.find(t => t.id === id);
   const onCloseTab = id => closeWithCare(tabById(id), onClose);
@@ -163,6 +170,8 @@ const ReaderTabBar = ({
     <View style={[localStyles.bar, theme.header, isHeb ? localStyles.rtl : null]}>
       <ScrollView
         ref={scrollRef}
+        onLayout={e => { sizes.current.view = e.nativeEvent.layout.width; showActive(false); }}
+        onContentSizeChange={w => { sizes.current.content = w; showActive(false); }}
         horizontal
         showsHorizontalScrollIndicator={false}
         style={localStyles.scroll}
@@ -178,6 +187,11 @@ const ReaderTabBar = ({
             onSelect={onSelect}
             onClose={onCloseTab}
             onLongPress={onLongPressTab}
+            onLayout={e => {
+              const { x, width } = e.nativeEvent.layout;
+              sizes.current.chips[tab.id] = { x, width };
+              if (tab.id === activeTabId) { showActive(false); }
+            }}
           />
         ))}
       </ScrollView>

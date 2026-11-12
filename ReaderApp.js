@@ -1165,7 +1165,10 @@ class ReaderApp extends React.PureComponent {
   };
 
   updateTitle = (ref, heRef, sectionIndexRef) => {
+    if (this.state.menuOpen) { return; }  // (nor saved to the history from there)
     this.setState(prev => {
+      // (the reader's place is not taken while a page is open over it: e.g. another book's contents)
+      if (prev.menuOpen) { return null; }
       const next = { textReference: ref, heRef, sectionIndexRef };
       // a day read as one unit: its bar follows the reading on the screen
       const tab = findTab(prev.readerTabs, prev.readerTabs.activeTabId);
@@ -1512,13 +1515,17 @@ ${strings.formatString(strings.extras.download_size,
       return;
     }
     this._tocFromReader = false;  // choosing a chapter here opens the book in a tab, not in the current one
+    this._loadToken++;  // a text still loading for the reader must not take the title back
+    // The menu opens first, in the same update as the new title: Back returns to the reader as it
+    // was, and the reader is never shown with the reset place - its TextColumn would put its own
+    // section back as textReference, shown under the new book's title on this page (QA round 9:
+    // Tosafot's "שבת ב׳ א:א׳" on a Wikisource book's contents just after downloading it).
+    this.openMenu("text toc");
     this.loadTextToc(title);
     this.setState({
       textTitle: title,
       textReference: '',
       heRef: '',
-    }, () => {  // openTextToc assumes that title is set correctly
-      this.openTextToc();
     });
   };
 

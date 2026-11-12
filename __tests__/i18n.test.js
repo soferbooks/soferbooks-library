@@ -156,12 +156,6 @@ const KNOWN_UNUSED = [
   // other versions.
   'errors.connect_to_versions_message',
 
-  // === Not used on master, but do not delete: an unmerged branch needs it. ===
-
-  // Used by Sefaria's in-flight auth work (48a4cfcf). SoferBooks has no sign-in, but this is
-  // a generic label worth keeping for a future back button.
-  'common.back',
-
   // === Removed features. The screens that displayed these no longer exist. ===
 
   // The 2020 downloader rewrite: 0a118f48 ("deleted old packages and downloader files") and

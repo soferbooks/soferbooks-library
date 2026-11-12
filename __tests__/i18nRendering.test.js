@@ -448,8 +448,8 @@ describe('Settings screen', () => {
         'settings.download_network_setting', 'settings.wifi_only', 'settings.mobile_network',
         'settings.offline_access', 'settings.system',
         'settings.app_version',
-        'filter.section_header', 'filter.description', 'filter.groups_header', 'filter.groups_hint',
-        'filter.more_count',
+        // ("Fine-tune the filter" starts closed: its hint and groups are in the Content filter tests)
+        'filter.section_header', 'filter.description', 'filter.groups_header',
         'library_sources.header', 'library_sources.description',
         'library_sources.always_on', 'extras.source_detail',
         'settings.nakdan_header', 'settings.nakdan_always', 'settings.nakdan_always_detail',
@@ -489,7 +489,8 @@ describe('Content filter', () => {
   test('a hand-switched group shows "Custom" in both languages', () => {
     const custom = toggleGroup(configForPreset('rwmo'), 'jps_1917', true);
     expectScreenLocalizes(wrapWithState(ContentFilterSettings, { langStyle: {} }, { contentFilter: custom }),
-      // (only the groups that have books in the library: groupExamples.json)
+      // (only the groups that have books in the library: groupExamples.json; "Fine-tune the
+      //  filter" starts closed, so it is opened first)
       ['filter.section_header', 'filter.custom', 'filter.groups_header', 'filter.groups_hint', 'filter.more_count',
         'filter.group_reform',
         'filter.group_reconstructionist',
@@ -502,7 +503,23 @@ describe('Content filter', () => {
         'filter.group_jps_1917',
         'filter.group_academic_orthodox',
         'filter.group_women_authors',
-        'filter.group_religious_zionist_thought']);
+        'filter.group_religious_zionist_thought'],
+      { interact: inst => pressTitled(inst, 'filter.groups_header') });
+  });
+
+  test('"Fine-tune the filter" starts closed, a button that says whether it is open', () => {
+    let inst;
+    act(() => { inst = renderer.create(wrapWithState(ContentFilterSettings, { langStyle: {} }, { contentFilter: configForPreset('rwmo') })()); });
+    const toggle = () => inst.root.findAll(n => n.props.testID === 'filter-fine-tune-toggle' && n.props.onPress)[0];
+    expect(toggle().props.accessibilityRole).toBe('button');
+    expect(toggle().props.accessibilityState).toEqual({ expanded: false });
+    expect(inst.root.findAll(n => n.props.accessibilityHint && n.props.onValueChange)).toHaveLength(0);
+    // the presets stay in view
+    expect(inst.root.findAll(n => n.props.accessibilityRole === 'radio' && n.props.onPress).length).toBeGreaterThan(0);
+    act(() => { toggle().props.onPress(); });
+    expect(toggle().props.accessibilityState).toEqual({ expanded: true });
+    expect(inst.root.findAll(n => n.props.accessibilityHint && n.props.onValueChange).length).toBeGreaterThan(0);
+    act(() => { inst.unmount(); });
   });
 });
 
@@ -697,6 +714,12 @@ describe('Reader display options menu', () => {
         'reader.language', 'reader.layout', 'reader.bilingual_layout', 'reader.color',
         'reader.aliyot', 'common.on', 'common.off', 'reader.font_size', 'reader.vocalization',
         'reader.commentary_font_size',
+        // the screen-reader labels of its buttons, most of them icons ("Font Size: Larger")
+        'a11y.setting_option', 'languages.english', 'languages.hebrew', 'settings.bilingual',
+        'a11y.layout_segmented', 'a11y.layout_continuous', 'a11y.layout_stacked',
+        'a11y.layout_side_by_side', 'a11y.layout_side_by_side_reversed',
+        'a11y.theme_light', 'a11y.theme_dark', 'a11y.font_smaller', 'a11y.font_larger',
+        'a11y.vocalization_all', 'a11y.vocalization_vowels', 'a11y.vocalization_none',
       ]
     );
   });
@@ -719,7 +742,21 @@ describe('Reader header', () => {
       openTextToc: noop, goBack: noop,
       toggleReaderDisplayOptionsMenu: noop, openUri: noop, sheet: null,
       getHistoryObject: () => ({ ref: 'Genesis 1:1', versions: {} }), showToast: noop,
-    }), ['a11y.open_display_settings']);
+    }), ['a11y.open_display_settings', 'common.back', 'a11y.save_text']);
+  });
+
+  test('the bookmark of a saved text says it removes it, in both languages', () => {
+    const saved = jest.spyOn(Sefaria.history, 'indexOfSaved').mockReturnValue(0);
+    try {
+      expectScreenLocalizes(wrap(ReaderControls, {
+        enRef: 'Genesis 1:1', heRef: 'בראשית א׳:א׳', categories: ['Tanakh', 'Torah'],
+        openTextToc: noop, goBack: noop,
+        toggleReaderDisplayOptionsMenu: noop, openUri: noop, sheet: null,
+        getHistoryObject: () => ({ ref: 'Genesis 1:1', versions: {} }), showToast: noop,
+      }), ['a11y.remove_saved']);
+    } finally {
+      saved.mockRestore();
+    }
   });
 });
 
@@ -1156,6 +1193,7 @@ describe('Truncated link previews', () => {
 describe('Strings with placeholders', () => {
   const SUBSTITUTIONS = {
     'a11y.change_language_to': { language: 'Hebrew' },
+    'a11y.setting_option': { setting: 'Font Size', option: 'Larger' },
     'common.open_item': { item: 'Genesis' },
     'connections.no_definitions_found_for': { words: 'shalom' },
     'download.are_included_in': { package: 'Tanakh' },
@@ -2004,7 +2042,7 @@ const NOT_YET_COVERED = [
   // are kept in the JSON rather than deleted because deleting them also throws away Hebrew a
   // translator wrote; see the note on KNOWN_UNUSED.
   'about.about', 'about.feedback',
-  'common.apply', 'common.back', 'common.by', 'common.clear_all', 'common.of',
+  'common.apply', 'common.by', 'common.clear_all', 'common.of',
   'download.are_you_sure_delete_download_progress', 'download.download_in_progress',
   'download.download_library', 'download.download_paused', 'download.download_updates',
   'download.downloading', 'download.how_to_resume_download_message',

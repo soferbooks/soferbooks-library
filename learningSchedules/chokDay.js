@@ -6,9 +6,14 @@
  * adds Thursday night's Torah). The reader shows it in the schedule's own tab and stops at its
  * end (learningSchedules/scheduleSequence.js: a "bounded" sequence).
  *
- * The week's portion: the parsha read on the coming Shabbat. When that Shabbat is a festival, the
- * next parsha read (the week of Sukkot: Vezot Haberakhah). A week of two parshiot learns both
- * parshiot's portions each day. Shabbat itself has no portion.
+ * The week's portion: the parsha read on the coming Shabbat. When that Shabbat is a festival (Rosh
+ * Hashanah, Yom Kippur, Shabbat Chol HaMoed Pesach or Sukkot, Shavuot or the last day of Pesach on
+ * Shabbat), Chok LeYisrael's custom is to learn the upcoming parsha - the next one read (the
+ * weeks of Yom Kippur and Sukkot: Vezot Haberakhah, read on Simchat Torah) - and it is learned
+ * again in the week it is read (Pesach 5787: Acharei Mot in Chol HaMoed and the week after).
+ * Israel and the diaspora differ where the eighth day of Pesach or the second of Shavuot is a
+ * Shabbat (`israel`). A week of two parshiot learns both parshiot's portions each day. Shabbat
+ * itself has no portion; every other day always has one (__tests__/chok.test.js: years swept).
  *
  * Pure (no React Native), so it is unit tested directly (__tests__/chok.test.js).
  */
@@ -66,6 +71,8 @@ export function weekParshiot(date, israel = false) {
       for (let n = 1; n <= 4 && !names; n++) { names = readOn(sat.add(7 * n, 'd'), israel); }
     }
   }
+  // (never a day without a portion: should the calendar find none ahead, the last one read)
+  for (let n = 1; n <= 4 && !names; n++) { names = readOn(sat.add(-7 * n, 'd'), israel); }
   return (names || []).map(parshaOf).filter(Boolean);
 }
 
