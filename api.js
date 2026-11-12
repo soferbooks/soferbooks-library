@@ -8,6 +8,7 @@ import 'abortcontroller-polyfill';
 import strings from './LocalizedStrings';
 import LinkContent from './LinkContent';
 import * as shomer from './shomer';
+import { isEnglishTranslation } from './translationLanguage';
 import { USER_AGENT } from './userAgent';
 
 var Api = {
@@ -307,7 +308,8 @@ var Api = {
           const defaultLangsFound = {};
           for (let v of response) {
             // mark the first version in every language as default for that language
-            if (!defaultLangsFound[v.language]) {
+            // (never a German, French ... one filed under 'en': translationLanguage.js)
+            if (!defaultLangsFound[v.language] && (v.language !== 'en' || isEnglishTranslation(v))) {
               defaultLangsFound[v.language] = true;
               v.default = true;
             }

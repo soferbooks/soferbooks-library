@@ -7,6 +7,7 @@ import {ERRORS} from "./errors";
 import {loadJSONFile} from "./DownloadControl";
 import {fileExists} from './DownloadControl';
 import * as shomer from './shomer';
+import {isEnglishTranslation} from './translationLanguage';
 import {applyCorrections} from './corrections';
 
 /*
@@ -254,13 +255,16 @@ const populateMissingVersions = function(currVersions, allVersions) {
     return currVersions;
 };
 
-const getDefaultVersionForLang = function(allVersions, lang) {
+export const getDefaultVersionForLang = function(allVersions, lang) {
     /**
      * default is first version with `lang`
      * assumption is versions are sorted in priority order, as returned by VersionSet()
      */
-    // content filter: the default is the first version the reader's filter does not hide
-    return allVersions.find(v => v.language === lang && !shomer.isVersionHidden(v));
+    // content filter: the default is the first version the reader's filter does not hide.
+    // The English line only ever gets a version really in English: Sefaria files German,
+    // French ... under 'en' too (translationLanguage.js); with none, the section is Hebrew only.
+    return (allVersions || []).find(v => v.language === lang && !shomer.isVersionHidden(v) &&
+        (lang !== 'en' || isEnglishTranslation(v)));
 };
 
 const getOfflineSectionKey = function(ref, versions) {

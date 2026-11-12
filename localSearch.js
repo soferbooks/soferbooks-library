@@ -29,6 +29,7 @@ import md5 from 'md5';
 import {decodeHTML} from 'entities';
 import {clearOfflineSearchCache} from './offlineSearch';
 import * as shomer from './shomer';
+import {isEnglishTranslation} from './translationLanguage';
 
 export const LOCAL_SEARCH_DIR = `${FileSystem.documentDirectory}local_search/`;
 export const STATE_KEY = 'soferbooksLocalSearch';       // {title: {stamp, versions, hidden}}
@@ -98,7 +99,8 @@ function shownVersions(versions, isVersionHidden) {
   }
   const out = [];
   for (const [lang, list] of byLang) {
-    const shown = list.find(v => !hiddenSafe(isVersionHidden, v));
+    // (the English line only ever gets a version really in English: translationLanguage.js)
+    const shown = list.find(v => !hiddenSafe(isVersionHidden, v) && (lang !== 'en' || isEnglishTranslation(v)));
     if (shown) { out.push([lang, shown, shown === list[0]]); }
   }
   return out;

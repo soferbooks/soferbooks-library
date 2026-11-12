@@ -15,6 +15,9 @@ import {
 import api from "./api";
 import * as shomer from "./shomer";
 import * as extras from "./extras";
+import {
+    isEnglishTranslation, isForeignTitle, stripForeignEnglish, stripForeignPreviewEnglish,
+} from "./translationLanguage";
 
 // A ref in a book of an extra source (Otzaria ...): Sefaria's API does not know it, so it is
 // never asked (its text, links, translations and index are on the phone or nowhere)
@@ -80,37 +83,55 @@ export const loadVersions = async (ref) => {
 
 const avoidHiddenTranslationOnline = async (ref, context, versions, failSilently, data) => {
     /**
-     * Content filter: the server sent its default English, and the reader's filter hides it.
-     * Load the first English translation the filter allows instead; if there is none, show the
-     * Hebrew only.
+     * The server sent its default English and the reader cannot show it: the content filter
+     * hides it, or it is not English at all (Sefaria files German, French ... under 'en' too,
+     * and sends one of those when there is no English). Load the first translation really in
+     * English that the filter allows instead; if there is none, show the Hebrew only.
+     * A translation asked for by name (versions.en, picked from the menu) is always kept.
      */
     if (!context) { return versions?.en ? data : avoidHiddenPreviewOnline(data); }
     const textContent = data?.textContent;
-    if (!textContent || !shomer.isActive() || versions?.en ||
-        !shomer.isVersionHidden({versionTitle: textContent.versionTitle, versionSource: textContent.versionSource})) {
-        return data;
-    }
+    if (!textContent || versions?.en || !textContent.versionTitle) { return data; }
+    const hidden = shomer.isActive() &&
+        shomer.isVersionHidden({versionTitle: textContent.versionTitle, versionSource: textContent.versionSource});
+    if (!hidden && !isForeignTitle(textContent.versionTitle)) { return data; }
     try {
         const allowed = shomer.filterVersions(await api.versions(ref, true)) || [];
-        const en = allowed.find(v => v.language === 'en');
+        const en = allowed.find(v => isEnglishTranslation(v) && v.versionTitle !== textContent.versionTitle);
         if (en) {
             const newVersions = {...(versions || {}), en: en.versionTitle};
             const other = await api.textApi(ref, context, newVersions, failSilently);
             api.processTextApiData(ref, context, newVersions, other);
-            if (other?.textContent) { return other; }
+            if (other?.textContent) {
+                // (a version without this section may come back as the server default again)
+                return withoutUnwantedEnglish(other);
+            }
         }
     } catch (e) {
-        console.log('content filter: could not load another translation', e);
+        console.log('could not load an English translation', e);
     }
-    return {...data, textContent: shomer.stripHiddenEnglish(textContent)};
+    return withoutUnwantedEnglish(data);
+};
+
+// The section with a hidden or non-English English line taken out (Hebrew only), and the
+// section's current versions told so (the menus then show no English version as in use)
+const withoutUnwantedEnglish = (data) => {
+    const textContent = data.textContent;
+    const safe = stripForeignEnglish(shomer.stripHiddenEnglish(textContent));
+    if (safe === textContent) { return data; }
+    try {
+        Sefaria.cacheCurrVersionsBySection({en: null, he: textContent.heVersionTitle}, textContent.sectionRef);
+    } catch (e) { /* no cache to fix */ }
+    return {...data, textContent: safe};
 };
 
 // The same for a single-ref preview without context (commentary/links panel, inline commentary):
 // {result: {en, he, versionTitle, versionSource}}. These load one by one for a whole panel, so
-// rather than fetch another translation for each, a hidden English is just left out (Hebrew only).
+// rather than fetch another translation for each, a hidden or non-English one is just left out
+// (Hebrew only).
 const avoidHiddenPreviewOnline = (data) => {
     const result = data?.result;
-    const safe = shomer.stripHiddenPreviewEnglish(result);
+    const safe = stripForeignPreviewEnglish(shomer.stripHiddenPreviewEnglish(result));
     return safe === result ? data : {...data, result: safe};
 };
 
