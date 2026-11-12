@@ -565,7 +565,18 @@ global.Sefaria = {
       .replace(/<span\s+class="gemarra-italic">(.+?)<\/span>/g, '<gemarraitalic>$1</gemarraitalic>')
       .replace(/<span\s+class="it-text">(.+?)<\/span>/g, '<i>$1</i>')
   },
-  categoryAttribution: function(categories) {
+  // Is the book `title` (with `categories`) a commentary on another text? Its catalogue says so
+  // (dependence, base_text_titles), or its categories do (Tosafot: "Rishonim on Talmud").
+  isCommentaryTitle: function(title, categories) {
+    const index = title ? Sefaria.index(title) : null;
+    if (index && ((typeof index.dependence === 'string' && index.dependence.toLowerCase() === 'commentary') ||
+        (index.base_text_titles && index.base_text_titles.length))) { return true; }
+    return (categories || []).some(c => /Commentar|^(Rishonim|Acharonim) on /.test(c));
+  },
+  categoryAttribution: function(categories, title) {
+    // the attribution names the base text's edition (the William Davidson Talmud): a commentary
+    // on it has its own edition - Tosafot on Niddah showed the Gemara's (QA 2026-11-11)
+    if (title && Sefaria.isCommentaryTitle(title, categories)) { return null; }
     var attributions = [
       {
         categories: ["Talmud", "Bavli"],

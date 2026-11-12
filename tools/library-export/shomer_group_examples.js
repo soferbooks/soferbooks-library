@@ -24,6 +24,10 @@ const cfgFor = id => ({active: true, groups: {[id]: true}});
 const HE = new Map();   // label -> its Hebrew name (for the Hebrew interface)
 const check = (text, label, edition, he) => {
   for (const g of GROUPS) {
+    // a translation group hides editions only, never a book (matcher.bookMatch): a book whose name
+    // has a translator's name in it is listed under the group that hides the book. Everett Fox's
+    // books were under both "Non-Orthodox Tanakh translations" and "Haskalah & secular" (QA 2026-11-11)
+    if (g.translation && !edition) { continue; }
     const m = match(cfgFor(g.id), text);
     if (!m || m.group !== g.id) { continue; }
     const map = found[g.id];

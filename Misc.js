@@ -557,12 +557,28 @@ const CategoryColorLine = ({ category, thickness=4 }) => {
   return (<View style={style} />);
 }
 
-const CategoryAttribution = ({ categories, context, linked=true, openUri }) => {
+// The version (edition) a commentary is read in, as the header's subtitle: its own, never the base
+// text's. `versions` is ReaderApp's currVersionObjects ({en, he}).
+const commentaryVersionAttribution = (versions, preferHebrew) => {
+  const he = versions && versions.he, en = versions && versions.en;
+  const v = preferHebrew ? (he || en) : (en || he);
+  if (!v || !v.versionTitle) { return null; }
+  const heTitle = (he && (he.versionTitleInHebrew || he.versionTitle)) || v.versionTitleInHebrew || v.versionTitle;
+  const enTitle = (en && en.versionTitle) || v.versionTitle;
+  return {english: enTitle, hebrew: heTitle, link: null};
+};
+
+const CategoryAttribution = ({ categories, context, linked=true, openUri, title, versions }) => {
   const { themeStr, textLanguage, interfaceLanguage } = useContext(GlobalStateContext);
   const theme = getTheme(themeStr);
   // language settings in TextColumn should be governed by textLanguage. Everything else should be governed by textLanguage
   if (!categories) { return null; }
-  var attribution = Sefaria.categoryAttribution(categories);
+  var attribution = Sefaria.categoryAttribution(categories, title);
+  if (!attribution && title && Sefaria.categoryAttribution(categories) && Sefaria.isCommentaryTitle(title, categories)) {
+    // a commentary on a text with an attributed edition (Tosafot on Niddah): its own edition
+    attribution = commentaryVersionAttribution(versions, textLanguage !== 'english');
+    linked = false;
+  }
   if (!attribution) { return null; }
 
   var openLink = () => {openUri(attribution.link)};
@@ -581,6 +597,8 @@ const CategoryAttribution = ({ categories, context, linked=true, openUri }) => {
 }
 CategoryAttribution.propTypes = {
   categories: PropTypes.array,
+  title:      PropTypes.string,
+  versions:   PropTypes.object,
   context:    PropTypes.string.isRequired,
   linked:     PropTypes.bool,
   openUri:    PropTypes.func,

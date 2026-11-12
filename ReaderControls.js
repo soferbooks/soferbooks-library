@@ -24,7 +24,7 @@ import {
 import { GlobalStateContext, getTheme } from './StateManager';
 import { iconData } from "./IconData";
 import Sefaria from "./sefaria";
-import { displayRef } from "./extras/schema7";
+import { displayRef, displayHeRef } from "./extras/schema7";
 
 const ReaderControls = ({
   enRef,
@@ -37,6 +37,8 @@ const ReaderControls = ({
   sheet,
   getHistoryObject,
   showToast,
+  textTitle: bookTitle,
+  currVersionObjects,
 }) => {
   const { themeStr, textLanguage, interfaceLanguage } = useContext(GlobalStateContext);
   const theme = getTheme(themeStr);
@@ -52,7 +54,7 @@ const ReaderControls = ({
           direction="back"
       />
   );
-    var textTitle = isHeb ? heRef : displayRef(enRef, heRef);  // an extra book's section keys: its Hebrew names
+    var textTitle = isHeb ? displayHeRef(enRef, heRef) : displayRef(enRef, heRef);  // an extra book's section keys: its Hebrew names
     if (sheet) {
       textTitle = Sefaria.util.stripHtml(sheet.title);
     }
@@ -82,6 +84,8 @@ const ReaderControls = ({
           </View>
           <CategoryAttribution
             categories={categories}
+            title={bookTitle}
+            versions={currVersionObjects}
             context={"header"}
             linked={false}
             openUri={openUri}
@@ -99,6 +103,8 @@ ReaderControls.propTypes = {
   enRef:                           PropTypes.string,
   heRef:                           PropTypes.string,
   categories:                      PropTypes.array,
+  textTitle:                       PropTypes.string,
+  currVersionObjects:              PropTypes.object,
   openTextToc:                     PropTypes.func,
   goBack:                          PropTypes.func,
   toggleReaderDisplayOptionsMenu:  PropTypes.func,

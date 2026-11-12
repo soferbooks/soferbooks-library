@@ -264,13 +264,28 @@ class ConnectionsPanel extends React.PureComponent {
 }
 
 
-const getLibraryNavButtonCatProps = (cat, connectionsMode, catFilterSelected, openFilter, setConnectionsMode) => {
+const OTHER_COMMENTARY_CATS = ["Quoting Commentary", "Modern Commentary"];
+
+const getLibraryNavButtonCatProps = (cat, connectionsMode, catFilterSelected, openFilter, setConnectionsMode, linkSummary = []) => {
   const isMainMenu = connectionsMode === null;
   const enText = (isMainMenu) ? cat.category : cat.category.toUpperCase();
   const heText = Sefaria.hebrewCategory(cat.category);
-  const filter = new LinkFilter(cat.category, heText, cat.category, heText, cat.refList, cat.heRefList, cat.category);
+  // "Commentary" stands for the quoting and modern commentaries too: the main menu counts them
+  // (totalCount) and the opened list shows them under it. Its header counted only its own items
+  // ("Commentary (26)" opened to "COMMENTARY (15)" on Niddah 2a:1, QA 2026-11-11), so it now
+  // counts, and its tap opens, every item listed under it.
+  let refList = cat.refList, heRefList = cat.heRefList;
+  if (cat.category === "Commentary") {
+    for (const other of linkSummary) {
+      if (OTHER_COMMENTARY_CATS.indexOf(other.category) !== -1) {
+        refList = refList.concat(other.refList || []);
+        heRefList = heRefList.concat(other.heRefList || []);
+      }
+    }
+  }
+  const filter = new LinkFilter(cat.category, heText, cat.category, heText, refList, heRefList, cat.category);
   const catColor = Sefaria.palette.categoryColor(cat.category);
-  const count = !catFilterSelected && cat.totalCount || cat.count;
+  const count = cat.category === "Commentary" && cat.totalCount ? cat.totalCount : cat.count;
   const hasEn = cat.hasEn;
   const onPress = (catFilterSelected) ? () => openFilter(filter, "link") : () => setConnectionsMode(cat.category);
   const buttonStyle = {margin: 0, padding: 0};
@@ -306,7 +321,7 @@ const getLibraryNavButtonPropsList = (linkSummary, connectionsMode, openFilter, 
     if (!isMainMenu && !catFilterSelected) {
       continue;
     }
-    navButtonPropsList.push(getLibraryNavButtonCatProps(cat, connectionsMode, catFilterSelected, openFilter, setConnectionsMode));
+    navButtonPropsList.push(getLibraryNavButtonCatProps(cat, connectionsMode, catFilterSelected, openFilter, setConnectionsMode, linkSummary));
     if (catFilterSelected) {
       //if true, means we have a category filter selected
       navButtonPropsList = navButtonPropsList.concat(cat.books.map((book) =>
@@ -507,4 +522,5 @@ ToolsList.propTypes = {
   sheet:              PropTypes.object,
 };
 
+export { getLibraryNavButtonPropsList };
 export default ConnectionsPanel;

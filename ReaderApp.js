@@ -123,6 +123,13 @@ import {
 
 const ViewPort = Dimensions.get('window');
 
+/**
+ * Is the tapped passage (section, segment) another one than the passage the connections panel
+ * is open on? (state: the reader's segmentIndexRef, sectionIndexRef)
+ */
+export const isOtherPassage = (state, section, segment) =>
+  segment !== state.segmentIndexRef || section !== state.sectionIndexRef;
+
 // Reader state kept per open tab in memory, so switching back to a tab is instant and keeps its
 // exact place, open panel and filters. (Tabs that are not in memory reopen from their saved place.)
 const TAB_SNAPSHOT_KEYS = [
@@ -449,6 +456,11 @@ class ReaderApp extends React.PureComponent {
   _applyPreviousState = oldState => {
     oldState._completedInit = this.state._completedInit || oldState._completedInit;  // dont go back to false for this variable. can't undo completedInit!
     for (const k of NON_HISTORY_STATE_KEYS) { delete oldState[k]; }  // tabs and reader preferences are not part of "back"
+    // passing UI state is not part of "back" either: a page saved while the panel was animating, or
+    // with the display menu open, came back with taps on the text and the panel's divider swallowed
+    // (Back to Niddah after "Open here": 2-3 taps to open the panel - QA 2026-11-11)
+    oldState.textListAnimating = false;
+    oldState.ReaderDisplayOptionsMenuVisible = false;
     this._loadToken++;
     const isTextColumn = !oldState.menuOpen;
     if (isTextColumn) {
@@ -680,11 +692,18 @@ class ReaderApp extends React.PureComponent {
   textSegmentPressed = (section, segment, segmentRef, shouldToggle, onlyOpen) => {
     const isSheet = !!this.state.sheet;
     if (shouldToggle && this.state.textListVisible) {
-      if (!onlyOpen) {
+      if (!onlyOpen && !isOtherPassage(this.state, section, segment)) {
+        // (a second tap while it is already closing would close it again and drop a Back step)
+        if (this.state.textListAnimating) { return; }
         this.animateTextList(this.state.textListFlex, 0.0001, 200);
         this.modifyHistory({dir: "back", type: "secondary"});
+        return; // Don't bother with other changes if we are simply closing the TextList
       }
-      return; // Don't bother with other changes if we are simply closing the TextList
+      if (onlyOpen) { return; }
+      // another passage tapped while the panel is open (e.g. the panel came back with the page on
+      // Back): the panel moves to it in one tap, as scrolling does, instead of closing - closing
+      // first made it take 2-3 taps (QA 2026-11-11). A tap on the passage it is open on closes it.
+      shouldToggle = false;
     }
     if ((isSheet && !this.state.sheet) || (!isSheet && (!this.state.data || !this.state.data[section] || !this.state.data[section][segment]))) {
       return;
@@ -2613,6 +2632,8 @@ ${strings.formatString(strings.extras.download_size,
               enRef={this.state.textReference}
               heRef={this.state.heRef}
               categories={Sefaria.categoriesForTitle(this.state.textTitle, isSheet)}
+              textTitle={isSheet ? undefined : this.state.textTitle}
+              currVersionObjects={this.state.currVersionObjects}
               goBack={this.manageBackMainOrOpenNav}
               openTextToc={this.openTextToc}
               sheet={this.state.sheet}

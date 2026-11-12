@@ -1,7 +1,7 @@
 import React, {useCallback, useContext}  from 'react';
 import {View, FlatList, Platform} from "react-native";
 import Sefaria from "./sefaria";
-import {displayRef} from "./extras/schema7";
+import {displayRef, displayHeRef} from "./extras/schema7";
 import {
     CategoryButton,
     CategoryColorLine,
@@ -113,7 +113,7 @@ const ContinueReading = ({ openRef, openHistory }) => {
                         <CategoryColorLine category={Sefaria.primaryCategoryForTitle(bookOfPlace(item))} thickness={4}/>
                         <ContentTextWithFallback
                             en={displayRef(item.ref, item.he_ref || item.heRef)}
-                            he={(item.he_ref || item.heRef) ? Sefaria.normHebrewRef(item.he_ref || item.heRef) : item.ref}
+                            he={(item.he_ref || item.heRef) ? Sefaria.normHebrewRef(displayHeRef(item.ref, item.he_ref || item.heRef)) : item.ref}
                             extraStyles={[styles.homeContinueText, theme.text]}
                         />
                     </View>

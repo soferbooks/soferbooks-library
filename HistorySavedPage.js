@@ -15,6 +15,7 @@ import styles from './Styles';
 import strings from './LocalizedStrings';
 import {useGlobalState} from './Hooks.js';
 import Sefaria from './sefaria';
+import {displayHeRef} from './extras/schema7';
 
 // History and saved items live only on this phone (see history.js loadLocalHistory).
 const useLoadLocalHistory = () => useCallback(async () => {
@@ -301,7 +302,7 @@ const TextHistoryItem = ({text}) => {
     return (
         <PreviewFrame>
           <View style={styles.historyItemTitle}>
-              <PreviewTitleBlock en={text.ref} he={Sefaria.normHebrewRef(text.heRef)} />
+              <PreviewTitleBlock en={text.ref} he={Sefaria.normHebrewRef(displayHeRef(text.ref, text.heRef))} />
           </View>
           <ColorBarBox tref={text.ref}>
             <PreviewBodyBlock en={text.en} he={text.he}/>

@@ -203,6 +203,28 @@ export const nodeEnTitle = name => (isSectionKey(name) ? '' : name);
 export const refHasSectionKeys = ref => typeof ref === 'string' && HAS_KEY_IN_REF.test(ref);
 
 /**
+ * A Hebrew ref without a section name that only repeats the name before it: a book whose one
+ * section is named as the book (a page's heading, or the text before its first heading) had
+ * "שאר ישראל, שאר ישראל" (QA 2026-11-11). "שאר ישראל, שאר ישראל 3" -> "שאר ישראל 3".
+ */
+export function dedupeHeRef(heRef) {
+  if (typeof heRef !== 'string' || heRef.indexOf(', ') === -1) { return heRef; }
+  const parts = heRef.split(', ');
+  const out = [parts[0]];
+  for (let i = 1; i < parts.length; i++) {
+    const prev = out[out.length - 1];
+    const part = parts[i];
+    if (part === prev) { continue; }
+    if (i === parts.length - 1 && part.startsWith(prev + ' ') && /^[\d\-א-ת׳״'"]+$/.test(part.slice(prev.length + 1))) {
+      out[out.length - 1] = part;   // (the section's name with the paragraph number)
+      continue;
+    }
+    out.push(part);
+  }
+  return out.join(', ');
+}
+
+/**
  * An English ref as it is shown: a ref with section keys is shown as its Hebrew ref (heRef), with
  * the paragraph number of a paragraph-level ref; without a Hebrew ref, the keys are left out.
  */
@@ -210,7 +232,11 @@ export function displayRef(ref, heRef) {
   if (!refHasSectionKeys(ref)) { return ref; }
   const seg = / (\d+(?:-\d+)?)$/.exec(ref);
   if (heRef) {
+    heRef = dedupeHeRef(heRef);
     return seg && !/[\d׳']$/.test(heRef) ? `${heRef} ${seg[1]}` : heRef;
   }
   return ref.replace(KEY_IN_REF, '').trim();
 }
+
+/** A Hebrew ref as it is shown: an extra book's (section keys in `ref`) without a repeated name */
+export const displayHeRef = (ref, heRef) => (refHasSectionKeys(ref) ? dedupeHeRef(heRef) : heRef);
