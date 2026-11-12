@@ -396,6 +396,10 @@ export default StyleSheet.create({
     width: 16,
     height: 16,
   },
+  readerHomeButton: {  // the reader header's Home button (ReaderControls.js)
+    width: 20,
+    height: 20,
+  },
   menuButtonMargined: {
     width: 20,
     height: 20,

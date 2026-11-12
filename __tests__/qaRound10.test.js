@@ -90,7 +90,7 @@ describe('the home page lists the open tabs in the tab bar\'s order', () => {
     const order = inst.root.findAll(n => typeof n.props.onPress === 'function' && n.props.style && n.props.children)
       .map(n => n.findAllByType(Text).map(t => [].concat(t.props.children).join('')).join(''))
       .filter((s, i, all) => s && s !== all[i - 1]);   // (a touchable and the view under it: once)
-    expect(order.map(s => s.replace(/^📌 /, '').split(' ')[0])).toEqual(['Genesis', 'Exodus', 'Leviticus', 'Numbers']);
+    expect(order.map(s => s.split(' ')[0])).toEqual(['Genesis', 'Exodus', 'Leviticus', 'Numbers']);
     act(() => { inst.unmount(); });
   });
 });

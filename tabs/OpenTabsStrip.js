@@ -8,7 +8,7 @@ import { CategoryColorLine } from '../Misc';
 import styles from '../Styles';
 import strings from '../LocalizedStrings';
 import Sefaria from '../sefaria';
-import { tabLabel } from './ReaderTabBar';
+import { PinnedTabBar, tabLabel } from './ReaderTabBar';
 import { isPinned, pinnedFirst } from './tabState';
 
 /**
@@ -35,9 +35,11 @@ const OpenTabsStrip = ({ Header = null }) => {
       <ScrollView ref={scrollRef} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={isHeb ? localStyles.rtl : null}
         onContentSizeChange={() => { if (isHeb && scrollRef.current) { scrollRef.current.scrollToEnd({ animated: false }); } }}>
         {ordered.map(tab => (
-          <TouchableOpacity key={tab.id} onPress={() => openReaderTab(tab.id)} style={[localStyles.card, theme.lighterGreyBorder, theme.mainTextPanel]}>
+          <TouchableOpacity key={tab.id} onPress={() => openReaderTab(tab.id)} style={[localStyles.card, theme.lighterGreyBorder, theme.mainTextPanel, isPinned(tab) ? localStyles.cardPinned : null]}>
+            {/* a pinned tab: the gold bar along the top, as in the tab bar */}
+            {isPinned(tab) ? <View style={localStyles.pinSpace}><PinnedTabBar /></View> : null}
             <CategoryColorLine category={Sefaria.primaryCategoryForTitle(tab.title)} thickness={3} />
-            <Text numberOfLines={2} style={[localStyles.cardText, theme.text, isHeb ? localStyles.heText : null]}>{isPinned(tab) ? '📌 ' : ''}{tabLabel(tab, isHeb, { passage: true })}</Text>
+            <Text numberOfLines={2} style={[localStyles.cardText, theme.text, isHeb ? localStyles.heText : null]}>{tabLabel(tab, isHeb, { passage: true })}</Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
@@ -49,6 +51,8 @@ const localStyles = StyleSheet.create({
   rtl: { flexDirection: 'row-reverse' },
   heHeader: { textAlign: 'right' },
   card: { width: 140, minHeight: 56, marginEnd: 8, borderWidth: 1, borderRadius: 6, overflow: 'hidden' },
+  cardPinned: { borderTopWidth: 0, borderTopLeftRadius: 0, borderTopRightRadius: 0 },
+  pinSpace: { height: 3, alignSelf: 'stretch' },
   cardText: { fontSize: 14, padding: 8 },
   heText: { writingDirection: 'rtl', textAlign: 'right', fontSize: 16 },
 });

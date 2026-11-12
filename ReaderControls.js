@@ -14,7 +14,6 @@ import ReaderDisplayOptionsMenu from './ReaderDisplayOptionsMenu';
 import styles from './Styles.js';
 import {
   MenuButton,
-  DirectedButton,
   DisplaySettingsButton,
   CategoryAttribution,
   SText,
@@ -22,6 +21,7 @@ import {
   SaveButton,
 } from './Misc.js';
 import { GlobalStateContext, getTheme } from './StateManager';
+import strings from './LocalizedStrings';
 import { iconData } from "./IconData";
 import Sefaria from "./sefaria";
 import { displayRef, displayHeRef } from "./extras/schema7";
@@ -31,7 +31,7 @@ const ReaderControls = ({
   heRef,
   categories,
   openTextToc,
-  goBack,
+  goHome,
   toggleReaderDisplayOptionsMenu,
   openUri,
   sheet,
@@ -46,13 +46,22 @@ const ReaderControls = ({
   const isHeb = Sefaria.util.get_menu_language(interfaceLanguage, textLanguage) == "hebrew";
   var langStyle = isHeb ? [styles.he] : [styles.en, sheet ? {lineHeight: 28} : {marginBottom: -5.3}];
   var titleTextStyle = [langStyle, styles.headerTextTitleText, theme.text];
+  // Home, not Back: the top button never moves the reader's place (the owner lost his place with
+  // the old Back, which stepped through the reading history). The tab stays where it is, and
+  // reopens there from Home; Android's Back still goes back through the history.
   const leftMenuButton = (
-      <DirectedButton
-          onPress={goBack}
-          imageStyle={[styles.menuButton, styles.directedButton]}
-          language="english"
-          direction="back"
-      />
+      <TouchableOpacity
+          style={[styles.headerButton, styles.leftHeaderButton]}
+          onPress={goHome}
+          accessibilityRole={'button'}
+          accessibilityLabel={strings.nav.home}
+      >
+        <Image
+            source={iconData.get('book', themeStr)}
+            style={styles.readerHomeButton}
+            resizeMode={'contain'}
+        />
+      </TouchableOpacity>
   );
     var textTitle = isHeb ? displayHeRef(enRef, heRef) : displayRef(enRef, heRef);  // an extra book's section keys: its Hebrew names
     if (sheet) {
@@ -106,7 +115,7 @@ ReaderControls.propTypes = {
   textTitle:                       PropTypes.string,
   currVersionObjects:              PropTypes.object,
   openTextToc:                     PropTypes.func,
-  goBack:                          PropTypes.func,
+  goHome:                          PropTypes.func,
   toggleReaderDisplayOptionsMenu:  PropTypes.func,
   openUri:                         PropTypes.func.isRequired,
   getHistoryObject:                PropTypes.func.isRequired,

@@ -481,13 +481,13 @@ class ReaderApp extends React.PureComponent {
   };
 
   /**
-   * Try to go back. If history is empty, open nav menu.
+   * The reader header's Home button. It never moves the reader's place (the old Back button there
+   * stepped back through the reading history and lost the owner's place, 2026-11-12): the home
+   * page opens and the tab stays exactly where it was (openNav keeps its in-memory state), to be
+   * reopened there from Open Tabs or the tab bar. Android's Back still goes back through history.
    */
-  manageBackMainOrOpenNav = () => {
-    const wentBack = this.manageBackMain();
-    if (!wentBack) {
-      this.openNav();
-    }
+  goHomeFromReader = () => {
+    this.openNav();
   };
 
   modifyHistory = ({ dir, ...args }) => {
@@ -516,6 +516,9 @@ class ReaderApp extends React.PureComponent {
   manageBack = type => {
     const oldState = this.modifyHistory({dir: "back", type});
     if (!!oldState) {
+      const toTab = this._backToTabAtItsPlace(oldState);
+      if (toTab === 'skip') { return this.manageBack(type); }  // a page of a tab since closed
+      if (toTab) { return true; }
       this._applyPreviousState(oldState);
       return true;
     } else if (!this.state.menuOpen) {
@@ -528,9 +531,40 @@ class ReaderApp extends React.PureComponent {
     }
   };
 
-  _applyPreviousState = oldState => {
+  /**
+   * Back to a reader page of a tab, from outside that tab (a page such as home, or another tab):
+   * the tab is shown where it is now, not where it was when that page was left - it may have been
+   * read on since (home -> the tab -> read on -> home -> Back put it back at the old place).
+   * Back inside a tab (after "Open here", say) still goes to the previous text, at its place, and
+   * an earlier text of another tab is shown in that tab, never in the one showing now.
+   * Returns true when it took over, 'skip' for a page of a tab that has since been closed.
+   */
+  _backToTabAtItsPlace = oldState => {
+    if (oldState.menuOpen || oldState.sheet || !oldState.readerTabs) { return false; }
+    const id = oldState.readerTabs.activeTabId;
+    if (!id) { return false; }
+    const activeId = this.state.readerTabs.activeTabId;
+    if (!this.state.menuOpen && activeId === id) { return false; }  // back within the tab
+    const tab = findTab(this.state.readerTabs, id);
+    if (!tab) { return id === activeId ? false : 'skip'; }
+    if (tab.title === oldState.textTitle) {
+      this.switchToTab(id, null, { keepHistory: true });  // the tab, where it is now
+      return true;
+    }
+    if (id !== activeId) {
+      // an earlier text of that tab (before a link was followed in it): back in that tab
+      if (!this.state.menuOpen) { this._saveSnapshotForActiveTab(); }
+      delete this._tabSnapshots[id];
+      this._applyPreviousState(oldState, switchTab(this.state.readerTabs, id));
+      return true;
+    }
+    return false;
+  };
+
+  _applyPreviousState = (oldState, readerTabs = null) => {
     oldState._completedInit = this.state._completedInit || oldState._completedInit;  // dont go back to false for this variable. can't undo completedInit!
     for (const k of NON_HISTORY_STATE_KEYS) { delete oldState[k]; }  // tabs and reader preferences are not part of "back"
+    if (readerTabs) { oldState.readerTabs = readerTabs; }  // (the page's own tab, made active)
     // passing UI state is not part of "back" either: a page saved while the panel was animating, or
     // with the display menu open, came back with taps on the text and the panel's divider swallowed
     // (Back to Niddah after "Open here": 2-3 taps to open the panel - QA 2026-11-11)
@@ -2898,7 +2932,7 @@ ${strings.formatString(strings.extras.download_size, size)}` : '';
               categories={Sefaria.categoriesForTitle(this.state.textTitle, isSheet)}
               textTitle={isSheet ? undefined : this.state.textTitle}
               currVersionObjects={this.state.currVersionObjects}
-              goBack={this.manageBackMainOrOpenNav}
+              goHome={this.goHomeFromReader}
               openTextToc={this.openTextToc}
               sheet={this.state.sheet}
               toggleReaderDisplayOptionsMenu={this.toggleReaderDisplayOptionsMenu}

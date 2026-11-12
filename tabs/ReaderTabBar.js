@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import ActionSheet from 'react-native-action-sheet';
 import strings from '../LocalizedStrings';
+import { BRAND_GOLD } from '../Styles';
 import { displayRef } from '../extras/schema7';
 import { useGlobalState } from '../Hooks';
 import { isPinned } from './tabState';
@@ -53,8 +54,16 @@ const showOptions = (options, onChoose) => {
   });
 };
 
-// The title is capped and ends in "…"; the pin mark and × keep their full width (QA: a long
-// title squeezed the × out of the tab).
+/**
+ * The mark of a pinned tab: a thin brand-gold bar along the top edge of its chip or card (the
+ * owner's choice "B", 2026-11-12: no icon). A screen reader calls it "Pinned tab".
+ */
+export const PinnedTabBar = () => (
+  <View style={localStyles.pinBar} accessible accessibilityLabel={strings.tabs.pinned_tab} testID={'pinned-tab-bar'} />
+);
+
+// The title is capped and ends in "…"; the × keeps its full width (QA: a long title squeezed
+// the × out of the tab).
 const TabChip = ({ tab, active, isHeb, onSelect, onClose, onLongPress, theme, onLayout }) => (
   <TouchableOpacity
     onLayout={onLayout}
@@ -62,10 +71,9 @@ const TabChip = ({ tab, active, isHeb, onSelect, onClose, onLongPress, theme, on
     onLongPress={() => onLongPress(tab.id)}
     accessibilityRole={'tab'}
     accessibilityState={{ selected: active }}
-    style={[localStyles.chip, theme.lighterGreyBorder, active ? [localStyles.chipActive, theme.mainTextPanel] : theme.lighterGreyBackground, isHeb ? localStyles.rtl : null]}
+    style={[localStyles.chip, theme.lighterGreyBorder, active ? [localStyles.chipActive, theme.mainTextPanel] : theme.lighterGreyBackground, isHeb ? localStyles.rtl : null, isPinned(tab) ? localStyles.chipPinned : null]}
   >
-    {isPinned(tab) ?
-      <Text style={localStyles.pin} accessibilityLabel={strings.tabs.pinned_tab}>{'📌'}</Text> : null}
+    {isPinned(tab) ? <PinnedTabBar /> : null}
     <Text numberOfLines={1} ellipsizeMode={'tail'} style={[localStyles.chipText, active ? theme.text : theme.tertiaryText, isHeb ? localStyles.heText : null]}>
       {tabLabel(tab, isHeb, { passage: true })}
     </Text>
@@ -302,7 +310,7 @@ const localStyles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center' },
   scroll: { flex: 1 },
   scrollContent: { alignItems: 'center', paddingHorizontal: 4 },
-  // the title has its own width cap, so the chip never squeezes the pin mark or the ×
+  // the title has its own width cap, so the chip never squeezes the ×
   chip: {
     flexDirection: 'row', alignItems: 'center', height: 28, marginHorizontal: 2,
     paddingLeft: 8, paddingRight: 4, borderRadius: 6, borderWidth: 1,
@@ -310,7 +318,9 @@ const localStyles = StyleSheet.create({
   chipActive: { borderWidth: 1.5 },
   chipText: { fontSize: 13, maxWidth: 130, flexShrink: 1, marginHorizontal: 2 },
   heText: { writingDirection: 'rtl', fontSize: 15 },
-  pin: { fontSize: 11, flexShrink: 0, marginHorizontal: 1 },
+  // a pinned tab: the gold bar is its top edge (square corners there), in place of the top border
+  chipPinned: { borderTopWidth: 0, borderTopLeftRadius: 0, borderTopRightRadius: 0 },
+  pinBar: { position: 'absolute', top: 0, left: -2, right: -2, height: 3, backgroundColor: BRAND_GOLD },
   closeButton: { flexShrink: 0, minWidth: 22, alignItems: 'center', justifyContent: 'center' },
   close: { fontSize: 18, paddingHorizontal: 4, lineHeight: 20 },
   more: { width: 32, alignItems: 'center', justifyContent: 'center' },

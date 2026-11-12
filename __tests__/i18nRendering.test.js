@@ -25,6 +25,7 @@ import { GlobalStateContext, DispatchContext, DEFAULT_STATE } from '../StateMana
 import { iconData } from '../IconData';
 import SettingsPage, { SefariaLinksSetting } from '../SettingsPage';
 import ConnectionsPanel from '../ConnectionsPanel';
+import ConnectionsPanelHeader from '../ConnectionsPanelHeader';
 import TextList from '../TextList';
 import LexiconBox from '../LexiconBox';
 import ReaderDisplayOptionsMenu from '../ReaderDisplayOptionsMenu';
@@ -740,10 +741,20 @@ describe('Reader header', () => {
   test('labels its icon buttons in both languages', () => {
     expectScreenLocalizes(wrap(ReaderControls, {
       enRef: 'Genesis 1:1', heRef: 'בראשית א׳:א׳', categories: ['Tanakh', 'Torah'],
-      openTextToc: noop, goBack: noop,
+      openTextToc: noop, goHome: noop,
       toggleReaderDisplayOptionsMenu: noop, openUri: noop, sheet: null,
       getHistoryObject: () => ({ ref: 'Genesis 1:1', versions: {} }), showToast: noop,
-    }), ['a11y.open_display_settings', 'common.back', 'a11y.save_text']);
+    }), ['a11y.open_display_settings', 'nav.home', 'a11y.save_text']);
+  });
+
+  // (the reader header's top button is Home now; Back is the commentary panel's chevron)
+  test("the commentary panel's back chevron is labelled in both languages", () => {
+    const filter = { toString: () => 'Rashi', listKey: () => 'Rashi', category: 'Commentary' };
+    expectScreenLocalizes(wrap(ConnectionsPanelHeader, {
+      theme: {}, themeStr: 'white', textLanguage: 'hebrew', interfaceLanguage: 'english',
+      setConnectionsMode: noop, closeCat: noop, updateCat: noop,
+      category: 'Commentary', filterIndex: 0, recentFilters: [filter], connectionsMode: 'filter',
+    }), ['common.back']);
   });
 
   test('the bookmark of a saved text says it removes it, in both languages', () => {
@@ -751,7 +762,7 @@ describe('Reader header', () => {
     try {
       expectScreenLocalizes(wrap(ReaderControls, {
         enRef: 'Genesis 1:1', heRef: 'בראשית א׳:א׳', categories: ['Tanakh', 'Torah'],
-        openTextToc: noop, goBack: noop,
+        openTextToc: noop, goHome: noop,
         toggleReaderDisplayOptionsMenu: noop, openUri: noop, sheet: null,
         getHistoryObject: () => ({ ref: 'Genesis 1:1', versions: {} }), showToast: noop,
       }), ['a11y.remove_saved']);
