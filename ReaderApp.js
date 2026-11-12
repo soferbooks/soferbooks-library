@@ -238,6 +238,7 @@ class ReaderApp extends React.PureComponent {
     this.state = {
         _completedInit: false,
         offsetRef: null, /* used to jump to specific ref when opening a link*/
+        offsetPlace: null, /* {ref, inset}: offsetRef's place on screen, to reopen a tab or page exactly there (TextColumn) */
         segmentRef: "",
         segmentIndexRef: -1,
         sectionIndexRef: 0,
@@ -496,6 +497,10 @@ class ReaderApp extends React.PureComponent {
      * ...args are either the arguments for TabHistory.back() or TabHistory.forward(), depending on the value of `dir`
      */
     const func = this.tabHistory[dir];
+    if (dir === 'forward' && args.state === this.state && !this.state.menuOpen) {
+      // leaving a page of the reader: Back returns to it where it was on screen, to the pixel
+      args = { ...args, state: { ...this.state, scrollPlace: this._currentScrollPlace() } };
+    }
     return func({ tab: this.state.footerTab, ...args });
   };
 
@@ -577,12 +582,14 @@ class ReaderApp extends React.PureComponent {
       // you're going back to textcolumn. make sure to jump
       oldState.textColumnKey = oldState.segmentRef;  // manually add a key to TextColumn to make sure it gets regenerated
       oldState.offsetRef = oldState.segmentRef;
+      oldState.offsetPlace = oldState.scrollPlace || null;  // where it was on screen (modifyHistory)
       if (!!oldState.linksLoaded) {
         oldState.linksLoaded = oldState.linksLoaded.map(() => false);  // manually set linksLoaded to false because links are not stored in oldState
       }
     } else if (oldState.menuOpen === 'search') {
       this.onQueryChange('text', oldState.searchQuery, true, true, true);
     }
+    delete oldState.scrollPlace;
     this.setState(oldState, () => {
       if (isTextColumn && (!!oldState.sectionArray || !!oldState.sheet)) {
         Sefaria.history.saveHistoryItem(this.getHistoryObject, true);
@@ -946,6 +953,7 @@ class ReaderApp extends React.PureComponent {
               sectionHeArray:    [textContent.heSectionRef || textContent.heRef], // backwards compatible because offline files are missing `heSectionRef`. we specifically want heSectionRef in case you load a segment ref with context
               loaded:            true,
               offsetRef:         !textContent.isSectionLevel ? textContent.requestedRef : null,
+              offsetPlace:       null,
               // the editions chosen, so a section not in a chosen edition says so (reader/editionNotes.js)
               readingEditions:   readingEditions({sectionRef: textContent.sectionRef, selected: versions}),
             };
@@ -2310,7 +2318,22 @@ ${strings.formatString(strings.extras.download_size, size)}` : '';
     if (!tab || tab.title !== this.state.textTitle) { return; }
     const snapshot = {};
     for (const k of TAB_SNAPSHOT_KEYS) { snapshot[k] = this.state[k]; }
+    snapshot.scrollPlace = this._currentScrollPlace();  // where the passage was on screen
     this._tabSnapshots[id] = snapshot;
+  };
+
+  _getTextColumnRef = ref => { this._textColumnRef = ref; };
+
+  /** {ref, inset} of the reader's passage on screen (TextColumn.getScrollPlace), or null. */
+  _currentScrollPlace = () => {
+    const column = this._textColumnRef;
+    if (this.state.menuOpen || !column || !column.getScrollPlace) { return null; }
+    try {
+      const place = column.getScrollPlace();
+      return place && place.ref === this.state.segmentRef ? place : null;
+    } catch (e) {
+      return null;
+    }
   };
 
   /** Drop in-memory state of tabs that were closed or archived (archived tabs keep only book + place). */
@@ -2396,8 +2419,10 @@ ${strings.formatString(strings.extras.download_size, size)}` : '';
         textListAnimating: false,
         ReaderDisplayOptionsMenuVisible: false,
         ...settledPanelState(snapshot),
-        // TextColumn jumps to offsetRef when (re)mounted: put the tab back at its top segment
+        // TextColumn jumps to offsetRef when (re)mounted: put the tab back at its top segment,
+        // where it was on screen
         offsetRef: (snapshot.segmentIndexRef !== -1 && snapshot.segmentRef) ? snapshot.segmentRef : snapshot.offsetRef,
+        offsetPlace: snapshot.scrollPlace || null,
         textColumnKey: `${id}|${Date.now()}`,
       }, () => { applyTabLanguage(); resolve(); }));
     }
@@ -2952,6 +2977,7 @@ ${strings.formatString(strings.extras.download_size, size)}` : '';
             <View style={[{flex: textColumnFlex}, styles.mainTextPanel, this.props.theme.mainTextPanel]}
                   onStartShouldSetResponderCapture={this._onStartShouldSetResponderCapture}>
                 <TextColumn
+                  ref={this._getTextColumnRef}
                   interfaceLanguage={this.props.interfaceLanguage}
                   textLanguage={this.props.textLanguage}
                   showAliyot={this.props.showAliyot}
@@ -2970,6 +2996,7 @@ ${strings.formatString(strings.extras.download_size, size)}` : '';
                   sectionArray={this.state.sectionArray}
                   sectionHeArray={this.state.sectionHeArray}
                   offsetRef={this.state.offsetRef}
+                  offsetPlace={this.state.offsetPlace}
                   segmentRef={this.state.segmentRef}
                   segmentIndexRef={this.state.segmentIndexRef}
                   textFlow={this.state.textFlow}

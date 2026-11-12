@@ -90,6 +90,38 @@ describe("the reader's top button is Home", () => {
   });
 });
 
+describe('to the pixel: the passage is put back where it was on screen', () => {
+  test('Home and back to the tab: the place on screen goes with it', () => {
+    const app = makeApp();
+    readTo(app, 'Genesis 1:7');
+    app._getTextColumnRef({ getScrollPlace: () => ({ ref: 'Genesis 1:7', inset: -640 }) });  // deep in its commentary
+    app.goHomeFromReader();
+    app._getTextColumnRef(null);
+    app.openReaderTabFromHome('A');
+    expect(app.state.offsetRef).toBe('Genesis 1:7');
+    expect(app.state.offsetPlace).toEqual({ ref: 'Genesis 1:7', inset: -640 });
+  });
+
+  test('Back to a page of the reader: the same', () => {
+    const app = makeApp();
+    readTo(app, 'Genesis 1:5');
+    app._getTextColumnRef({ getScrollPlace: () => ({ ref: 'Genesis 1:5', inset: 37 }) });
+    app.modifyHistory({ dir: 'forward', state: app.state });
+    app.setState({ ...READER, textTitle: 'Rashi on Genesis', textReference: 'Rashi on Genesis 1:1',
+      sectionArray: ['Rashi on Genesis 1:1'], segmentRef: 'Rashi on Genesis 1:1:1' });
+    app.manageBack();
+    expect(app.state.offsetRef).toBe('Genesis 1:5');
+    expect(app.state.offsetPlace).toEqual({ ref: 'Genesis 1:5', inset: 37 });
+    expect(app.state.scrollPlace).toBeUndefined();
+  });
+
+  test("a place that is not the reader's passage is not used", () => {
+    const app = makeApp();
+    app._getTextColumnRef({ getScrollPlace: () => ({ ref: 'Genesis 1:9', inset: 10 }) });
+    expect(app._currentScrollPlace()).toBe(null);
+  });
+});
+
 describe("Android's Back never puts a tab back at an older place", () => {
   test('home -> the tab -> read on -> home: Back shows the tab where it is now', () => {
     const app = makeApp();

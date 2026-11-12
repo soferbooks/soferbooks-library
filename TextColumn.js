@@ -21,7 +21,7 @@ import InlineCommentary from './reader/InlineCommentary';
 import { isCommentaryBook } from './reader/dibbur';
 import { commentaryTitles } from './extras/links';
 import { refHasSectionKeys } from './extras/schema7';
-import { createAnchor, isAnchorActive, anchorCorrection, renderedIndexRange, pickVisibleAnchor, ANCHOR_MAX_SEEKS } from './reader/scrollAnchor';
+import { createAnchor, isAnchorActive, anchorCorrection, renderedIndexRange, pickVisibleAnchor, ANCHOR_MAX_SEEKS, ANCHOR_TOP_INSET } from './reader/scrollAnchor';
 import { VOCALIZATION } from './VocalizationEnum';
 import { stringPair } from './LocalizedStrings';
 import ScheduleEndMarker from './learningSchedules/ScheduleEndMarker';
@@ -87,6 +87,9 @@ class TextColumn extends React.PureComponent {
     inlineCommentary:   PropTypes.string,  // "show under each passage": source key (reader/inlineCommentaryPrefs.js) or null
     nakdan:             PropTypes.bool,    // nikud by computer (Dicta) for texts without nikud (reader/nakdanPrefs.js)
     readingEditions:    PropTypes.object,  // {en, he}: the editions being read (reader/editionNotes.js)
+    // {ref, inset}: where offsetRef's passage was on screen (getScrollPlace), to reopen a tab - or go
+    // back to a page - exactly where it was, not just at its passage. Used only when ref is offsetRef.
+    offsetPlace:        PropTypes.object,
   };
 
   constructor(props) {
@@ -139,6 +142,26 @@ class TextColumn extends React.PureComponent {
   _anchorActive = () => {
     if (this._anchor && !isAnchorActive(this._anchor)) { this._releaseAnchor(); }
     return !!this._anchor;
+  };
+
+  /**
+   * Where the reader is, to the pixel: the passage at the top of the screen (the reader's
+   * segmentRef when on screen) and its top's offset from the top of the list (negative when the
+   * passage, long commentary under it and all, started above the screen). Null if not known.
+   */
+  getScrollPlace = () => {
+    if (!this._isMounted || this.state.jumpState.jumping) { return null; }
+    const cells = [];
+    for (const ref of this._mountedCells) {
+      if (typeof this._cellY[ref] === 'number') { cells.push({ ref, y: this._cellY[ref] }); }
+    }
+    return pickVisibleAnchor(cells, this.currentY, this.state.scrollViewHeight, this.props.segmentRef);
+  };
+
+  /** The inset to jump `targetRef` to: its saved place (offsetPlace), else the usual one. */
+  _jumpInset = targetRef => {
+    const place = this.props.offsetPlace;
+    return place && place.ref === targetRef && typeof place.inset === 'number' ? place.inset : ANCHOR_TOP_INSET;
   };
 
   /** The user took over (scrolled or tapped): stop correcting, resume normal place tracking. */
@@ -906,9 +929,11 @@ class TextColumn extends React.PureComponent {
             this.onScrollToLocation();
           } else {
             // opening at a passage (not loading the previous section above the reader): keep it in place
-            this._anchor = this.onTopReaching ? null : createAnchor(targetRef);
+            // (at the very place it was on screen, when reopening a tab or going back to a page)
+            const inset = this._jumpInset(targetRef);
+            this._anchor = this.onTopReaching ? null : createAnchor(targetRef, Date.now(), inset);
             this.targetScrollIndex = targetIndex-1;
-            this.waitForScrollToLocation(0, this.getItemLayout(null, targetIndex).offset - 100, animated);
+            this.waitForScrollToLocation(0, Math.max(0, this.getItemLayout(null, targetIndex).offset - inset), animated);
           }
           this.setState({jumpState: { jumping: false }});
         }
