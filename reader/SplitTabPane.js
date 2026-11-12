@@ -133,7 +133,7 @@ class SplitTabPane extends React.Component {
     const isHeb = interfaceLanguage === 'hebrew';
     return (
       <View style={[localStyles.header, theme.header, isHeb ? localStyles.rtl : null]}>
-        <Text numberOfLines={1} style={[localStyles.title, theme.text]}>{tabLabel(tab, isHeb)}</Text>
+        <Text numberOfLines={1} style={[localStyles.title, theme.text]}>{tabLabel(tab, isHeb, { passage: true })}</Text>
         {otherTabs.length > 1 ? (
           <TouchableOpacity onPress={() => onPickTab(null)} style={localStyles.button} accessibilityLabel={strings.tabs.split_next_tab}>
             <Text style={[localStyles.buttonText, theme.tertiaryText]}>{'⇆'}</Text>

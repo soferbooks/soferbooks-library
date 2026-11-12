@@ -66,7 +66,7 @@ const TabChip = ({ tab, active, isHeb, onSelect, onClose, onLongPress, theme }) 
     {isPinned(tab) ?
       <Text style={localStyles.pin} accessibilityLabel={strings.tabs.pinned_tab}>{'📌'}</Text> : null}
     <Text numberOfLines={1} ellipsizeMode={'tail'} style={[localStyles.chipText, active ? theme.text : theme.tertiaryText, isHeb ? localStyles.heText : null]}>
-      {tabLabel(tab, isHeb)}
+      {tabLabel(tab, isHeb, { passage: true })}
     </Text>
     <TouchableOpacity
       onPress={() => onClose(tab.id)}
