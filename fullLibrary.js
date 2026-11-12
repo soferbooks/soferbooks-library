@@ -18,6 +18,10 @@ import { SOURCES } from './sources';
 import SIZES from './fullLibrarySizes.json';
 
 export const FULL_LIBRARY = 'COMPLETE LIBRARY';
+// Sefaria's books on the phone with their offline search lines (packs.js): measured on the
+// emulator, 2026-11-12, 1.49 GB of book zips and 1.54 GB of search lines for the 1.5 GB package
+// (QA round 14: "about 1.5 GB on the phone" left out the search lines, and they filled the phone)
+export const SEFARIA_PHONE_RATIO = 2.05;
 export const SEFARIA = 'sefaria';
 
 /** The extra sources the full library brings */
@@ -43,16 +47,44 @@ export function sizeOfEntry(b, sizes = SIZES) {
 export const ratioOf = (id, sizes = SIZES) => (sizes.ratios || {})[id] || 1;
 
 /**
+ * {downloadMB, storedMB} of a book whose download is known (the Sofer Library's catalogue, or the
+ * size table's own entry - not its average), else null: the "Download to read" warning says it.
+ */
+export function knownBookSize(b, sizes = SIZES) {
+  if (!b) { return null; }
+  let kB = 0;
+  if (b.source === 'sofer_library') {
+    kB = sizeOfEntry(b, sizes);
+  } else {
+    const key = b.source === 'otzaria' ? b.heTitle : b.id;
+    kB = (sizes[b.source] || {})[key] || 0;
+  }
+  if (!kB) { return null; }
+  const mb = n => Math.max(1, Math.round((n * 1024) / 1e6));
+  return {downloadMB: mb(kB), storedMB: mb(kB * ratioOf(b.source, sizes))};
+}
+
+/**
+ * The books of an extra source the full library brings: in the library, shown by the content
+ * filter, and not the books made with another (Wikisource's editors' notes come with their book).
+ * The part's count and its progress (extrasQueue.js) are both of these, so they agree (QA round
+ * 14: "94 books" beside "3 of 92").
+ */
+export function partBooks(id) {
+  return Object.values(extras.getBooks())
+    .filter(b => b.source === id && !extras.isCompanion(b.title) && !shomer.isBookHidden(b.title));
+}
+
+/**
  * A part's size: {books, downloadKB, phoneKB, measured}. sefariaBytes: the COMPLETE LIBRARY
  * package's size (its books are kept as the zips they come in).
  */
 export function estimate(id, {sefariaBytes = 0, sizes = SIZES} = {}) {
   if (id === SEFARIA) {
     const kB = Math.round(sefariaBytes / 1024);
-    return {books: null, downloadKB: kB, phoneKB: kB, measured: true};
+    return {books: null, downloadKB: kB, phoneKB: Math.round(kB * SEFARIA_PHONE_RATIO), measured: true};
   }
-  const books = Object.values(extras.getBooks())
-    .filter(b => b.source === id && !shomer.isBookHidden(b.title));
+  const books = partBooks(id);
   if (extras.isEnabled(id) && books.length) {
     const downloadKB = books.reduce((n, b) => n + sizeOfEntry(b, sizes), 0);
     return {books: books.length, downloadKB, phoneKB: Math.round(downloadKB * ratioOf(id, sizes)), measured: true};

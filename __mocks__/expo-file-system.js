@@ -84,7 +84,7 @@ const moveAsync = jest.fn(options => {
   return new Promise((resolve, reject) => {
     if (options.from in testCache) {
       testCache[options.to] = testCache[options.from];
-      delete testCache[options.to];
+      delete testCache[options.from];
       resolve()
     } else reject(Error(`File at ${options.to} does not exist`));
   })
@@ -99,6 +99,7 @@ const readDirectoryAsync = jest.fn(fileUri => {
 });
 
 const makeDirectoryAsync = jest.fn(() => Promise.resolve());
+const getFreeDiskStorageAsync = jest.fn(() => Promise.resolve(64e9));
 // Downloads: tests register what a URL serves with setRemote(url, content[, status]).
 const remotes = {};
 const setRemote = jest.fn((url, content, status = 200) => { remotes[url] = {content, status}; });
@@ -150,6 +151,7 @@ export {
   cacheDirectory,
   bundleDirectory,
   readDirectoryAsync,
+  getFreeDiskStorageAsync,
   downloadAsync,
   setRemote,
   File,

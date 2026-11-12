@@ -232,10 +232,22 @@ export function displayRef(ref, heRef) {
   if (!refHasSectionKeys(ref)) { return ref; }
   const seg = / (\d+(?:-\d+)?)$/.exec(ref);
   if (heRef) {
-    heRef = dedupeHeRef(heRef);
+    heRef = withEnglishName(ref, dedupeHeRef(heRef));
     return seg && !/[\d׳']$/.test(heRef) ? `${heRef} ${seg[1]}` : heRef;
   }
   return ref.replace(KEY_IN_REF, '').trim();
+}
+
+// A book with a real English name (the Sofer Library's): its keyed refs are shown with that name in
+// place of the Hebrew one ("Out of the Iron Furnace, TRANSLATOR'S PREFACE", not "מכור הברזל, ..."
+// - QA round 14). extras/index.js tells it the names: ref -> {en, he} or null.
+let englishNameOf = () => null;
+export const setEnglishNameLookup = fn => { englishNameOf = typeof fn === 'function' ? fn : () => null; };
+function withEnglishName(ref, heRef) {
+  let names = null;
+  try { names = englishNameOf(ref); } catch (e) { names = null; }
+  if (!names || !names.en || !names.he || typeof heRef !== 'string' || !heRef.startsWith(names.he)) { return heRef; }
+  return `${names.en}${heRef.slice(names.he.length)}`;
 }
 
 /** A Hebrew ref as it is shown: an extra book's (section keys in `ref`) without a repeated name */

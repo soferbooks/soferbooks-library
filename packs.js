@@ -23,7 +23,7 @@
  * not set up yet, the library works as before and search goes online.
  */
 import * as FileSystem from 'expo-file-system/legacy';
-import {unzip} from 'react-native-zip-archive';
+import {safeUnzip as unzip, WORK_DIR, hasRoom, LOW_SPACE_BYTES} from './storage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {releasesBaseUrl} from './sources';
 import {CORRECTIONS_DIR, clearCorrectionsCache} from './corrections';
@@ -33,7 +33,10 @@ import {syncLocalSearch} from './localSearch';
 export const MANIFEST_FORMAT = 1;
 export const STATE_KEY = 'soferbooksPacks';
 const LIBRARY_DIR = `${FileSystem.documentDirectory}library`;
-const TMP_DIR = `${FileSystem.cacheDirectory}soferbooks`;
+// (work files in the documents folder: Android empties the cache folder when space runs low)
+const TMP_DIR = `${WORK_DIR}soferbooks`;
+// a search shard's zip, and its lines unzipped beside it (measured: 683 MB of zips, 1.54 GB of lines)
+const SEARCH_UNZIP_FACTOR = 3.3;
 const SEARCH_SUFFIX = '_search.txt';
 const COMPLETE = 'COMPLETE LIBRARY';
 
@@ -287,6 +290,15 @@ async function _syncPacks(selected, {isHidden = null, base = releasesBaseUrl()} 
 
   for (const shard of plan.shards) {
     let ok = true;
+    // (a shard's zip and its search lines - about 2.3 times the zip - must fit, with room to spare:
+    //  QA round 14, the search packs after the whole library filled the phone. Search falls back on
+    //  Sefaria's online search for what is not on the phone.)
+    const zipBytes = shard.assets.reduce((n, a) => n + (a.size || 0), 0);
+    if (!(await hasRoom(SEARCH_UNZIP_FACTOR * zipBytes, LOW_SPACE_BYTES))) {
+      shard.assets.forEach(a => failed.push(a.name));
+      console.log('SoferBooks packs: no room for', shard.id || shard.assets.map(a => a.name).join(', '));
+      continue;
+    }
     for (const asset of shard.assets) {
       const file = await downloadAsset(assetBase, asset);
       if (!file) { ok = false; failed.push(asset.name); break; }

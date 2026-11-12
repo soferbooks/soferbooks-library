@@ -78,12 +78,16 @@ const ReaderTextTableOfContents = ({
   const textErrorBoundaryAlert = useCallback(() => {
     textUnavailableAlert(title);
   }, [title]);
-  var heTitle = Sefaria.index(title).heTitle;
+  // (a book whose index is not in the library's list - its title unknown, or its offline copy
+  //  unreadable - still opens: QA round 14, "Cannot read property 'heTitle' of undefined")
+  const index = (title && Sefaria.index(title)) || textToc || {};
+  var heTitle = index.heTitle || (textToc && textToc.heTitle) || title || '';
   // an extra book's English title is its Hebrew name made safe for a file name: show the Hebrew
-  var enTitle = extras.isExtraTitle(title) && heTitle ? heTitle : title;
+  // (the Sofer Library's books have real English names: shown in English)
+  var enTitle = extras.isExtraTitle(title) && heTitle && !(extras.englishTitleOf && extras.englishTitleOf(title)) ? heTitle : (title || '');
   const isHeb = menuLanguage == "hebrew";
   const langStyle = interfaceLanguage === "hebrew" ? styles.heInt : styles.enInt;
-  var categories  = Sefaria.index(title).categories;
+  var categories  = index.categories || (textToc && textToc.categories) || [];
   var enCatString = categories.join(", ");
   var heCatString = categories.map(Sefaria.hebrewCategory).join(", ");
   return (

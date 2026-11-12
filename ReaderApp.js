@@ -64,7 +64,7 @@ import * as extras from "./extras";
 import {ExtraDownloadModal} from "./ExtraDownloadProgress";
 import {SOURCES} from "./sources";
 import {partLines} from "./FullLibraryPanel";
-import {fullLibraryParts} from "./fullLibrary";
+import {fullLibraryParts, formatSize, knownBookSize} from "./fullLibrary";
 import * as extrasQueue from "./extrasQueue";
 import ReaderTabBar, { READER_TAB_BAR_HEIGHT } from "./tabs/ReaderTabBar";
 import {
@@ -858,6 +858,10 @@ class ReaderApp extends React.PureComponent {
               this.loadNewText({ ref, isLoadingVersion, numTries: numTries + 1 }).then(resolve);
               return;
             }
+            // (a section whose file did not name its book or section - QA round 14: "Could not load
+            //  the index of undefined", then the contents page crashed - is named from its ref)
+            if (!textContent.sectionRef) { textContent.sectionRef = textContent.ref || ref; }
+            if (!textContent.indexTitle) { textContent.indexTitle = Sefaria.textTitleForRef(textContent.sectionRef) || Sefaria.textTitleForRef(ref); }
             // (a day read as one unit - Chok LeYisrael - goes from one of its readings to the next, and ends)
             const around = this._readingNeighbours(textContent.sectionRef, textContent);
             let nextState = {
@@ -912,6 +916,13 @@ class ReaderApp extends React.PureComponent {
             return;
           }
           console.error('Error caught from ReaderApp.loadNewText', error);
+          // (a text that cannot be read must not leave the reader loading forever - QA round 14:
+          //  a Sofer Library book just downloaded spun on "Extra book not downloaded"): try the
+          //  ref above it, then say it is unavailable
+          if (loadToken === this._loadToken && numTries < 4) {
+            this._handleNavError(ref, versions, isLoadingVersion, numTries, resolve);
+            return;
+          }
           reject();
         });
       });
@@ -1246,6 +1257,12 @@ class ReaderApp extends React.PureComponent {
         } catch (e) {
           this.setState({extraDownload: null});
           if (e instanceof extras.DownloadCancelledError) { resolve(false); return; }   // (the reader cancelled)
+          if (e && e.name === 'LowSpaceError') {        // (storage.js: no room on the phone)
+            Alert.alert(strings.storage.low_space_title, strings.formatString(strings.storage.low_space_message,
+              {needed: formatSize(e.needed / 1024), free: formatSize(e.free / 1024)}), [{text: strings.common.ok}]);
+            resolve(false);
+            return;
+          }
           const restricted = e instanceof extras.RestrictedBookError;
           Alert.alert(
             restricted ? strings.extras.not_offered_title : strings.download.download_error,
@@ -1254,8 +1271,9 @@ class ReaderApp extends React.PureComponent {
           resolve(false);
         }
       };
-      // (how big it is, when its source says: Chok LeYisrael)
-      const size = extras.approxSizeOf(title);
+      // (how big it is, when its source says - Chok LeYisrael - or its size is known: the Sofer
+      //  Library's catalogue, fullLibrarySizes.json)
+      const size = extras.approxSizeOf(title) || knownBookSize(book);
       const sizeLine = size ? `
 
 ${strings.formatString(strings.extras.download_size,
@@ -1263,7 +1281,8 @@ ${strings.formatString(strings.extras.download_size,
       Alert.alert(
         strings.extras.not_downloaded_title,
         strings.formatString(strings.extras.not_downloaded_message,
-          {title: isolate(book?.heTitle || title), source: isHe ? heSourceName : sourceName}) + sizeLine,
+          {title: isolate((!isHe && extras.englishTitleOf && extras.englishTitleOf(title)) || book?.heTitle || title),
+            source: isHe ? heSourceName : sourceName}) + sizeLine,
         [
           {text: strings.common.cancel, style: 'cancel', onPress: () => resolve(false)},
           {text: strings.download.download, onPress: download},

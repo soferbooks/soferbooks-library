@@ -37,7 +37,8 @@
  * not Dicta's text). The plain edition stays, as the second.
  */
 import * as FileSystem from 'expo-file-system/legacy';
-import {unzip} from 'react-native-zip-archive';
+import {safeUnzip as unzip, WORK_DIR} from '../storage';
+import {withRetry, mapLimit, CONCURRENCY} from '../downloadPool';
 import md5 from 'md5';
 import {Node, normTitle, safe, splitLines, inlineSections, restricted, permission} from './tree';
 import {otzariaTree, bookUrlForPath, linksPathFor, COLLECTIONS, CATEGORY_HE, CREDIT_HE, HOME_URL as OTZARIA_HOME} from './otzaria';
@@ -498,10 +499,19 @@ export function versionsOf(entry, doc) {
 
 // ---------------------------------------------------------------- downloading
 
+class HttpError extends Error {
+  constructor(status, url) { super(`dicta: HTTP ${status} for ${url}`); this.status = status; }
+}
+// (a server error or a dropped connection is tried again; a missing file, or a cancel, is not)
+const retryable = e => !(e instanceof HttpError && e.status >= 400 && e.status < 500) && !(e && e.name === 'DownloadCancelledError')
+  && !(e && /cancel/i.test(String(e.message || '')));
+
 async function getText(url) {
-  const response = await fetch(url);
-  if (!response.ok) { throw new Error(`dicta: HTTP ${response.status} for ${url}`); }
-  return response.text();
+  return withRetry(async () => {
+    const response = await fetch(url);
+    if (!response.ok) { throw new HttpError(response.status, url); }
+    return response.text();
+  }, {shouldRetry: retryable});
 }
 
 /** The zip at url saved at path; share(0..1) as it comes (its size known); stopped by job's Cancel */
@@ -522,14 +532,17 @@ async function download(url, path, job, share) {
  * job: extras/index.js's (Cancel); share(0..1): how much of the zip has come.
  */
 export async function dictaPages(url, {job = null, share = null} = {}) {
-  const dir = `${FileSystem.cacheDirectory}extras/`;
+  const dir = `${WORK_DIR}extras/`;   // (not the cache folder, which Android empties when space runs low)
   const base = `${dir}dicta-${md5(url)}`;
   const zipPath = `${base}.zip`;
   const pagesDir = `${base}/`;
   await FileSystem.makeDirectoryAsync(dir, {intermediates: true}).catch(() => {});
   try {
-    const res = await download(url, zipPath, job, share);
-    if (res.status < 200 || res.status >= 300) { throw new Error(`dicta: HTTP ${res.status} for ${url}`); }
+    await withRetry(async () => {
+      if (job) { job.check(); }
+      const res = await download(url, zipPath, job, share);
+      if (res.status < 200 || res.status >= 300) { throw new HttpError(res.status, url); }
+    }, {shouldRetry: e => retryable(e) && !(job && job.cancelled)});
     if (share) { share(1); }
     await FileSystem.makeDirectoryAsync(pagesDir, {intermediates: true}).catch(() => {});
     await unzip(zipPath, pagesDir);
@@ -571,27 +584,33 @@ export function pageCitations(json) {
 }
 
 /**
- * The citations of every page of a book, read from Dicta's server one page at a time (its zips are
- * ~30 KB): [{text, citations}] in page order. job: {cancelled} (stops between pages).
+ * The citations of every page of a book, read from Dicta's server several pages at a time
+ * (CONCURRENCY.dictaPages; its zips are ~30 KB; owner, 2026-11-12: one at a time was too slow),
+ * each tried again on a server error: [{text, citations}] in page order. job: {cancelled} (no page
+ * starts once cancelled).
  */
 export async function fetchPageCitations(entry, job = null) {
   const base = pagesBase(entry);
   if (!base) { return []; }
   const list = JSON.parse((await getText(`${base}pages.json`)).replace(/^﻿/, ''));
-  const dir = `${FileSystem.cacheDirectory}extras/`;
+  const dir = `${WORK_DIR}extras/`;   // (not the cache folder, which Android empties when space runs low)
   await FileSystem.makeDirectoryAsync(dir, {intermediates: true}).catch(() => {});
-  const out = [];
-  for (const page of Array.isArray(list) ? list : []) {
-    if (job && job.cancelled) { break; }
-    if (!page || !page.fileName) { continue; }
+  const pages = (Array.isArray(list) ? list : []).filter(page => page && page.fileName);
+  const each = await mapLimit(pages, CONCURRENCY.dictaPages, async page => {
+    if (job && job.cancelled) { return []; }
     const stem = `${dir}dicta-page-${md5(base + page.fileName)}`;
+    const found = [];
     try {
-      const res = await FileSystem.downloadAsync(`${base}${page.fileName}`, `${stem}.zip`);
+      const res = await withRetry(async () => {
+        const r = await FileSystem.downloadAsync(`${base}${page.fileName}`, `${stem}.zip`);
+        if (r && r.status >= 500) { throw new HttpError(r.status, `${base}${page.fileName}`); }
+        return r;
+      }, {shouldRetry: e => retryable(e) && !(job && job.cancelled)});
       if (res && res.status >= 200 && res.status < 300) {
         await FileSystem.makeDirectoryAsync(`${stem}/`, {intermediates: true}).catch(() => {});
         await unzip(`${stem}.zip`, `${stem}/`);
         for (const name of (await FileSystem.readDirectoryAsync(`${stem}/`)).filter(n => n.endsWith('.json'))) {
-          out.push(pageCitations(await FileSystem.readAsStringAsync(`${stem}/${name}`)));
+          found.push(pageCitations(await FileSystem.readAsStringAsync(`${stem}/${name}`)));
         }
       }
     } catch (e) {
@@ -600,8 +619,9 @@ export async function fetchPageCitations(entry, job = null) {
       await FileSystem.deleteAsync(`${stem}.zip`, {idempotent: true}).catch(() => {});
       await FileSystem.deleteAsync(`${stem}/`, {idempotent: true}).catch(() => {});
     }
-  }
-  return out;
+    return found;
+  });
+  return [].concat(...each);
 }
 
 /**
@@ -636,27 +656,41 @@ export async function fetchBook(entry, job = null) {
   }
   const own = !(entry.otzaria && otzariaLayout(doc.otzaria));
   const zips = (own ? 1 : 0) + (entry.nikudUrl ? 1 : 0);
-  let done = 0;
-  const part = () => {                 // (each zip an equal part of the whole)
-    const before = done++;
-    return f => { if (job) { job.progress(Math.round((100 * (before + f)) / zips), 100, 'percent'); } };
+  const shares = [];
+  const part = () => {                 // (each zip an equal part of the whole; they may come at once)
+    const i = shares.push(0) - 1;
+    return f => {
+      shares[i] = f;
+      if (job) { job.progress(Math.round((100 * shares.reduce((a, b) => a + b, 0)) / zips), 100, 'percent'); }
+    };
   };
-  if (own) {
-    doc.pages = await dictaPages(entry.textUrl, {job, share: part()});
-    if ((entry.copies || []).length && dictaTreeOf(doc).children.length < 2) {
-      for (const c of entry.copies) {
-        doc.copies.push({...c, text: await getText(bookUrlForPath(c.path))});
-        check();
-      }
-    }
-  }
-  if (entry.nikudUrl && choose(doc).librarySource === ID) {
+  const nikud = async () => {
     try {
-      doc.nikud = await dictaPages(entry.nikudUrl, {job, share: part()});
+      return await dictaPages(entry.nikudUrl, {job, share: part()});
     } catch (e) {
       if (job && job.cancelled) { throw e; }
       console.log('dicta: the edition with nikud could not be downloaded', e);   // (the plain one still is)
+      return null;
     }
+  };
+  // (the edition with nikud is wanted when the text is Dicta's own: then both zips come at once)
+  let early = null;
+  if (own) {
+    const text = dictaPages(entry.textUrl, {job, share: part()});
+    if (entry.nikudUrl) { early = nikud(); early.catch(() => {}); }
+    doc.pages = await text;
+    if ((entry.copies || []).length && dictaTreeOf(doc).children.length < 2) {
+      doc.copies = await mapLimit(entry.copies, CONCURRENCY.files, async c => {
+        check();
+        return {...c, text: await getText(bookUrlForPath(c.path))};
+      });
+      check();
+    }
+  }
+  if (entry.nikudUrl && choose(doc).librarySource === ID) {
+    doc.nikud = await (early || nikud());
+  } else if (early) {
+    await early.catch(() => {});       // (not used: a copy's text was chosen)
   }
   return doc;
 }

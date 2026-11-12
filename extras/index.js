@@ -50,12 +50,13 @@ import dicta from './dicta';
 import wikisource, {withCurrentShelf} from './wikisource';
 import chok from './chok';
 import soferLibrary from './sofer';
-import {bookFiles} from './schema7';
+import {bookFiles, setEnglishNameLookup} from './schema7';
 import * as links from './links';
 import {chooseBooks, addToToc, categoryNames} from './catalog';
 import {bookLines} from '../localSearch';
 import {clearOfflineSearchCache} from '../offlineSearch';
 import * as shomer from '../shomer';
+import {WORK_DIR, ensureRoom, replaceFile, MB} from '../storage';
 
 // (chok: Chok LeYisrael, one book from Otzaria's library, turned on by its learning schedule - no
 //  switch in Settings: extras/chok.js)
@@ -65,7 +66,9 @@ export const CATALOG_MAX_AGE = 7 * 24 * 3600 * 1000;   // a week, as Sefaria's o
 const LIBRARY_DIR = `${FileSystem.documentDirectory}library/`;
 const EXTRAS_DIR = `${LIBRARY_DIR}_extras/`;
 const STATE_FILE = `${EXTRAS_DIR}state.json`;
-const TMP_DIR = `${FileSystem.cacheDirectory}extras/`;
+// (work files in the documents folder, not the cache folder: Android empties that when space
+//  runs low, under a download still using it - storage.js)
+const TMP_DIR = `${WORK_DIR}extras/`;
 const catalogFile = id => `${EXTRAS_DIR}${id}.catalog.json`;
 
 let enabled = {};          // {sourceId: true}
@@ -90,6 +93,39 @@ export const approxSizeOf = title => {
   return (source && source.approxSize && source.approxSize(book)) || null;
 };
 export const needsDownload = title => isExtraTitle(title) && !isDownloaded(title);
+/** A book made with another (Wikisource's editors' notes): it comes with its book */
+export const isCompanion = title => !!(state.installed[title] && state.installed[title].companionOf);
+
+/**
+ * The book's English title, when it has a real one to show: the Sofer Library's books are named
+ * in English (Sefaria's names, or their translators'); the other sources' "English" title is only
+ * the Hebrew name made safe for a file name, or a transliteration, so null for those (and for a
+ * Sofer book named only in Hebrew).
+ */
+export function englishTitleOf(title) {
+  const b = books[title];
+  if (!b || b.source !== 'sofer_library') { return null; }
+  return /[A-Za-z]/.test(title) && !/[֐-׿]/.test(title) ? title : null;
+}
+
+// (the reader's header and tabs show a keyed ref with the book's English name: extras/schema7.js)
+setEnglishNameLookup(ref => {
+  if (typeof Sefaria === 'undefined' || !Sefaria.textTitleForRef) { return null; }
+  const title = Sefaria.textTitleForRef(ref);
+  const en = englishTitleOf(title);
+  return en ? {en, he: books[title].heTitle} : null;
+});
+
+/** The bytes a book's download is known to take (its zips: the Sofer Library's catalogue), else 0 */
+export function knownDownloadBytes(title) {
+  const b = books[title];
+  if (!b) { return 0; }
+  return [b, ...(b.companions || [])].reduce((n, e) => n + (e.size || 0), 0);
+}
+// a book is unpacked and zipped again on the phone: room for that, besides its download
+const ROOM_FACTOR = 5;
+const ROOM_UNKNOWN = 30 * MB;
+const ROOM_MARGIN = 100 * MB;
 export const isEnabled = id => !!enabled[id];
 export const installedTitles = (source = null) => Object.keys(state.installed)
   .filter(t => !source || state.installed[t].source === source);
@@ -229,10 +265,10 @@ export async function checkUpdates(id) {
   return booksToUpdate(id);
 }
 
-async function removeFiles(title) {
+async function removeFiles(title, {keepZip = false} = {}) {
   await links.removeLinks(title);
-  for (const path of [`${LIBRARY_DIR}${title}.zip`, `${LIBRARY_DIR}${title}_search.txt`,
-    `${FileSystem.documentDirectory}${title}_index.json`]) {
+  for (const path of [keepZip ? null : `${LIBRARY_DIR}${title}.zip`, `${LIBRARY_DIR}${title}_search.txt`,
+    `${FileSystem.documentDirectory}${title}_index.json`].filter(Boolean)) {
     await FileSystem.deleteAsync(path, {idempotent: true}).catch(() => {});
   }
   // the book's sections unpacked from its zip when it was read (offline.js reads those first): a
@@ -277,21 +313,32 @@ export function convertBook(entry, text) {
   return {files, firstSection, companions, tree};
 }
 
-/** A converted book's files as library/<title>.zip and its offline search lines */
+/**
+ * A converted book's files as library/<title>.zip and its offline search lines. The zip is made
+ * beside the library and put in place only once complete (storage.replaceFile): a book that was
+ * there stays readable until then, and stays as it was if this fails (QA round 14: a disk that
+ * filled up mid-way left books half written).
+ */
 async function writeBook(title, files) {
   const dir = `${TMP_DIR}${md5(title)}/`;
+  const newZip = `${TMP_DIR}${md5(title)}.zip`;
   const zipPath = `${LIBRARY_DIR}${title}.zip`;
   await FileSystem.deleteAsync(dir, {idempotent: true}).catch(() => {});
+  await FileSystem.deleteAsync(newZip, {idempotent: true}).catch(() => {});   // (zip adds to a file that is there)
   try {
     await FileSystem.makeDirectoryAsync(dir, {intermediates: true});
     for (const [name, data] of Object.entries(files)) {
       await FileSystem.writeAsStringAsync(`${dir}${name}`, JSON.stringify(data));
     }
     await FileSystem.makeDirectoryAsync(LIBRARY_DIR, {intermediates: true}).catch(() => {});
-    await removeFiles(title);                    // (zip adds to a file that is there)
-    await zip(dir, zipPath);
+    await zip(dir, newZip);
+    const made = await FileSystem.getInfoAsync(newZip).catch(() => null);
+    if (!made || !made.exists || !made.size) { throw new Error(`extras: the zip of ${title} was not made`); }
+    await removeFiles(title, {keepZip: true});   // (what was unpacked from the old copy, its search lines)
+    await replaceFile(newZip, zipPath);
   } finally {
     await FileSystem.deleteAsync(dir, {idempotent: true}).catch(() => {});
+    await FileSystem.deleteAsync(newZip, {idempotent: true}).catch(() => {});
   }
   const lines = await searchLines(files);
   if (lines.length) {
@@ -361,7 +408,13 @@ function jobFor(title) {
  * (cancelDownload). While it runs, downloadProgress(title) tells how far it is.
  */
 export function downloadBook(title) {
-  if (downloads[title]) { return downloads[title].promise; }     // (already under way)
+  const under = downloads[title];
+  if (under && !under.cancelled) { return under.promise; }      // (already under way)
+  if (under) {
+    // (a download being cancelled - the full library's queue paused on this book: QA round 14 -
+    //  is not the reader's: a new one starts once it has stopped)
+    return under.promise.catch(() => {}).then(() => downloadBook(title));
+  }
   downloads[title] = {done: 0, total: 0, unit: null, cancelled: false, hooks: []};
   const promise = fetchAndInstall(title, jobFor(title)).then(first => {
     delete downloads[title];
@@ -383,6 +436,9 @@ async function fetchAndInstall(title, job) {
   const entry = books[title];
   if (!entry) { throw new Error(`not an extra book: ${title}`); }
   const source = EXTRA_SOURCES[entry.source];
+  // room for the download and the book made of it (storage.js: never fill the phone)
+  const known = knownDownloadBytes(title);
+  await ensureRoom(known ? known * ROOM_FACTOR : ROOM_UNKNOWN, ROOM_MARGIN);
   let text;
   if (source.fetchBook) {              // (a book that is more than one text file: Dicta's zip of pages)
     text = await source.fetchBook(entry, job);
@@ -436,6 +492,9 @@ async function collectLinks(title, entry, source, text, tree, at) {
   // (a source with no links of its own - Wikisource - still keeps what its sections say of their
   //  place: its obvious connections, extras/inferred.js)
   const stillThere = () => !!state.installed[title] && state.installed[title].at === at;
+  // (a book that comes ready made - the Sofer Library's - has no tree to place connections on:
+  //  QA round 14, "Cannot read property 'paras' of undefined")
+  if (!tree) { return; }
   try {
     const where = (source.linksOf && source.linksOf(entry, text)) || {};
     const {later} = await links.collect({

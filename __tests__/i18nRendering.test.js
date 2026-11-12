@@ -1227,6 +1227,13 @@ describe('Strings with placeholders', () => {
     'full_library.part_books': { count: '1,156' },
     'full_library.total': { download: '2.1 GB', phone: '7.4 GB' },
     'full_library.progress': { source: 'Otzaria', done: 412, total: '3,100', done_size: '1.2 GB', total_size: '2.8 GB' },
+    'full_library.cancelled_message': { count: '1,204' },
+    'full_library.not_enough_space': { needed: '6.6 GB', free: '2.0 GB' },
+    'full_library.part_done': { phone: '1.5 GB' },
+    'full_library.part_progress': { done: '2,310', total: '6,001' },
+    'full_library.paused_low_space': { free: '380 MB' },
+    'full_library.space': { free: '2.0 GB', used: '1.5 GB' },
+    'storage.low_space_message': { needed: '1.9 GB', free: '1.2 GB' },
   };
 
   test('the list below is every string in the table that has a placeholder', () => {
@@ -2143,6 +2150,13 @@ const NOT_YET_COVERED = [
   'full_library.header', 'full_library.description', 'full_library.part_sefaria',
   'full_library.download', 'full_library.pause', 'full_library.resume', 'full_library.cancel',
   'full_library.wifi_only', 'full_library.waiting_wifi', 'full_library.paused', 'full_library.offer_parts',
+  'full_library.cancelled_title', 'full_library.part_no_room',
+
+  // storage.js (QA round 14): the alert when a download does not fit on the phone - raised from
+  // Settings' package list, DownloadControl.downloadPackage and the "Download to read" warning, after
+  // a free-space check the render tests here do not reach; its message is checked in "Strings with
+  // placeholders", the checks themselves in __tests__/qaRound14.test.js.
+  'storage.low_space_title',
 ];
 
 describe('Counts of one', () => {

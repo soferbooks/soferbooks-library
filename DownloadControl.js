@@ -1,7 +1,7 @@
 'use strict';
 
 import * as FileSystem from 'expo-file-system/legacy';
-import {unzip} from 'react-native-zip-archive'; //for unzipping -- (https://github.com/plrthink/react-native-zip-archive)
+import {WORK_DIR, safeUnzip, replaceFile, hasRoom, freeBytes, MARGIN_BYTES, LOW_SPACE_BYTES} from './storage';
 import strings from './LocalizedStrings'
 import {Alert, Platform} from 'react-native';
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -83,6 +83,36 @@ class DownloadTracker {
     this.progressListener = null;
     this.downloadSize = 0;
     this.downloadSavable = null;
+    // paused by the reader (Settings' full library: Pause) or by the phone running out of space
+    // ('user' | 'low_space'); while paused, a network change does not resume the download
+    this.pausedBy = null;
+    this.resumeArgs = null;      // {networkSetting, downloadBuffer} of the download under way
+    this.pendingNext = null;     // the next bundle, when paused between two
+    this._spaceCheckAt = 0;
+  }
+  /** Pause the download (Settings' full library, or the phone running low on space) */
+  pause(reason = 'user') {
+    this.pausedBy = reason;
+    if (this.downloadInProgress()) {
+      const current = this.currentDownload;
+      this.currentDownload = null;
+      current.pauseAsync().then(x => { this.downloadSavable = x; }).catch(e => console.log('download: pause', e));
+    }
+    if (this._downloadSession) { this.updateSession({downloadActive: false}); } else { this.notify(); }
+  }
+  /** Go on with a paused download (true when there was one) */
+  async resume() {
+    if (!this.pausedBy) { return false; }
+    this.pausedBy = null;
+    this.notify();
+    if (this.downloadSavable && this.resumeArgs) {
+      await downloadRecover(this.resumeArgs.networkSetting, this.resumeArgs.downloadBuffer);
+    } else if (this.pendingNext) {
+      const next = this.pendingNext;
+      this.pendingNext = null;
+      await next();
+    }
+    return true;
   }
   addDownload(downloadState) {
     if (this.downloadInProgress()) {
@@ -107,6 +137,7 @@ class DownloadTracker {
     return (!!this.currentDownload);
   }
   cancelDownload(cleanup=true) {
+    if (cleanup) { this.pausedBy = null; this.pendingNext = null; }
     // kill any async methods or promises that need to be stopped due to to downloads being canceled.
     runCancelMethods();
     resetCancelMethods();
@@ -194,6 +225,7 @@ class DownloadTracker {
      */
     let firstRun = true;
     this.removeEventListener();  // keep things clean
+    this.resumeArgs = {networkSetting, downloadBuffer};
     const allowedToDownload = state => isDownloadAllowed(state, networkSetting);
 
     const networkChangeMethod = state => {
@@ -201,6 +233,7 @@ class DownloadTracker {
         firstRun = false;
         return
       }
+      if (Tracker.pausedBy) { return; }   // (paused by the reader or for space: Resume goes on)
       if (allowedToDownload(state)) {
         downloadRecover(networkSetting, downloadBuffer).then(() => {});
       } else if (Tracker.downloadInProgress()){
@@ -231,6 +264,8 @@ class DownloadTracker {
   }
   async removeDownloadSession() {
     this.arrayDownloadState.downloadAllowed = false;
+    this.pausedBy = null;
+    this.pendingNext = null;
     this._downloadSession = null;
     await AsyncStorage.removeItem('lastDownloadLocation');
     this.notify();
@@ -561,9 +596,24 @@ async function deleteBooks(bookList, shouldCleanTmpDirectory=true) {
 }
 
 async function unzipBundle(bundleSessionLocation) {
-  // Test with Appium
+  /*
+   * The bundle is unzipped beside the library, and each book's zip is put in its place only once
+   * the whole bundle unzipped (storage.replaceFile): unzipping straight over the library left
+   * books half written when the disk filled up mid-way, and those books then read as "Text
+   * Unavailable" (QA round 14). A bundle that does not unzip changes nothing.
+   */
   await addDir(FILE_DIRECTORY);
-  await unzip(bundleSessionLocation, FILE_DIRECTORY);
+  const dir = `${WORK_DIR}sefaria-unzip/`;
+  await FileSystem.deleteAsync(dir, {idempotent: true}).catch(() => {});
+  await FileSystem.makeDirectoryAsync(dir, {intermediates: true}).catch(() => {});
+  try {
+    await safeUnzip(bundleSessionLocation, dir);
+    for (const name of await FileSystem.readDirectoryAsync(dir)) {
+      await replaceFile(`${dir}${name}`, `${FILE_DIRECTORY}/${name}`);
+    }
+  } finally {
+    await FileSystem.deleteAsync(dir, {idempotent: true}).catch(() => {});
+  }
 }
 
 function timeoutPromise(ms) {
@@ -657,8 +707,11 @@ async function downloadBundle(bundleName, networkSetting, downloadBuffer, recove
   // console.log(`expect to see ${
   //   Object.values(BooksState).filter(b => b.desired).length
   // } books after download`);
+  // (in the documents folder, not the cache folder: Android empties that when space runs low,
+  //  under a download still writing to it - storage.js)
+  await addDir(`${WORK_DIR}sefaria`);
   const getUniqueFilename = () => {  // It's not critical to have a truly unique filename
-    return `${FileSystem.cacheDirectory}/${String(Math.floor(Math.random()*10000000))}.zip`
+    return `${WORK_DIR}sefaria/${String(Math.floor(Math.random()*10000000))}.zip`
   };
   const getDownloadUrl = (bundle) => {
     // if (recoveryMode) { return bundleName }
@@ -670,7 +723,10 @@ async function downloadBundle(bundleName, networkSetting, downloadBuffer, recove
   console.log(`downloading ${url}`);
 
   // const downloadState = downloadFilePromise(url, filename, downloadFrom);
-  const callback = progress => Tracker.progressTracker(progress.totalBytesWritten, progress.totalBytesExpectedToWrite);
+  const callback = progress => {
+    Tracker.progressTracker(progress.totalBytesWritten, progress.totalBytesExpectedToWrite);
+    watchSpace(progress.totalBytesExpectedToWrite - progress.totalBytesWritten);
+  };
   const downloadState = recoveryMode
     ? new FileSystem.createDownloadResumable(
       resumeData.url, resumeData.fileUri, resumeData.options, callback, resumeData.resumeData
@@ -690,6 +746,7 @@ async function downloadBundle(bundleName, networkSetting, downloadBuffer, recove
   Tracker.addEventListener(networkSetting, downloadBuffer);
   try {
     downloadResult = await downloadState.downloadAsync();
+    if (!downloadResult) { return }  // paused (Tracker.pause, or the network changed): resumed from downloadSavable
   }  catch (e) {
     // don't start again if download "failed" due to user request. Download Removal is handled by the cancel method
     if (e.message === 'stream was reset: CANCEL') { return }
@@ -748,7 +805,33 @@ async function downloadBundle(bundleName, networkSetting, downloadBuffer, recove
   }
 }
 
+/**
+ * While a bundle downloads: pause when the phone runs low on space (what is left of the bundle,
+ * twice - it is unzipped beside itself - and LOW_SPACE_BYTES must stay free). Checked every few
+ * seconds.
+ */
+function watchSpace(bytesLeft) {
+  const now = Date.now();
+  if (Tracker.pausedBy || now - Tracker._spaceCheckAt < 3000) { return }
+  Tracker._spaceCheckAt = now;
+  freeBytes().then(free => {
+    if (free !== null && free < 2 * Math.max(0, bytesLeft || 0) + LOW_SPACE_BYTES && Tracker.downloadInProgress()) {
+      console.log(`download: pausing, ${Math.round(free / 1e6)} MB free`);
+      Tracker.pause('low_space');
+      pauseExtrasForSpace(free);
+    }
+  });
+}
+
+/** The full library's other books (extrasQueue.js) pause too when the phone runs low */
+function pauseExtrasForSpace(free) {
+  try {
+    require('./extrasQueue').pauseForLowSpace(free).catch(() => {});
+  } catch (e) { /* not loaded */ }
+}
+
 const downloadRecover = async (networkMode, downloadBuffer) => {
+  if (Tracker.pausedBy) { return }  // (paused by the reader or for space: only Resume goes on)
   if (Tracker.recoverLock) { return }
   Tracker.recoverLock = true;
   try {
@@ -805,6 +888,15 @@ function calculateBooksToDelete(booksState) {
 }
 
 async function cleanTmpDirectory() {
+  // the bundles' work files (storage.js), except a paused download's, which it goes on with
+  const keep = Tracker.downloadSavable && Tracker.downloadSavable.fileUri;
+  try {
+    for (const f of await FileSystem.readDirectoryAsync(`${WORK_DIR}sefaria`)) {
+      if (!keep || !String(keep).endsWith(`/${f}`)) {
+        await FileSystem.deleteAsync(`${WORK_DIR}sefaria/${f}`, {idempotent: true}).catch(() => {});
+      }
+    }
+  } catch (e) { /* none */ }
   let files = [];
   try {
     files = await FileSystem.readDirectoryAsync(TMP_DIRECTORY);
@@ -824,7 +916,8 @@ async function postDownload(downloadPath, newDownload=true) {
   try {
     await unzipBundle(downloadPath);
   } catch (e) {
-    // Take to the settings page and check for updates?
+    // the books of this bundle stay as they were (Check for Updates brings them later)
+    console.log(`Error when unzipping bundle: ${e}`);
     log(getCrashlytics(), `Error when unzipping bundle: ${e}`)
   }
   // content filter: a bundle may still have brought a hidden book (e.g. one prebuilt before the
@@ -849,6 +942,49 @@ async function postDownload(downloadPath, newDownload=true) {
   //     console.log(`Genesis added at ${genesisAdded}. Raw value: ${s.lastModified}`);
   // } else { console.log('Genesis file does not exist'); }
  // -- END DEBUG --
+}
+
+const lowSpaceNotification = (needed) => {
+  freeBytes().then(free => Alert.alert(
+    strings.storage.low_space_title,
+    strings.formatString(strings.storage.low_space_message, {
+      needed: formatBytes(needed), free: formatBytes(free || 0),
+    }),
+    [{text: strings.common.ok}]
+  ));
+};
+
+// a package on the phone: its books' zips (about its download) and their offline search lines
+// (packs.js: about as much again) - measured 2026-11-12, 3.0 GB for the 1.5 GB COMPLETE LIBRARY
+const PACKAGE_PHONE_FACTOR = 2.1;
+
+/** {fits, needed}: whether a package's books and search lines fit on the phone, with a margin */
+async function packageFits(packageName) {
+  const size = (PackagesState[packageName] && PackagesState[packageName].jsonData && PackagesState[packageName].jsonData.size) || 0;
+  const needed = size * PACKAGE_PHONE_FACTOR;
+  return {fits: await hasRoom(needed, MARGIN_BYTES), needed: needed + MARGIN_BYTES};
+}
+
+/** "350 MB", "1.2 GB" */
+function formatBytes(n) {
+  const mb = n / 1e6;
+  return mb >= 1000 ? `${(mb / 1000).toFixed(1)} GB` : `${Math.max(1, Math.round(mb))} MB`;
+}
+
+/**
+ * The Sefaria part of the full library (Settings: FullLibraryPanel): {chosen, done, total,
+ * complete, downloading, pausedBy} - the books of the COMPLETE LIBRARY package on the phone, of
+ * those it brings.
+ */
+function sefariaLibraryStatus() {
+  const pkg = PackagesState && PackagesState['COMPLETE LIBRARY'];
+  if (!pkg || !pkg.clicked) { return {chosen: false} }
+  const desired = Object.values(BooksState).filter(b => b.desired);
+  const done = desired.filter(b => !!b.localLastUpdated).length;
+  return {
+    chosen: true, done, total: desired.length, complete: desired.length > 0 && done === desired.length,
+    downloading: !!Tracker.getDownloadStatus(), pausedBy: Tracker.pausedBy,
+  };
 }
 
 const downloadBlockedNotification = () => {
@@ -890,11 +1026,27 @@ async function downloadBundleArray(bundleArray, downloadData, networkSetting) {
    * then pass along the list of callbacks so they can be scheduled only after the proceeding download terminated
    * successfully.
    */
+  // (each bundle's share of the whole, downloaded and unzipped beside itself, must fit; else the
+  //  download pauses until the reader makes room and taps Resume - QA round 14: it filled the disk)
+  const bundleBytes = (Tracker.downloadSize || 0) / Math.max(1, bundleArray.length);
   for (const b of bundleArray) {
+    const startBundle = async () => {
+      if (abortDownload.abort) { return }
+      if (Tracker.pausedBy) {           // (paused between two bundles: Resume starts this one)
+        Tracker.pendingNext = startBundle;
+        return
+      }
+      if (!(await hasRoom(2 * bundleBytes, LOW_SPACE_BYTES))) {
+        Tracker.pendingNext = startBundle;
+        Tracker.pause('low_space');
+        pauseExtrasForSpace(await freeBytes());
+        return
+      }
+      await downloadBundle(`${DOWNLOAD_SERVER}/${b}`, networkSetting, bufferGen);
+    };
     buffer.push(async () => {
       downloadData.currentDownload += 1;
-      if (abortDownload.abort) { return }
-      await downloadBundle(`${DOWNLOAD_SERVER}/${b}`, networkSetting, bufferGen);
+      await startBundle();
     });
   }
   // last method will be resetting the cancel methods and turning off the progress bar
@@ -922,6 +1074,13 @@ async function downloadPackage(packageName, networkSetting) {
     console.log(e);
   }
   Tracker.downloadSize = packageSize;
+  // room for the package (its books are kept as the zips they come in) and a margin: never start
+  // a download that cannot fit (QA round 14: 6.3 GB started with 2 GB free and filled the disk)
+  if (!(await hasRoom(packageSize * PACKAGE_PHONE_FACTOR, MARGIN_BYTES))) {
+    lowSpaceNotification(packageSize * PACKAGE_PHONE_FACTOR + MARGIN_BYTES);
+    Tracker.removeDownload(true);
+    return
+  }
   await schemaCheckAndPurge();  // necessary for maintaining consistency
   const netState = await NetInfo.fetch();
   if (!isDownloadAllowed(netState, networkSetting)) {
@@ -1262,6 +1421,11 @@ export {
   downloadRecover,
   doubleDownload,
   isDownloadAllowed,
+  sefariaLibraryStatus,
+  packageFits,
+  lowSpaceNotification,
+  unzipBundle,
+  cleanTmpDirectory,
   requestNewBundle,
   fileExists,
   lastUpdated,

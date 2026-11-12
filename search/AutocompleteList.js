@@ -21,8 +21,9 @@ import styles from '../Styles';
 import strings from '../LocalizedStrings';
 import {iconData} from "../IconData";
 import {
-  localNameResults, shouldCallNameApi, noteNameApiFailure, noteNameApiSuccess, NAME_DEBOUNCE_MS,
+  localNameResults, shouldCallNameApi, noteNameApiFailure, noteNameApiSuccess, NAME_DEBOUNCE_MS, withOwnBooks,
 } from './localAutocomplete';
+import * as extras from '../extras';
 
 const EXCLUDED_COMPLETION_TYPES = new Set(['topic', 'persontopic', 'authortopic', 'user', 'collection', 'group']);
 
@@ -89,6 +90,8 @@ class AutocompleteList extends React.Component {
     Sefaria.api.name(q, true)
       .then(results => { noteNameApiSuccess(); return results; })
       .then(results => Sefaria.shomer?.filterNameResponse(results) ?? results)  // content filter
+      // (the extra sources' books, which the API does not know, stay in the list)
+      .then(results => withOwnBooks(q, results, t => !!(extras.isExtraTitle && extras.isExtraTitle(t))))
       .then(results => this.showResults(q, results))
       .catch(() => noteNameApiFailure());  // keep the local results; no retry per keystroke
   };

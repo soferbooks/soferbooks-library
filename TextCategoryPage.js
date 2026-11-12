@@ -116,8 +116,10 @@ class DisplayTocItem {
         }
         if (extras.isExtraTitle(tocItem.title) && tocItem.heTitle) {
             // an extra book's English title is only its Hebrew name made safe for a file name
-            // (אור רש"ז -> אור רש-ז): show the Hebrew name as it is
-            return { en: tocItem.heTitle, he: tocItem.heTitle };
+            // (אור רש"ז -> אור רש-ז): show the Hebrew name as it is - but the Sofer Library's
+            // books have real English names, shown in English (QA round 14)
+            const english = extras.englishTitleOf && extras.englishTitleOf(tocItem.title);
+            return { en: english || tocItem.heTitle, he: tocItem.heTitle };
         }
         return { en: tocItem.title, he: tocItem.heTitle };
     };

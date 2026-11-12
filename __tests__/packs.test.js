@@ -175,6 +175,20 @@ test('assets come from the release the manifest names, not from "latest"', () =>
 });
 
 describe('syncPacks', () => {
+  test('a search shard that does not fit on the phone is not downloaded (QA round 14: they filled it)', async () => {
+    const storage = require('../storage');
+    storage._setFreeBytes(100 * storage.MB);
+    try {
+      serveRelease();
+      const result = await syncPacks(['TANAKH with Rashi'], {base: BASE});
+      expect(result.failed).toEqual(['search-tanakh-with-rashi.zip']);
+      expect(await exists('library/Genesis_search.txt')).toBe(false);
+      expect(result.downloaded).toContain('corrections.zip');        // (small, and they matter for reading)
+    } finally {
+      storage._setFreeBytes(null);
+    }
+  });
+
   test('installs search files, the index and the corrections, then reads them', async () => {
     serveRelease();
     const result = await syncPacks(['TANAKH with Rashi'], {base: BASE, isHidden: t => t === 'Hidden Book'});

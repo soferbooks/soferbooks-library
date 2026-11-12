@@ -43,6 +43,7 @@
  * Licence: CC BY-SA (the site's texts); the edition names the page, the site, the date it was
  * fetched and the page history (the contributors), as the licence asks.
  */
+import {pLimit, CONCURRENCY} from '../downloadPool';
 import md5 from 'md5';
 import {Node, safe} from './tree';
 import {bookFiles} from './schema7';
@@ -216,11 +217,26 @@ export async function fetchPages(title, {client = apiClient(), skip = new Set(CA
   // (the reader is shown pages done of the pages the list says the book has: extras/index.js job)
   const report = () => { if (job) { job.progress(pages.length, Math.max(expected, pages.length), 'pages'); } };
   report();
+  // (a part's pages are asked for a few at a time - CONCURRENCY.wikisource, downloadPool.js - and
+  //  still taken in the order the title page lists them, so the book is made as before)
+  const limit = pLimit(CONCURRENCY.wikisource);
+  const asked = new Map();
+  const fetchOnce = page => {
+    if (!asked.has(page)) {
+      const p = limit(() => {
+        if (job) { job.check(); }      // (cancelled: no more requests)
+        return pageHtml(client, page);
+      });
+      p.catch(() => {});               // (one prefetched and never taken is not an error)
+      asked.set(page, p);
+    }
+    return asked.get(page);
+  };
   const visit = async (page, name, depth) => {
     if (done.has(page)) { return; }
     if (job) { job.check(); }          // (cancelled: no more requests)
     done.add(page);
-    const {html, revid, title: real} = await pageHtml(client, page);
+    const {html, revid, title: real} = await fetchOnce(page);
     const b = bare(html);
     if ((done.has(real) && real !== page) || texts.has(b)) { return; }   // (a redirect to a page already taken)
     done.add(real);
@@ -233,6 +249,7 @@ export async function fetchPages(title, {client = apiClient(), skip = new Set(CA
       if (!subs.length && depth === 0 && short) {
         subs = subLinks(html, real, short, new Set([...skip, short, title]));
       }
+      subs.filter(([sub]) => !done.has(sub)).forEach(([sub]) => fetchOnce(sub));
       for (const [sub, text] of subs) { await visit(sub, text, depth + 1); }
     }
   };

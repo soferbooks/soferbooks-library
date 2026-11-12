@@ -42,7 +42,8 @@ import {
   deleteBooks,
   doubleDownload, getLocalBookList,
   isDownloadAllowed,
-  FILE_DIRECTORY, downloadUpdate
+  FILE_DIRECTORY, downloadUpdate,
+  packageFits, lowSpaceNotification,
 } from './DownloadControl';
 import Sefaria from "./sefaria";
 import * as FileSystem from 'expo-file-system/legacy';
@@ -141,6 +142,12 @@ const usePkgState = () => {
             strings.download.blocked_by_network_settings_message,
             [{text: strings.common.ok}]
           );
+          return
+        }
+        // (never start a download the phone has no room for: QA round 14)
+        const room = await packageFits(pkgName);
+        if (!room.fits) {
+          lowSpaceNotification(room.needed);
           return
         }
         await PackagesState[pkgName].markAsClicked();

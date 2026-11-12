@@ -15,8 +15,10 @@ import {
   estimate, estimateAll, formatSize, sizeOfEntry, fullLibraryParts, fullLibrarySources, onPackageChosen, FULL_LIBRARY,
 } from '../fullLibrary';
 import SIZES from '../fullLibrarySizes.json';
-import { FullLibraryPanel, partLines } from '../FullLibraryPanel';
+import { FullLibraryPanel, partLines, partFits } from '../FullLibraryPanel';
 import TestContextWrapper from '../TestContextWrapper';
+import * as storage from '../storage';
+import { Alert } from 'react-native';
 
 jest.mock('@react-native-community/netinfo', () => ({
   __esModule: true,
@@ -33,6 +35,7 @@ jest.mock('../extras', () => {
     isDownloaded: t => t in fake.installed,
     downloadedBooks: id => Object.keys(fake.installed).filter(t => fake.installed[t] === id),
     installedTitles: id => Object.keys(fake.installed).filter(t => fake.installed[t] === id),
+    isCompanion: t => !!(fake.companions && fake.companions.has(t)),
     loadExtras: jest.fn(async () => {}),
     setSourceEnabled: jest.fn(async (id, on) => { fake.enabled[id] = on; }),
     cancelDownload: jest.fn(),
@@ -77,6 +80,7 @@ const sizes = {
 beforeEach(async () => {
   library();
   queue._reset();
+  storage._setFreeBytes(null);
   await AsyncStorage.clear();
   NetInfo.fetch.mockImplementation(async () => ({ type: 'wifi', isConnected: true }));
 });
@@ -106,6 +110,8 @@ describe('the parts and their sizes', () => {
   test('Sefaria\'s part is its COMPLETE LIBRARY package; the total adds the parts chosen', () => {
     const { parts, total } = estimateAll(['sefaria', 'dicta'], { sefariaBytes: 2 * 1024 * 1024 * 1024, sizes });
     expect(parts.sefaria.downloadKB).toBe(2 * 1024 * 1024);
+    // (on the phone: the books' zips and their offline search lines - QA round 14)
+    expect(parts.sefaria.phoneKB).toBe(Math.round(2 * 1024 * 1024 * 2.05));
     expect(total.downloadKB).toBe(2 * 1024 * 1024 + 1000000);
   });
 
@@ -196,21 +202,117 @@ describe('the background download', () => {
   });
 });
 
+const renderPanel = async () => {
+  let inst;
+  await act(async () => { inst = renderer.create(<TestContextWrapper child={FullLibraryPanel} childProps={{ langStyle: {} }} />); });
+  return inst;
+};
+const text = node => [].concat(node.props.children).join('');
+const texts = inst => inst.root.findAll(n => n.type === 'Text').map(n => [].concat(n.props.children).filter(c => typeof c === 'string').join(''));
+
 describe('the Settings panel', () => {
-  test('every part ticked, with its sizes, and the total', () => {
-    let inst;
-    act(() => { inst = renderer.create(<TestContextWrapper child={FullLibraryPanel} childProps={{ langStyle: {} }} />); });
+  test('every part ticked, with its sizes, and the total', async () => {
+    const inst = await renderPanel();
     const parts = fullLibraryParts();
     for (const id of parts) {
       const row = inst.root.findByProps({ testID: `full-library-part-${id}` });
-      expect(row.props.accessibilityState).toEqual({ checked: true });
+      expect(row.props.accessibilityState).toEqual({ checked: true, disabled: false });
     }
     const text = node => [].concat(node.props.children).join('');
     const total = inst.root.findByProps({ testID: 'full-library-total' });
     expect(text(total)).toBe(partLines(parts, false).totalLine);
     act(() => { inst.root.findByProps({ testID: 'full-library-part-dicta' }).props.onPress(); });
-    expect(inst.root.findByProps({ testID: 'full-library-part-dicta' }).props.accessibilityState).toEqual({ checked: false });
+    expect(inst.root.findByProps({ testID: 'full-library-part-dicta' }).props.accessibilityState).toEqual({ checked: false, disabled: false });
     expect(text(inst.root.findByProps({ testID: 'full-library-total' })))
       .toBe(partLines(parts.filter(p => p !== 'dicta'), false).totalLine);
+    act(() => inst.unmount());
+  });
+
+  test('the free space is shown; a part that does not fit cannot be ticked; Download only for what fits', async () => {
+    storage._setFreeBytes(400 * storage.MB);         // (Dicta's 3.4 GB and the Sofer Library's do not fit)
+    const inst = await renderPanel();
+    expect(texts(inst).join('|')).toContain('Free on this phone: 400 MB');
+    const dicta = inst.root.findByProps({ testID: 'full-library-part-dicta' });
+    expect(dicta.props.accessibilityState).toEqual({ checked: false, disabled: true });
+    expect(texts(inst).join('|')).toContain('not enough space on this phone');
+    expect(inst.root.findByProps({ testID: 'full-library-part-wikisource' }).props.accessibilityState).toEqual({ checked: true, disabled: false });
+    expect(inst.root.findAllByProps({ testID: 'full-library-download' }).length).toBeGreaterThan(0);
+    act(() => inst.unmount());
+  });
+
+  test('parts that fit one by one but not together: no Download, and why', () => {
+    expect(partFits({ phoneKB: 100 * 1024 }, 500 * storage.MB)).toBe(true);
+    expect(partFits({ phoneKB: 300 * 1024 }, 500 * storage.MB)).toBe(false);     // (with the 300 MB margin)
+    expect(partFits({ phoneKB: 1e9 }, null)).toBe(true);                          // (not known: not held back)
+  });
+
+  test('a part all on the phone says so, and is not downloaded again; no Download while the queue runs', async () => {
+    extras.enabled = { otzaria: true };
+    extras.installed = { 'Otz A': 'otzaria', 'Otz B': 'otzaria' };
+    queue._reset({ sources: ['dicta'], running: true });
+    const inst = await renderPanel();
+    const otz = inst.root.findByProps({ testID: 'full-library-part-otzaria' });
+    expect(otz.props.accessibilityState).toEqual({ checked: false, disabled: true });
+    expect(texts(inst).join('|')).toMatch(/Downloaded, .* on the phone/);
+    expect(inst.root.findAllByProps({ testID: 'full-library-download' })).toHaveLength(0);
+    expect(inst.root.findAllByProps({ testID: 'full-library-pause' }).length).toBeGreaterThan(0);
+    act(() => inst.unmount());
+  });
+
+  test('Cancel deletes the half-downloaded files, keeps the books, and says so', async () => {
+    const clean = jest.spyOn(storage, 'cleanWork');
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    extras.enabled = { otzaria: true };
+    extras.installed = { 'Otz A': 'otzaria' };
+    queue._reset({ sources: ['otzaria'], running: true, paused: true, pausedBy: 'user' });
+    const inst = await renderPanel();
+    await act(async () => { await inst.root.findByProps({ testID: 'full-library-cancel' }).props.onPress(); });
+    expect(clean).toHaveBeenCalledWith('extras');
+    expect(alert).toHaveBeenCalledWith('Download cancelled', expect.stringContaining('The 1 books already downloaded are kept'), expect.anything());
+    expect(extras.installed).toEqual({ 'Otz A': 'otzaria' });
+    act(() => inst.unmount());
+    clean.mockRestore();
+    alert.mockRestore();
+  });
+});
+
+describe('space and speed', () => {
+  const run = async () => { await queue._loop(); };
+
+  test('the queue pauses itself when the phone runs low, and goes on after Resume', async () => {
+    storage._setFreeBytes(100 * storage.MB);
+    await queue.start(['otzaria']);
+    await run();
+    expect(extras.downloads).toEqual([]);
+    expect(queue.getState()).toMatchObject({ paused: true, pausedBy: 'low_space', status: 'paused', freeAtPause: 100 * storage.MB });
+    storage._setFreeBytes(10e9);
+    await queue.resume();
+    await run();
+    expect(extras.downloads.sort()).toEqual(['Otz A', 'Otz B']);
+  });
+
+  test('a book that finds no room pauses the queue (not counted as a failure)', async () => {
+    extras.downloadBook.mockImplementationOnce(async () => { throw new storage.LowSpaceError(5e8, 1e8); });
+    await queue.start(['otzaria']);
+    await run();
+    expect(queue.getState()).toMatchObject({ paused: true, pausedBy: 'low_space', failed: {} });
+  });
+
+  test('several books download at once (at most CONCURRENCY.queueBooks)', async () => {
+    queue._reset({}, { polite: 0, retry: 0, books: 3 });
+    let now = 0;
+    let most = 0;
+    extras.downloadBook.mockImplementation(async title => {
+      now += 1; most = Math.max(most, now);
+      await new Promise(r => setTimeout(r, 5));
+      now -= 1;
+      extras.downloads.push(title);
+      extras.installed[title] = extras.books[title].source;
+    });
+    await queue.start(['otzaria', 'dicta', 'sofer_library']);
+    await run();
+    expect(most).toBe(3);
+    expect(extras.downloads.sort()).toEqual(['Dicta A', 'Otz A', 'Otz B', 'Sofer A']);
+    expect(queue.getState().status).toBe('done');
   });
 });

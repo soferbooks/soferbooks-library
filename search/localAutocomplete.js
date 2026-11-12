@@ -125,3 +125,27 @@ export function localNameResults(query) {
   out.completions = out.completion_objects.map(c => c.title);
   return out;
 }
+
+/**
+ * The Name API's results with the books it cannot know - the extra sources' (the Sofer Library's
+ * "Shuvu Lachem LeOhaleichem", Otzaria's ...) - from the library on the phone, first. The API's
+ * answer replaced the local list, so those books could not be found by title (QA round 14).
+ * isOwnBook(title): a book Sefaria's API does not have.
+ */
+export function withOwnBooks(query, results, isOwnBook) {
+  if (!results || !Array.isArray(results.completion_objects) || typeof isOwnBook !== 'function') { return results; }
+  const local = localNameResults(query);
+  const keys = new Set(results.completion_objects.map(c => c.key));
+  const own = local.completion_objects.filter(c => c.type === 'ref' && isOwnBook(c.key) && !keys.has(c.key));
+  if (!own.length) { return results; }
+  const completion_objects = own.concat(results.completion_objects);
+  const out = {...results, completion_objects, completions: completion_objects.map(c => c.title)};
+  // (a ref in one of these books - "Shuvu Lachem LeOhaleichem 3" - the API does not know either)
+  if (!results.is_ref && local.is_ref && isOwnBook(local.book)) {
+    Object.assign(out, {
+      is_ref: true, ref: local.ref, book: local.book, index: local.index, sections: local.sections,
+      is_book: local.is_book, is_section: local.is_section, is_segment: local.is_segment,
+    });
+  }
+  return out;
+}

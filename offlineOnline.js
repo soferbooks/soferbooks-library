@@ -65,6 +65,16 @@ export const loadText = function(ref, context, versions, fallbackOnDefaultVersio
             // Unexpected: offline loading failed for a reason other than "not downloaded"
             // (e.g. a bug while parsing/assembling the offline file, or a corrupt file).
             console.error("Unexpected error while loading text from offline library (not a MISSING_OFFLINE_DATA miss)", error);
+            if (!isExtraRef(ref)) {
+                // a Sefaria book on the phone that cannot be read (a zip left broken - QA round 14:
+                // Rashi on Genesis 1 became "Text Unavailable"): read it from Sefaria instead
+                return api.textApi(ref, context, versions, failSilently)
+                    .then(data => {
+                        api.processTextApiData(ref, context, versions, data);
+                        return data;
+                    })
+                    .then(data => avoidHiddenTranslationOnline(ref, context, versions, failSilently, data));
+            }
             return Promise.reject(error);
         })
         .catch((error) => {

@@ -168,8 +168,10 @@ export const ExtraSourceRow = ({ source, langStyle, theme, interfaceLanguage }) 
       })},
     ]);
   });
+  // (the count and Check for Updates belong to this source: inside its row, under its name -
+  //  QA round 14 read them as the next source's)
   return (
-    <View>
+    <View style={local.sourceBlock} testID={`library-source-${source.id}`}>
       <View style={local.groupRow}>
         <View style={local.groupText}>
           <Text style={[langStyle, theme.text]}>{name}</Text>
@@ -177,6 +179,11 @@ export const ExtraSourceRow = ({ source, langStyle, theme, interfaceLanguage }) 
           {on ? <Text style={[langStyle, theme.secondaryText, local.detail]}>
             {countString(strings.extras.downloaded_count, strings.extras.downloaded_count_one, downloaded)}
           </Text> : null}
+          {on && downloaded ? (
+            <TouchableOpacity onPress={checkUpdates} disabled={busy} accessibilityRole="button" style={local.link}>
+              <Text style={[langStyle, theme.text, local.linkText]}>{strings.download.check_for_updates}</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
         {busy && !underWay.length ? <ActivityIndicator /> : null}
         <Switch value={on} disabled={busy} onValueChange={toggle} accessibilityLabel={name} />
@@ -190,11 +197,6 @@ export const ExtraSourceRow = ({ source, langStyle, theme, interfaceLanguage }) 
           <ExtraDownloadStatus title={t} theme={theme} langStyle={langStyle} />
         </View>
       ))}
-      {on && downloaded ? (
-        <TouchableOpacity onPress={checkUpdates} disabled={busy} accessibilityRole="button" style={local.link}>
-          <Text style={[langStyle, theme.text, local.linkText]}>{strings.download.check_for_updates}</Text>
-        </TouchableOpacity>
-      ) : null}
     </View>
   );
 };
@@ -241,6 +243,7 @@ const local = StyleSheet.create({
   groupRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6 },
   groupText: { flex: 1, paddingRight: 8 },
   link: { paddingVertical: 4 },
+  sourceBlock: { marginBottom: 10 },
   linkText: { fontSize: 14, textDecorationLine: 'underline' },
 });
 

@@ -23,7 +23,8 @@
  * as every extra book is (extras/index.js: convert).
  */
 import * as FileSystem from 'expo-file-system/legacy';
-import {unzip} from 'react-native-zip-archive';
+import {safeUnzip as unzip, WORK_DIR} from '../storage';
+import {withRetry, mapLimit, CONCURRENCY} from '../downloadPool';
 import md5 from 'md5';
 import {safe} from './tree';
 
@@ -98,13 +99,19 @@ async function download(url, path, job, share) {
  * entry: {title, file, md5}; url: where it is (this release's, or another's: extras/wikisource.js)
  */
 export async function bookZipFiles(entry, {job = null, share = null, url = bookUrl(entry)} = {}) {
-  const dir = `${FileSystem.cacheDirectory}extras/`;
+  const dir = `${WORK_DIR}extras/`;   // (not the cache folder, which Android empties when space runs low)
   const base = `${dir}sofer-${md5(entry.file)}`;
   const zipPath = `${base}.zip`;
   const filesDir = `${base}/`;
   await FileSystem.makeDirectoryAsync(dir, {intermediates: true}).catch(() => {});
   try {
-    const res = await download(url, zipPath, job, share);
+    // (a dropped connection or a server error is tried again; a missing file or a cancel is not)
+    const res = await withRetry(async () => {
+      if (job) { job.check(); }
+      const r = await download(url, zipPath, job, share);
+      if (r.status >= 500) { throw new Error(`sofer library: HTTP ${r.status} for ${url}`); }
+      return r;
+    }, {shouldRetry: e => !(job && job.cancelled) && !(e && e.name === 'DownloadCancelledError')});
     if (res.status < 200 || res.status >= 300) { throw new Error(`sofer library: HTTP ${res.status} for ${url}`); }
     if (entry.md5) {
       const info = await FileSystem.getInfoAsync(zipPath, {md5: true});
@@ -125,20 +132,24 @@ export async function bookZipFiles(entry, {job = null, share = null, url = bookU
   }
 }
 
-/** The book and the books that come with it (its editors' notes), each zip a share of the whole by size */
+/**
+ * The book and the books that come with it (its editors' notes), several zips at once
+ * (downloadPool.js), each a share of the whole by size
+ */
 export async function fetchBook(entry, job = null) {
   const all = [entry, ...(entry.companions || [])];
   const total = all.reduce((n, e) => n + (e.size || 1), 0);
-  let before = 0;
-  const out = [];
+  const got = all.map(() => 0);
   if (job) { job.progress(0, 100, 'percent'); }
-  for (const e of all) {
-    const start = before;
-    const share = f => { if (job) { job.progress(Math.round((100 * (start + f * (e.size || 1))) / total), 100, 'percent'); } };
-    out.push({entry: e, files: await bookZipFiles(e, {job, share})});
-    before += e.size || 1;
+  const out = await mapLimit(all, CONCURRENCY.files, async (e, i) => {
+    const share = f => {
+      got[i] = f * (e.size || 1);
+      if (job) { job.progress(Math.round((100 * got.reduce((a, b) => a + b, 0)) / total), 100, 'percent'); }
+    };
     if (job) { job.check(); }
-  }
+    return {entry: e, files: await bookZipFiles(e, {job, share})};
+  });
+  if (job) { job.check(); }
   return {book: out[0], companions: out.slice(1)};
 }
 

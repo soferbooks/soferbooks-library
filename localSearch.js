@@ -23,7 +23,7 @@
  * stays responsive.  A filter change re-runs this in the background (watchContentFilter).
  */
 import * as FileSystem from 'expo-file-system/legacy';
-import {unzip} from 'react-native-zip-archive';
+import {safeUnzip as unzip, WORK_DIR, hasRoom, LOW_SPACE_BYTES} from './storage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import md5 from 'md5';
 import {decodeHTML} from 'entities';
@@ -36,7 +36,7 @@ export const STATE_KEY = 'soferbooksLocalSearch';       // {title: {stamp, versi
 export const HOSTED_KEY = 'soferbooksHostedVersions';   // {title: {stamp, versions: ['lang|vtitle']}}
 export const RUN_KEY = 'soferbooksLocalSearchRun';      // {titles, done}: the last run
 const LIBRARY_DIR = `${FileSystem.documentDirectory}library/`;
-const TMP_DIR = `${FileSystem.cacheDirectory}soferbooks-local/`;
+const TMP_DIR = `${WORK_DIR}soferbooks-local/`;   // (not the cache folder: storage.js)
 const SEARCH_SUFFIX = '_search.txt';
 const BATCH = 20;   // section files read between two pauses
 
@@ -352,6 +352,8 @@ async function _syncLocalSearch(titles, options) {
     if (known && known.stamp === stamp && known.hidden === hiddenKey(known.versions, isVersionHidden)) {
       continue;  // same zip, and the filter hides the same versions of it
     }
+    // (search lines are a convenience: never fill the phone for them - QA round 14)
+    if (!(await hasRoom(4 * (info.size || 0), LOW_SPACE_BYTES))) { break; }
     const versions = await buildBook(title, zipUri, isVersionHidden);
     if (versions) {
       state[title] = {stamp, versions, hidden: hiddenKey(versions, isVersionHidden)};

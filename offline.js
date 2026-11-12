@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 import md5 from 'md5';
 import * as FileSystem from 'expo-file-system/legacy';
-import { unzip } from 'react-native-zip-archive';
+import { safeUnzip as unzip } from './storage';   // (checks the zip first; fails as an error, never a crash)
 import LinkContent from './LinkContent';
 import {ERRORS} from "./errors";
 import {loadJSONFile} from "./DownloadControl";
@@ -9,6 +9,7 @@ import {fileExists} from './DownloadControl';
 import * as shomer from './shomer';
 import {isEnglishTranslation} from './translationLanguage';
 import {applyCorrections} from './corrections';
+import {defaultAlias, withoutDefault, orderStems, sectionsOfFile} from './reader/sectionOrder';
 
 /*
 PUBLIC INTERFACE
@@ -114,7 +115,7 @@ export const loadOfflineSectionMetadataCompat = async function(ref) {
 export const loadLinksOffline = async function(ref) {
     // mimic response of links API so that addLinksToText() will work independent of data source
     const metadata = await loadOfflineSectionMetadataCompat(ref);
-    if (!metadata) { throw ERRORS.CANT_GET_SECTION_FROM_DATA; }
+    if (!metadata || !Array.isArray(metadata.links)) { throw ERRORS.CANT_GET_SECTION_FROM_DATA; }
     const linkList = (metadata.links.reduce((accum, segmentLinks, segNum) => accum.concat(
         !!segmentLinks ? segmentLinks.map(link => {
             const index_title = Sefaria.textTitleForRef(link.sourceRef);
@@ -239,6 +240,11 @@ const getSectionFromJsonData = function(ref, data) {
                 return data.sections[tempRef];
             }
         }
+        // a ref above the file's sections ("Kaf HaChayim ... 300" in a book whose sections are
+        // "... 300:1", "... 300:2"): its first section (QA round 14: the whole file was returned,
+        // a "section" with no book or ref, and the reader then crashed on its contents page)
+        const first = Object.keys(data.sections).find(k => k.startsWith(`${ref}:`) || k.startsWith(`${ref} `));
+        if (first) { return data.sections[first]; }
     }
     return data;
 };
@@ -284,6 +290,9 @@ const loadOfflineSectionCompat = async function(ref, versions, fallbackOnDefault
             // rethrow to indicate we should try an API call
             throw error;
         }
+        // (anything else - a book's files unreadable - was swallowed, and the reader then failed
+        //  on an empty section: offlineOnline.loadText decides what to do instead)
+        throw error;
     }
 };
 
@@ -353,11 +362,72 @@ const loadOfflineSection = async function(ref, versions, fallbackOnDefaultVersio
         return cached;
     }
     const [metadata, fileNameStem] = await loadOfflineSectionMetadataWithCache(ref);
-    const textByLang = await loadOfflineSectionByVersions(versions, metadata.versions, metadata.sectionRef, fileNameStem, fallbackOnDefaultVersions);
-    return createFullSectionObject(metadata, textByLang, Object.keys(versions));
+    if (!metadata || !metadata.sectionRef) {
+        // (not a section of this file: read it elsewhere - Sefaria's API - rather than show nothing)
+        throw ERRORS.MISSING_OFFLINE_DATA;
+    }
+    const textByLang = await loadOfflineSectionByVersions(versions, metadata.versions, metadata.sectionRef, fileNameStem,
+        fallbackOnDefaultVersions, metadata._fileSectionRef || metadata.sectionRef);
+    const full = createFullSectionObject(metadata, textByLang, Object.keys(versions));
+    delete full._fileSectionRef;
+    if (!full.next || !full.prev) {
+        try {
+            Object.assign(full, await neighboursAcrossFiles(full, fileNameStem));
+        } catch (e) {
+            console.log('offline: the sections around', ref, e);
+        }
+    }
+    return full;
 };
 
-const loadOfflineSectionByVersions = async function(selectedVersions, allVersions, ref, fileNameStem, fallbackOnDefaultVersions=true) {
+/**
+ * The section before and after `section` when its file does not name them (it is the first or
+ * last of its file, and the file was made without them: the Sofer Library's books, QA round 14 -
+ * reading stopped at the end of every section). From the book's files in the schema's order
+ * (reader/sectionOrder.js): the last section of the file before, the first of the file after.
+ * Only the missing ones are given: {prev?, next?}.
+ */
+const neighboursAcrossFiles = async function(section, fileNameStem) {
+    const title = section.indexTitle || Sefaria.textTitleForRef(section.sectionRef);
+    if (!title) { return {}; }
+    const order = await sectionFileOrder(title);
+    const at = order.indexOf(fileNameStem);
+    if (at < 0) { return {}; }
+    const inFile = async stem => {
+        try { return sectionsOfFile(await _loadJSON(_JSONMetadataPath(stem))).map(r => withoutDefault(r, title)); }
+        catch (e) { return []; }
+    };
+    const out = {};
+    if (!section.next && at + 1 < order.length) {
+        const refs = await inFile(order[at + 1]);
+        if (refs.length) { out.next = refs[0]; }
+    }
+    if (!section.prev && at > 0) {
+        const refs = await inFile(order[at - 1]);
+        if (refs.length) { out.prev = refs[refs.length - 1]; }
+    }
+    return out;
+};
+
+/** The stems of a book's unpacked section files, in reading order (kept until the book changes) */
+const sectionFileOrder = async function(title) {
+    const key = `${title}|fileOrder`;
+    if (Sefaria._jsonSectionData[key]) { return Sefaria._jsonSectionData[key]; }
+    const index = await _loadJSON(_indexJSONPath(title));
+    const suffix = '.metadata.json';
+    const names = (await FileSystem.readDirectoryAsync(FileSystem.documentDirectory))
+        .filter(n => n.endsWith(suffix) && n.startsWith(title))
+        .map(n => n.slice(0, -suffix.length))
+        .filter(stem => stem === title || stem.startsWith(`${title} `) || stem.startsWith(`${title},`));
+    // (only the files the schema places: another book whose title starts with this one's is not read on into)
+    const order = orderStems(index, names, {includeUnplaced: false});
+    Sefaria._jsonSectionData[key] = order;
+    return order;
+};
+
+const loadOfflineSectionByVersions = async function(selectedVersions, allVersions, ref, fileNameStem, fallbackOnDefaultVersions=true, fileRef=ref) {
+    // (fileRef: the section as its files name it, when that is not as the reader names it - a
+    //  default node's files, loadDefaultNodeMetadata)
     const textByLang = {};
     let defaultVersions = {};
     // content filter: a hidden version asked for (e.g. from history) falls back on the default
@@ -380,7 +450,7 @@ const loadOfflineSectionByVersions = async function(selectedVersions, allVersion
         }
         loadedVersions[lang] = loadedVTitle;
         // versionText may be depth-3. extract depth-2 if necessary.
-        textByLang[lang] = getSectionFromJsonData(ref, versionText);
+        textByLang[lang] = getSectionFromJsonData(fileRef, versionText);
     }
     if (Object.keys(textByLang).length === 0 && versionLoadError) {
         // if no versions were loaded successfully, throw.
@@ -505,6 +575,10 @@ const loadOfflineSectionMetadata = async function(ref) {
                 try {
                     return [preResolve(await _loadJSON(depth1JSONPath)), depth1FilenameStem];
                 } catch (e3) {
+                    // a book whose default node's files say "<title>, default 1" for "<title> 1"
+                    // (the Sofer Library's Beit Yosef, Orach Chayim: QA round 14)
+                    const found = await loadDefaultNodeMetadata(ref, bookRefStem, [fileNameStem, depth1FilenameStem]);
+                    if (found) { return found; }
                     throw ERRORS.MISSING_OFFLINE_DATA;
                 }
             }
@@ -512,6 +586,27 @@ const loadOfflineSectionMetadata = async function(ref) {
             throw ERRORS.MISSING_OFFLINE_DATA;
         }
     }
+};
+
+/**
+ * The section `ref` from the files of the book's default node named "<title>, default ..." -
+ * [section, the file's stem] with the section's refs as the reader names them, or null.
+ */
+const loadDefaultNodeMetadata = async function(ref, title, stems) {
+    const aliasRef = defaultAlias(ref, title);
+    if (!aliasRef) { return null; }
+    for (const stem of stems) {
+        const aliasStem = defaultAlias(stem, title);
+        if (!aliasStem) { continue; }
+        let data;
+        try { data = await _loadJSON(_JSONMetadataPath(aliasStem)); } catch (e) { continue; }
+        const section = getSectionFromJsonData(aliasRef, data);
+        if (!section || !section.sectionRef) { continue; }
+        const clean = {...section, _fileSectionRef: section.sectionRef};
+        for (const k of ['ref', 'sectionRef', 'prev', 'next']) { clean[k] = withoutDefault(section[k], title); }
+        return [clean, aliasStem];
+    }
+    return null;
 };
 
 const _unzipsInFlight = {};

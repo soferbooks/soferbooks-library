@@ -290,23 +290,43 @@ const SefariaProgressBar = ({ onPress, onClose, download, downloadNotification, 
 
     };
   }, [download]);  // we only want to resubscribe if the downloader object changes. This shouldn't happen, but the condition is here for completeness sake
-  const downloadPercentage = (Math.round(progress * 1000) / 10).toFixed(1);
+  // The full library's other books (extrasQueue.js) download alongside: the bar shows the whole
+  // (QA round 14: it showed Sefaria's share alone), and says when the download is paused
+  let overall = progress;
+  let overallSize = trueDownloadSize;
+  let pausedText = null;
+  try {
+    const queue = require('./extrasQueue');
+    const st = queue.getState();
+    if (st.sources.length) {
+      const q = queue.overallProgress();
+      const all = (trueDownloadSize || 0) + q.totalKB * 1024;
+      if (all > 0) {
+        overall = (progress * (trueDownloadSize || 0) + q.doneKB * 1024) / all;
+        overallSize = all;
+      }
+    }
+    if (download && download.pausedBy) { pausedText = strings.full_library.paused; }
+  } catch (e) { /* no queue */ }
+  overall = Math.max(0, Math.min(1, overall || 0));
+  const downloadPercentage = (Math.round(overall * 1000) / 10).toFixed(1);
   return (
     <TouchableOpacity onPress={!!onPress ? onPress : () => {
       }} disabled={!onPress} style={styles.sefariaProgressBar}>
         <View style={{flex: 1, flexDirection: interfaceLanguage === "hebrew" ? "row-reverse" : "row", height: 50, alignSelf: 'stretch'}}>
-          <View style={[{flex: progress}, theme.mainTextPanel]}>
+          <View style={[{flex: overall}, theme.mainTextPanel]}>
           </View>
-          <View style={[{flex: 1 - progress}, theme.lighterGreyBackground]}>
+          <View style={[{flex: 1 - overall}, theme.lighterGreyBackground]}>
           </View>
         </View>
         <View
           style={[{flexDirection: interfaceLanguage === "hebrew" ? "row-reverse" : "row"}, styles.sefariaProgressBarOverlay]}>
           <Text
             style={[{color: "#999"}, interfaceLanguage === "hebrew" ? styles.heInt : styles.enInt]}>{
-              downloadActive ? strings.formatString(strings.download.downloading_progress, {
+              pausedText ? pausedText
+              : downloadActive ? strings.formatString(strings.download.downloading_progress, {
                 percent: downloadPercentage,
-                size: parseInt(trueDownloadSize/ 1e6),
+                size: parseInt(overallSize / 1e6),
               })
                 :  <DynamicRepeatingText displayText={strings.common.connecting} repeatText={'.'} maxCount={3} />
           }</Text>

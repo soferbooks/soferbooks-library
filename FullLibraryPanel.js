@@ -3,21 +3,33 @@
 // its COMPLETE LIBRARY package (the package list's own download); the others go to the
 // background queue (extrasQueue.js), shown here with how far each source is, Pause / Resume /
 // Cancel and the Wi-Fi switch. All parts are ticked when it opens (owner, 2026-11-11).
+//
+// Space (QA round 14: 6.3 GB started with 2 GB free and filled the phone): the free space and
+// what the library takes are shown; a part that does not fit cannot be ticked, and Download is
+// offered only while the parts ticked fit (with a margin, storage.js). A part already on the
+// phone says so. Pause and Resume act on Sefaria's download and the queue together; Cancel
+// deletes what was half downloaded and keeps the books that came whole, and says so.
 import React, { useContext, useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, Switch, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, Switch, StyleSheet, Alert } from 'react-native';
+import * as FileSystem from 'expo-file-system/legacy';
 import { GlobalStateContext, getTheme } from './StateManager';
 import strings from './LocalizedStrings';
 import styles from './Styles';
 import * as extras from './extras';
 import * as queue from './extrasQueue';
-import { PackagesState } from './DownloadControl';
+import { PackagesState, Tracker, sefariaLibraryStatus } from './DownloadControl';
 import {
   FULL_LIBRARY, SEFARIA, fullLibraryParts, estimateAll, formatSize, partName,
 } from './fullLibrary';
+import { freeBytes, sizeOf, MARGIN_BYTES } from './storage';
 
 const sefariaBytes = () => {
   const p = PackagesState && PackagesState[FULL_LIBRARY];
   return (p && p.jsonData && p.jsonData.size) || 0;
+};
+
+const sefariaStatus = () => {
+  try { return (sefariaLibraryStatus && sefariaLibraryStatus()) || {chosen: false}; } catch (e) { return {chosen: false}; }
 };
 
 /** Each part's size as a line: "Dicta: 1.2 GB download, about 5.2 GB on the phone (1,156 books)" */
@@ -31,11 +43,43 @@ export function partLines(ids, isHebrew, options = {}) {
   return {lines, totalLine, parts, total};
 }
 
-const QueueStatus = ({ langStyle, theme, isHebrew }) => {
+/** Whether a part is all on the phone already */
+export function partComplete(id) {
+  if (id === SEFARIA) { return !!sefariaStatus().complete; }
+  if (!extras.isEnabled(id)) { return false; }
+  const p = queue.progressOf(id);
+  return p.total > 0 && p.done === p.total;
+}
+
+/** Whether a part's space on the phone, with the margin, fits in `free` bytes (null: not known) */
+export const partFits = (part, free) => free === null || free === undefined
+  || part.phoneKB * 1024 + MARGIN_BYTES <= free;
+
+const kB = bytes => (bytes || 0) / 1024;
+
+const QueueStatus = ({ langStyle, theme, isHebrew, onCancel }) => {
   const st = queue.getState();
-  if (!st.sources.length) { return null; }
+  const sef = sefariaStatus();
+  const sefariaUnderWay = sef.chosen && sef.downloading;
+  if (!st.sources.length && !sefariaUnderWay) { return null; }
+  const pausedBy = st.pausedBy || (sefariaUnderWay ? Tracker.pausedBy : null);
+  const paused = (st.sources.length ? st.paused : true) && (!sefariaUnderWay || !!Tracker.pausedBy);
+  const pause = () => {
+    queue.pause();
+    if (sefariaUnderWay) { Tracker.pause('user'); }
+  };
+  const resume = () => {
+    queue.resume();
+    if (sefariaUnderWay) { Tracker.resume().catch(e => console.log('full library: resume', e)); }
+  };
   return (
     <View testID="full-library-queue">
+      {sefariaUnderWay ? (
+        <Text style={[langStyle, theme.secondaryText, local.detail]}>
+          {`${partName(SEFARIA, strings, isHebrew)}: ${strings.formatString(strings.full_library.part_progress,
+            {done: sef.done.toLocaleString(), total: sef.total.toLocaleString()})}`}
+        </Text>
+      ) : null}
       {st.sources.map(id => {
         const p = queue.progressOf(id);
         return (
@@ -48,19 +92,25 @@ const QueueStatus = ({ langStyle, theme, isHebrew }) => {
         );
       })}
       {st.status === 'waiting_network' ? <Text style={[langStyle, theme.secondaryText, local.detail]}>{strings.full_library.waiting_wifi}</Text> : null}
-      {st.paused ? <Text style={[langStyle, theme.secondaryText, local.detail]}>{strings.full_library.paused}</Text> : null}
+      {paused ? (
+        <Text style={[langStyle, theme.secondaryText, local.detail]} testID="full-library-paused">
+          {pausedBy === 'low_space'
+            ? strings.formatString(strings.full_library.paused_low_space, {free: formatSize(kB(st.freeAtPause))})
+            : strings.full_library.paused}
+        </Text>
+      ) : null}
       <View style={local.row}>
-        {st.running && !st.paused
-          ? <Link text={strings.full_library.pause} onPress={() => queue.pause()} langStyle={langStyle} theme={theme} />
-          : <Link text={strings.full_library.resume} onPress={() => queue.resume()} langStyle={langStyle} theme={theme} />}
-        <Link text={strings.full_library.cancel} onPress={() => queue.cancel()} langStyle={langStyle} theme={theme} />
+        {paused
+          ? <Link text={strings.full_library.resume} onPress={resume} langStyle={langStyle} theme={theme} testID="full-library-resume" />
+          : <Link text={strings.full_library.pause} onPress={pause} langStyle={langStyle} theme={theme} testID="full-library-pause" />}
+        <Link text={strings.full_library.cancel} onPress={onCancel} langStyle={langStyle} theme={theme} testID="full-library-cancel" />
       </View>
     </View>
   );
 };
 
-const Link = ({ text, onPress, langStyle, theme }) => (
-  <TouchableOpacity onPress={onPress} accessibilityRole="button" style={local.link}>
+const Link = ({ text, onPress, langStyle, theme, testID }) => (
+  <TouchableOpacity onPress={onPress} accessibilityRole="button" style={local.link} testID={testID}>
     <Text style={[langStyle, theme.text, local.linkText]}>{text}</Text>
   </TouchableOpacity>
 );
@@ -71,49 +121,107 @@ export const FullLibraryPanel = ({ langStyle, onDownloadSefaria }) => {
   const isHebrew = interfaceLanguage === 'hebrew';
   const ids = fullLibraryParts();
   const [ticked, setTicked] = useState(() => Object.fromEntries(ids.map(id => [id, true])));
+  const [space, setSpace] = useState({free: null, used: null});
   const [, setTick] = useState(0);
   useEffect(() => {
-    const a = extras.subscribe(() => setTick(t => t + 1));
-    const b = queue.subscribe(() => setTick(t => t + 1));
-    return () => { a(); b(); };
+    let alive = true;
+    let last = 0;
+    const measure = async (force = false) => {
+      const now = Date.now();
+      if (!force && now - last < 5000) { return; }
+      last = now;
+      const [free, used] = await Promise.all([freeBytes(), sizeOf(`${FileSystem.documentDirectory}library`)]);
+      if (alive) { setSpace({free, used}); }
+    };
+    measure(true);
+    const changed = () => { setTick(t => t + 1); measure(); };
+    const a = extras.subscribe(changed);
+    const b = queue.subscribe(changed);
+    const c = 'full-library-panel';
+    if (Tracker && Tracker.subscribe) { Tracker.subscribe(c, changed); }
+    return () => {
+      alive = false; a(); b();
+      if (Tracker && Tracker.unsubscribe) { Tracker.unsubscribe(c); }
+    };
   }, []);
-  const chosen = ids.filter(id => ticked[id]);
   const {parts} = partLines(ids, isHebrew);
-  const {totalLine} = partLines(chosen, isHebrew);
+  const complete = Object.fromEntries(ids.map(id => [id, partComplete(id)]));
+  const fits = Object.fromEntries(ids.map(id => [id, partFits(parts[id], space.free)]));
+  // (what Download brings: the parts ticked that fit and are not on the phone already)
+  const chosen = ids.filter(id => ticked[id] && fits[id] && !complete[id]);
+  const {totalLine, total} = partLines(chosen, isHebrew);
+  const totalFits = partFits(total, space.free);
   const st = queue.getState();
+  const sef = sefariaStatus();
+  const underWay = (st.running && !st.paused) || (sef.chosen && sef.downloading && !Tracker.pausedBy);
   const download = async () => {
-    if (ticked[SEFARIA] && onDownloadSefaria) { await onDownloadSefaria(); }
+    if (!totalFits) { return; }
+    if (chosen.includes(SEFARIA) && onDownloadSefaria) { await onDownloadSefaria(); }
     const others = chosen.filter(id => id !== SEFARIA);
     if (others.length) { await queue.start(others); }
+  };
+  const cancel = async () => {
+    const sefariaKept = sef.chosen ? sef.done : 0;
+    if (sef.chosen && sef.downloading) { Tracker.cancelDownload(true); }
+    const kept = (await queue.cancel()) + sefariaKept;
+    Alert.alert(strings.full_library.cancelled_title,
+      strings.formatString(strings.full_library.cancelled_message, {count: kept.toLocaleString()}),
+      [{text: strings.common.ok}]);
+  };
+  const rowDetail = id => {
+    if (complete[id]) {
+      return strings.formatString(strings.full_library.part_done, {phone: formatSize(parts[id].phoneKB)});
+    }
+    const size = strings.formatString(strings.full_library.part_size,
+      {download: formatSize(parts[id].downloadKB), phone: formatSize(parts[id].phoneKB)});
+    const books = parts[id].books ? `  ·  ${strings.formatString(strings.full_library.part_books, {count: parts[id].books.toLocaleString()})}` : '';
+    const room = fits[id] ? '' : `  ·  ${strings.full_library.part_no_room}`;
+    return `${size}${books}${room}`;
   };
   return (
     <View style={styles.settingsSection} testID="full-library-panel">
       <Text style={[langStyle, theme.text, local.title]}>{strings.full_library.header}</Text>
       <Text style={[langStyle, theme.secondaryText, local.detail]}>{strings.full_library.description}</Text>
-      {ids.map(id => (
-        <TouchableOpacity
-          key={id}
-          accessibilityRole="checkbox"
-          accessibilityState={{ checked: !!ticked[id] }}
-          onPress={() => setTicked(t => ({...t, [id]: !t[id]}))}
-          style={local.part}
-          testID={`full-library-part-${id}`}
-        >
-          <Text style={[langStyle, theme.text]}>{ticked[id] ? '☑ ' : '☐ '}{partName(id, strings, isHebrew)}</Text>
-          <Text style={[langStyle, theme.secondaryText, local.detail]}>
-            {strings.formatString(strings.full_library.part_size,
-              {download: formatSize(parts[id].downloadKB), phone: formatSize(parts[id].phoneKB)})}
-            {parts[id].books ? `  ·  ${strings.formatString(strings.full_library.part_books, {count: parts[id].books.toLocaleString()})}` : ''}
-          </Text>
-        </TouchableOpacity>
-      ))}
-      <Text style={[langStyle, theme.text, local.total]} testID="full-library-total">{totalLine}</Text>
+      {space.free !== null ? (
+        <Text style={[langStyle, theme.secondaryText, local.detail]} testID="full-library-space">
+          {strings.formatString(strings.full_library.space, {free: formatSize(kB(space.free)), used: formatSize(kB(space.used))})}
+        </Text>
+      ) : null}
+      {ids.map(id => {
+        const disabled = complete[id] || !fits[id];
+        const checked = !!ticked[id] && !disabled;
+        return (
+          <TouchableOpacity
+            key={id}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked, disabled }}
+            disabled={disabled}
+            onPress={() => setTicked(t => ({...t, [id]: !t[id]}))}
+            style={local.part}
+            testID={`full-library-part-${id}`}
+          >
+            <Text style={[langStyle, disabled ? theme.secondaryText : theme.text]}>
+              {complete[id] ? '✓ ' : (checked ? '☑ ' : '☐ ')}{partName(id, strings, isHebrew)}
+            </Text>
+            <Text style={[langStyle, theme.secondaryText, local.detail]}>{rowDetail(id)}</Text>
+          </TouchableOpacity>
+        );
+      })}
+      {chosen.length ? <Text style={[langStyle, theme.text, local.total]} testID="full-library-total">{totalLine}</Text> : null}
+      {chosen.length && !totalFits ? (
+        <Text style={[langStyle, theme.text, local.detail]} testID="full-library-no-room">
+          {strings.formatString(strings.full_library.not_enough_space,
+            {needed: formatSize(total.phoneKB + kB(MARGIN_BYTES)), free: formatSize(kB(space.free))})}
+        </Text>
+      ) : null}
       <View style={local.row}>
         <Text style={[langStyle, theme.text, local.grow]}>{strings.full_library.wifi_only}</Text>
         <Switch value={st.wifiOnly !== false} onValueChange={v => queue.setWifiOnly(v)} accessibilityLabel={strings.full_library.wifi_only} />
       </View>
-      {chosen.length ? <Link text={strings.full_library.download} onPress={download} langStyle={langStyle} theme={theme} /> : null}
-      <QueueStatus langStyle={langStyle} theme={theme} isHebrew={isHebrew} />
+      {chosen.length && totalFits && !underWay
+        ? <Link text={strings.full_library.download} onPress={download} langStyle={langStyle} theme={theme} testID="full-library-download" />
+        : null}
+      <QueueStatus langStyle={langStyle} theme={theme} isHebrew={isHebrew} onCancel={cancel} />
     </View>
   );
 };
