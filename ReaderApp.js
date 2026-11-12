@@ -128,6 +128,7 @@ import {
   DEFAULT_PANEL_FLEX,
   displayMenuTop,
 } from "./reader/panelLayout";
+import { ERRORS } from "./errors";
 
 const ViewPort = Dimensions.get('window');
 
@@ -137,6 +138,32 @@ const ViewPort = Dimensions.get('window');
  */
 export const isOtherPassage = (state, section, segment) =>
   segment !== state.segmentIndexRef || section !== state.sectionIndexRef;
+
+/**
+ * The connections panel's state as it should come back (Back, or switching to a tab kept in
+ * memory). A page saved while the panel was closing has textListVisible still true but its height
+ * already ~0: it came back as an "open" panel nobody could see, so a tap on a passage only "closed"
+ * it and seemed to do nothing (once seen: 3 taps on passage 1 after switching tabs). Such a panel
+ * comes back closed.
+ */
+export const settledPanelState = state => {
+  if (state && state.textListVisible && typeof state.textListFlex === 'number' && state.textListFlex < 0.001) {
+    return { textListVisible: false, textListFlex: 0.0001 };
+  }
+  return {};
+};
+
+/**
+ * Can the connections panel's open source list keep its loaded texts when its filter is worked out
+ * again (updateLinkCat)? Only when it lists exactly the same sources and every one has its text.
+ */
+export const keepLoadedLinkContents = (prevFilter, nextFilter, linkContents) => {
+  if (!prevFilter || !nextFilter || !Array.isArray(linkContents)) { return false; }
+  const prevRefs = prevFilter.refList || [];
+  const nextRefs = nextFilter.refList || [];
+  if (!nextRefs.length || prevRefs.length !== nextRefs.length || linkContents.length !== nextRefs.length) { return false; }
+  return nextRefs.every((ref, i) => ref === prevRefs[i]) && linkContents.every(c => c != null);
+};
 
 // Reader state kept per open tab in memory, so switching back to a tab is instant and keeps its
 // exact place, open panel and filters. (Tabs that are not in memory reopen from their saved place.)
@@ -264,7 +291,7 @@ class ReaderApp extends React.PureComponent {
     this.NetInfoEventListener = NetInfo.addEventListener(
       this.networkChangeListener
     );
-    this.backHandlerListener = BackHandler.addEventListener('hardwareBackPress', this.manageBack);
+    this.backHandlerListener = BackHandler.addEventListener('hardwareBackPress', this.onHardwareBack);
     this.dimensionsSubscription = Dimensions.addEventListener('change', ({ window }) => {
       this.setState({ windowWidth: window.width });
     });
@@ -452,6 +479,20 @@ class ReaderApp extends React.PureComponent {
     return func({ tab: this.state.footerTab, ...args });
   };
 
+  /**
+   * Android's Back button: it closes the topmost overlay first, and only then goes back a page.
+   * (The open-choice and tab menus are native dialogs and the tab archive a Modal: Android closes
+   *  those itself. The "Aa" display menu is a view over the reader, so it is closed here - Back
+   *  used to leave the reader with the menu still open. QA 2026-11-11)
+   */
+  onHardwareBack = () => {
+    if (this.state.ReaderDisplayOptionsMenuVisible) {
+      this.closeReaderDisplayOptionsMenu();
+      return true;
+    }
+    return this.manageBack();
+  };
+
   manageBack = type => {
     const oldState = this.modifyHistory({dir: "back", type});
     if (!!oldState) {
@@ -475,6 +516,7 @@ class ReaderApp extends React.PureComponent {
     // (Back to Niddah after "Open here": 2-3 taps to open the panel - QA 2026-11-11)
     oldState.textListAnimating = false;
     oldState.ReaderDisplayOptionsMenuVisible = false;
+    Object.assign(oldState, settledPanelState(oldState));
     this._loadToken++;
     const isTextColumn = !oldState.menuOpen;
     if (isTextColumn) {
@@ -547,9 +589,12 @@ class ReaderApp extends React.PureComponent {
   }
 
   closeReaderDisplayOptionsMenu = () => {
-    this._readerDisplayOptionsMenuRef && this._readerDisplayOptionsMenuRef.hide(() => {
-      this.setState({ReaderDisplayOptionsMenuVisible:  false});
-    });
+    const hidden = () => this.setState({ReaderDisplayOptionsMenuVisible:  false});
+    if (this._readerDisplayOptionsMenuRef && this._readerDisplayOptionsMenuRef.hide) {
+      this._readerDisplayOptionsMenuRef.hide(hidden);
+    } else {
+      hidden();  // (no menu mounted to animate: just mark it closed, so it can never stay "open")
+    }
   }
 
   toggleReaderDisplayOptionsMenu = () => {
@@ -942,7 +987,12 @@ class ReaderApp extends React.PureComponent {
         hadSuccess = true;
         // TODO check that online call is necessary even after offline call
       } catch (error) {
-        console.warn(new Error(`Related load error: Message: ${error}`));
+        if (!isOnline && error === ERRORS.MISSING_OFFLINE_DATA) {
+          // expected: the book's links are not downloaded, so they are read online next (not an error)
+          console.log(`Related: ${ref} not downloaded, reading its links online`);
+        } else {
+          console.warn(new Error(`Related load error: Message: ${error}`));
+        }
       }
     }
     if (!hadSuccess) {
@@ -1609,12 +1659,23 @@ ${strings.formatString(strings.extras.download_size,
       }
       const nextFilter = new LinkFilter(name, heName, collectiveTitle, heCollectiveTitle, nextRefList, nextHeRefList, category);
 
+      // The same sources, all already loaded (e.g. the panel's links arriving again after Back
+      // restored it): keep their texts rather than emptying the list to "Loading..."
+      const prevFilter = this.state.linkRecentFilters[filterIndex];
+      if (keepLoadedLinkContents(prevFilter, nextFilter, this.state.linkContents)) {
+        this.setState(prevState => {
+          const newLinkRecentFilters = [...prevState.linkRecentFilters];
+          newLinkRecentFilters[filterIndex] = nextFilter;
+          return { filterIndex, linkRecentFilters: newLinkRecentFilters };
+        });
+        return;
+      }
       Sefaria.links.reset();
       this.setState(prevState => {
         const newLinkRecentFilters = [...prevState.linkRecentFilters];
         newLinkRecentFilters[filterIndex] = nextFilter;
         const linkContents = nextFilter.refList.map((ref)=>null);
-        
+
         return {
           filterIndex,
           linkRecentFilters: newLinkRecentFilters,
@@ -2207,6 +2268,7 @@ ${strings.formatString(strings.extras.download_size,
         loadingTextHead: false,
         textListAnimating: false,
         ReaderDisplayOptionsMenuVisible: false,
+        ...settledPanelState(snapshot),
         // TextColumn jumps to offsetRef when (re)mounted: put the tab back at its top segment
         offsetRef: (snapshot.segmentIndexRef !== -1 && snapshot.segmentRef) ? snapshot.segmentRef : snapshot.offsetRef,
         textColumnKey: `${id}|${Date.now()}`,

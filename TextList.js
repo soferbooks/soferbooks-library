@@ -38,6 +38,21 @@ const defaultLinkContent = () => ({en: strings.common.loading, he: "", sectionRe
 const noContentLinkContent = () => ({en: strings.errors.no_content, he: "", sectionRef: ""});
 const errorLinkContent = () => ({en: strings.errors.failed_to_load_text, he: "", sectionRef: ""});
 
+/**
+ * Which sources of the panel's list to ask for again after the list's contents changed: those that
+ * just went back to "not loaded" (or all of a list emptied anew), of the ones on screen - or, before
+ * the list has said what is on screen, of all of them. Positions that were already waiting are not
+ * asked for twice.
+ */
+export const reloadPositions = (prevContents, contents, visiblePositions) => {
+  if (!Array.isArray(contents) || !contents.length) { return []; }
+  const prev = Array.isArray(prevContents) ? prevContents : [];
+  const allEmptiedAnew = contents.every(c => c === null) && prev !== contents;
+  const wantsLoad = pos => contents[pos] === null && (allEmptiedAnew || (prev[pos] != null));
+  const candidates = (visiblePositions && visiblePositions.length) ? visiblePositions : contents.map((c, i) => i);
+  return [...new Set(candidates)].filter(pos => pos >= 0 && pos < contents.length && wantsLoad(pos));
+};
+
 class TextList extends React.Component {
   static whyDidYouRender = true;
   static propTypes = {
@@ -94,6 +109,22 @@ class TextList extends React.Component {
       curFilter.refList.forEach((ref, i) => {
         this.props.loadContent(ref, i)
       })
+    } else if (this.props.listContents !== prevProps.listContents &&
+               this.props.segmentRef === prevProps.segmentRef) {
+      // The same list emptied again (its links arrived once more, e.g. after Back brought the panel
+      // back): the sources on screen do not change, so onViewableItemsChanged never asks for them
+      // and they said "Loading..." for good. Ask for them here. (A new segment remounts the list.)
+      const filter = this.props.recentFilters[this.props.filterIndex];
+      const prevFilter = prevProps.recentFilters && prevProps.recentFilters[prevProps.filterIndex];
+      const sameSources = !!filter && !!prevFilter && this.props.connectionsMode === prevProps.connectionsMode &&
+        filter.refList.length === prevFilter.refList.length && filter.refList.every((r, i) => r === prevFilter.refList[i]);
+      // (another list - a new filter - is new rows: the FlatList asks for those itself)
+      if (!sameSources) { return; }
+      for (const pos of reloadPositions(prevProps.listContents, this.props.listContents, this._visibleSegments.map(s => s.item.pos))) {
+        if (filter && filter.refList[pos] !== undefined) {
+          this.props.loadContent(filter.refList[pos], pos, filter.versionTitle, filter.versionLanguage);
+        }
+      }
     }
   }
 

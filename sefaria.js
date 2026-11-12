@@ -869,7 +869,10 @@ global.Sefaria = {
                                                     });
       }
       if (Sefaria.links._linkContentLoadingStack.length === 1 || runNow) {
-        return Sefaria.offlineOnline.loadText(ref, false).then(parseData);
+        // a source that fails to load must still make way for the next ones: otherwise the queue
+        // stayed stuck on it and every later source of the panel said "Loading..." for good
+        return Sefaria.offlineOnline.loadText(ref, false).then(parseData, error => parseData({}).then(
+          () => { throw error; }, () => { throw error; }));
       } else {
         //console.log("Rejecting", ref);
         return new Promise(function(resolve, reject) {
