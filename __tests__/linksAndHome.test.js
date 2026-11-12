@@ -26,7 +26,6 @@ beforeAll(() => {
   // what the home page reads off the Sefaria singleton (as in i18nRendering.test.js)
   Sefaria.toc = [{ category: 'Tanakh', heCategory: 'תנ״ך', enShortDesc: 'The Hebrew Bible.', heShortDesc: 'המקרא.' }];
   Sefaria.calendar = {};   // truthy: the calendar counts as loaded, nothing is read from the device
-  Sefaria.galusOrIsrael = 'diaspora';
 });
 
 const allText = inst => inst.root.findAllByType(Text)

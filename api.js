@@ -193,6 +193,8 @@ var Api = {
           break;
         case "parashaNextRead":
           url += "api/calendars/next-read/";
+          // Israel or outside Israel (the setting, learningSchedules/calendarLocation.js)
+          if (extra_args && typeof extra_args.diaspora === 'boolean') { urlSuffix = `?diaspora=${extra_args.diaspora ? 1 : 0}`; }
           break;
         case "lexicon":
           const { words } = extra_args;
@@ -381,12 +383,14 @@ var Api = {
     }
   },
 
-  getParashaNextRead: async function(parasha) {
-    const cached = Sefaria.api._parashaNextRead[parasha];
+  getParashaNextRead: async function(parasha, diaspora = true) {
+    // diaspora: outside Israel (the setting, global state `calendarLocation`)
+    const key = `${diaspora ? 1 : 0}|${parasha}`;
+    const cached = Sefaria.api._parashaNextRead[key];
     if (!!cached) { return cached; }
     try {
-      const response = await Sefaria.api._request(parasha, 'parashaNextRead', false, {}, true);
-      Sefaria.api._parashaNextRead[parasha] = response;
+      const response = await Sefaria.api._request(parasha, 'parashaNextRead', false, {diaspora: !!diaspora}, true);
+      Sefaria.api._parashaNextRead[key] = response;
       return response;
     } catch(error) {
       console.log("parashaNextRead API error:", error, parasha);
