@@ -15,6 +15,7 @@ import {
   UIManager,
   Linking,
   Share,
+  AppState,
 } from 'react-native';
 import NetInfo from "@react-native-community/netinfo";
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -83,8 +84,15 @@ import {
   findTabForBook,
   findTabForSchedule,
   tabResumeRef,
+  pinTab,
+  unpinTab,
+  canPinTab,
+  isPinned,
+  resolveTabShortcut,
+  MAX_PINNED_TABS,
 } from "./tabs/tabState";
 import { loadTabs, makeDebouncedTabSaver } from "./tabs/tabStorage";
+import { addTabShortcut } from "./tabs/tabShortcuts";
 import SplitTabPane from "./reader/SplitTabPane";
 import { makeScheduleSequence, sequenceAt, currentReading, hasSequence, isBounded, boundedNeighbours, readingIndexOf, isLastReading } from "./learningSchedules/scheduleSequence";
 import { chokDaySequence } from "./learningSchedules/chokDay";
@@ -254,6 +262,11 @@ class ReaderApp extends React.PureComponent {
       this.setState({ windowWidth: window.width });
     });
     this._extrasSubscription = extras.subscribe(this._onExtrasChanged);
+    // leaving the app: write the tabs' places now (the debounced save may never run if Android
+    // then stops the app), so every tab - pinned ones above all - reopens at its latest place
+    this._appStateSubscription = AppState.addEventListener?.('change', next => {
+      if (next !== 'active') { this._saveTabs.flush(); }
+    });
     // nikud by computer (Dicta): its settings, shared with the Settings page
     this._nakdanSubscription = subscribeNakdanPrefs(nakdanPrefs => this.setState({ nakdanPrefs }));
     loadNakdanPrefs().catch(() => {});
@@ -281,6 +294,7 @@ class ReaderApp extends React.PureComponent {
     this._extrasSubscription && this._extrasSubscription();
     this._nakdanSubscription && this._nakdanSubscription();
     this.dimensionsSubscription && this.dimensionsSubscription.remove();
+    this._appStateSubscription && this._appStateSubscription.remove && this._appStateSubscription.remove();
     this._saveTabs.flush();
   }
 
@@ -2401,6 +2415,66 @@ ${strings.formatString(strings.extras.download_size,
     this.setState(prev => ({ readerTabs: clearRecentlyClosedTabs(prev.readerTabs) }));
   };
 
+  /* ---------- pinned tabs and their home-screen shortcuts ---------- */
+
+  /** Pin tab `id` (tabs/tabState.js pinTab). Returns false when it could not be pinned. */
+  pinReaderTab = id => {
+    const tab = findTab(this.state.readerTabs, id);
+    if (!tab) { return false; }
+    if (isPinned(tab)) { return true; }
+    if (!canPinTab(this.state.readerTabs)) {
+      this.showToast(strings.formatString(strings.tabs.pin_limit, { count: MAX_PINNED_TABS }), Toast.durations.LONG);
+      return false;
+    }
+    this.setState(prev => ({ readerTabs: pinTab(prev.readerTabs, id) }));
+    return true;
+  };
+
+  unpinReaderTab = id => {
+    const next = unpinTab(this.state.readerTabs, id);
+    if (next === this.state.readerTabs) { return; }
+    this._pruneSnapshots(next);
+    this.setState({ readerTabs: next });
+  };
+
+  /**
+   * "Add to home screen": pins the tab (if it is not yet) and asks the launcher for a shortcut
+   * named after the book. The shortcut opens this tab at the latest place read in it.
+   */
+  addReaderTabToHomeScreen = async id => {
+    const tab = findTab(this.state.readerTabs, id);
+    if (!tab || !this.pinReaderTab(id)) { return false; }
+    const heTitle = tab.heTitle || Sefaria.index(tab.title)?.heTitle;
+    const label = (this.props.interfaceLanguage === 'hebrew' && heTitle) ? heTitle : tab.title;
+    const asked = await addTabShortcut(tab, label);
+    if (!asked) { this.showToast(strings.tabs.shortcut_unsupported, Toast.durations.LONG); }
+    return asked;
+  };
+
+  /**
+   * A pinned tab's home-screen shortcut was tapped (DeepLinkRouter, soferbooks://tab/<id>):
+   * open that tab at its latest place; if it was closed since, the book's last-read place,
+   * else the book's contents page (tabs/tabState.js resolveTabShortcut).
+   */
+  openTabShortcut = ({ tabId, title } = {}) => {
+    const target = resolveTabShortcut(this.state.readerTabs, tabId, title,
+      book => Sefaria.history.getHistoryRefForTitle(book)?.ref);
+    switch (target.kind) {
+      case 'tab':
+        return this.switchToTab(target.id);
+      case 'archived':
+        return this.restoreArchivedReaderTab(target.id);
+      case 'ref': {
+        const existing = findTabForBook(this.state.readerTabs, target.title);
+        return existing ? this.switchToTab(existing.id, { ref: target.ref }) : this.openRefInNewTab(target.ref);
+      }
+      case 'book':
+        return this.openTextTocDirectly(target.title);
+      default:
+        return this.openNav(false);
+    }
+  };
+
   /* ---------- tablet split view ---------- */
 
   _isSplitViewAvailable = () => this.state.windowWidth >= SPLIT_VIEW_MIN_WIDTH;
@@ -2607,6 +2681,9 @@ ${strings.formatString(strings.extras.download_size,
                 onRestoreClosed={this.restoreRecentlyClosedReaderTab}
                 onRemoveClosed={this.removeRecentlyClosedReaderTab}
                 onClearClosed={this.clearRecentlyClosedReaderTabs}
+                onPin={this.pinReaderTab}
+                onUnpin={this.unpinReaderTab}
+                onAddToHomeScreen={this.addReaderTabToHomeScreen}
               /> : null}
             <CategoryColorLine category={Sefaria.primaryCategoryForTitle(this.state.textTitle, isSheet)} />
             <ReaderControls
@@ -2896,6 +2973,7 @@ ${strings.formatString(strings.extras.download_size,
             openMenu={this.openMenu}
             openRef={this.openRef}
             openRefInNewTab={this.openRefInNewTab}
+            openTabShortcut={this.openTabShortcut}
             openUri={this.openUri}
             openSearch={this.openSearch}
             setSearchOptions={this.setSearchOptions}

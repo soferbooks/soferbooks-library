@@ -122,16 +122,22 @@ describe('tab labels name the passage', () => {
     Sefaria.booksDict['Shulchan Arukh, Orach Chayim'] = 1;
   });
 
-  test("a tab opened at a se'if says so, in both languages", () => {
+  // the home page's Open Tabs cards name the se'if ({ passage: true }); the tab strip itself
+  // names the siman only, so its title does not change while reading (QA, 2026-11-11)
+  test("a tab opened at a se'if says so on the home page, in both languages", () => {
     const tab = {
       title: 'Shulchan Arukh, Orach Chayim', ref: 'Shulchan Arukh, Orach Chayim 447',
       heRef: 'שולחן ערוך, אורח חיים תמ״ז', segmentRef: 'Shulchan Arukh, Orach Chayim 447:11',
     };
-    expect(tabLabel(tab, false)).toBe('Shulchan Arukh, Orach Chayim 447:11');
-    expect(tabLabel(tab, true)).toMatch(/^שולחן ערוך, אורח חיים תמ״ז:/);
-    expect(tabLabel({ ...tab, segmentRef: null }, false)).toBe('Shulchan Arukh, Orach Chayim 447');
+    const passage = { passage: true };
+    expect(tabLabel(tab, false, passage)).toBe('Shulchan Arukh, Orach Chayim 447:11');
+    expect(tabLabel(tab, true, passage)).toMatch(/^שולחן ערוך, אורח חיים תמ״ז:/);
+    expect(tabLabel({ ...tab, segmentRef: null }, false, passage)).toBe('Shulchan Arukh, Orach Chayim 447');
     // a place in another section is not this section's
-    expect(tabLabel({ ...tab, segmentRef: 'Shulchan Arukh, Orach Chayim 448:1' }, false)).toBe('Shulchan Arukh, Orach Chayim 447');
+    expect(tabLabel({ ...tab, segmentRef: 'Shulchan Arukh, Orach Chayim 448:1' }, false, passage)).toBe('Shulchan Arukh, Orach Chayim 447');
+    // the tab strip
+    expect(tabLabel(tab, false)).toBe('Shulchan Arukh, Orach Chayim 447');
+    expect(tabLabel(tab, true)).toBe('שולחן ערוך, אורח חיים תמ״ז');
   });
 
   test("an extra book's tab shows its Hebrew section names", () => {

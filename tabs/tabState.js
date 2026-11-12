@@ -11,16 +11,21 @@
  *     recentlyClosed: [ClosedTab], // tabs the user closed, newest first (like Chrome's "Recently closed")
  *   }
  *   Tab         = { id, title, heTitle, ref, heRef, segmentRef, versions, textLanguage,
- *                   textListVisible, connectionsMode, lastUsed, openedAt }
+ *                   textListVisible, connectionsMode, lastUsed, openedAt, pinned? }
  *   ArchivedTab = { id, title, heTitle, ref, heRef, versions, archivedAt }
  *   ClosedTab   = { id, title, heTitle, ref, heRef, versions, closedAt }   (ref = the exact place)
  *
  * At most MAX_OPEN_TABS are open. Opening one more moves the least-recently-used tab that is
  * not the active one to the front of `archived` (like Chrome's tab discarding, but visible).
+ *
+ * Pinned tabs (`pinned: true`, at most MAX_PINNED_TABS) sit at the front of `tabs`, are never
+ * archived and do not count toward MAX_OPEN_TABS: the limit is on the unpinned tabs. They are
+ * saved with the other tabs, so they survive a restart at their latest place.
  * Every function returns a new state object and never mutates its input.
  */
 
 export const MAX_OPEN_TABS = 10;
+export const MAX_PINNED_TABS = 10;
 export const MAX_ARCHIVED_TABS = 50;
 export const MAX_RECENTLY_CLOSED_TABS = 50;
 export const TABS_STORAGE_KEY = 'readerTabs.v1';
@@ -92,13 +97,26 @@ const addRecentlyClosed = (state, closedTabs, now) => {
   return [...closedTabs.map(t => toClosed(t, now)), ...rest].slice(0, MAX_RECENTLY_CLOSED_TABS);
 };
 
-/** Archive least-recently-used non-active tabs until at most MAX_OPEN_TABS remain open. */
+export const isPinned = tab => !!(tab && tab.pinned);
+
+/** Pinned tabs first, each group keeping its order. Returns the same array when already so. */
+const pinnedFirst = tabs => {
+  const pinned = tabs.filter(isPinned);
+  if (tabs.slice(0, pinned.length).every(isPinned)) { return tabs; }
+  return [...pinned, ...tabs.filter(t => !isPinned(t))];
+};
+
+/**
+ * Archive least-recently-used non-active, unpinned tabs until at most MAX_OPEN_TABS unpinned
+ * tabs remain open. Pinned tabs are never archived and do not count.
+ */
 export const enforceTabLimit = (state, now = Date.now(), maxOpen = MAX_OPEN_TABS) => {
-  if (state.tabs.length <= maxOpen) { return state; }
+  const unpinnedCount = tabs => tabs.filter(t => !isPinned(t)).length;
+  if (unpinnedCount(state.tabs) <= maxOpen) { return state; }
   let tabs = [...state.tabs];
   let archived = [...state.archived];
-  while (tabs.length > maxOpen) {
-    const candidates = tabs.filter(t => t.id !== state.activeTabId);
+  while (unpinnedCount(tabs) > maxOpen) {
+    const candidates = tabs.filter(t => t.id !== state.activeTabId && !isPinned(t));
     const lru = candidates.reduce((worst, t) => (!worst || (t.lastUsed || 0) < (worst.lastUsed || 0) ? t : worst), null);
     if (!lru) { break; }
     tabs = tabs.filter(t => t.id !== lru.id);
@@ -115,7 +133,8 @@ export const openTab = (state, place, { now = Date.now(), id = newTabId(now), ac
   const tab = { ...pickPlace(place), id, lastUsed: now, openedAt: now };
   const tabs = [...state.tabs];
   const activeIdx = tabs.findIndex(t => t.id === state.activeTabId);
-  tabs.splice(activeIdx === -1 ? tabs.length : activeIdx + 1, 0, tab);
+  const afterPinned = tabs.filter(isPinned).length;  // a new tab is never put among the pinned ones
+  tabs.splice(activeIdx === -1 ? tabs.length : Math.max(activeIdx + 1, afterPinned), 0, tab);
   return enforceTabLimit({ ...state, tabs, activeTabId: activate ? id : (state.activeTabId || id) }, now);
 };
 
@@ -151,12 +170,60 @@ export const closeTab = (state, id, now = Date.now()) => {
   return { ...state, tabs, activeTabId, recentlyClosed: addRecentlyClosed(state, [closing], now) };
 };
 
+/** Close every tab but `id` and the pinned tabs (a pinned tab is closed only on its own). */
 export const closeOtherTabs = (state, id, now = Date.now()) => {
   const keep = findTab(state, id);
   if (!keep) { return state; }
   // most recently used first, so the list reads newest first
-  const others = state.tabs.filter(t => t.id !== id).sort((a, b) => (b.lastUsed || 0) - (a.lastUsed || 0));
-  return { ...state, tabs: [keep], activeTabId: id, recentlyClosed: addRecentlyClosed(state, others, now) };
+  const others = state.tabs.filter(t => t.id !== id && !isPinned(t)).sort((a, b) => (b.lastUsed || 0) - (a.lastUsed || 0));
+  const tabs = state.tabs.filter(t => t.id === id || isPinned(t));
+  return { ...state, tabs, activeTabId: id, recentlyClosed: addRecentlyClosed(state, others, now) };
+};
+
+/**
+ * Pin tab `id`: it moves to the end of the pinned tabs at the front. Returns the same state
+ * when the tab is missing, already pinned, or MAX_PINNED_TABS are pinned (see canPinTab).
+ */
+export const pinTab = (state, id) => {
+  const tab = findTab(state, id);
+  if (!tab || isPinned(tab) || !canPinTab(state)) { return state; }
+  const pinned = state.tabs.filter(isPinned);
+  const rest = state.tabs.filter(t => !isPinned(t) && t.id !== id);
+  return { ...state, tabs: [...pinned, { ...tab, pinned: true }, ...rest] };
+};
+
+export const canPinTab = state => state.tabs.filter(isPinned).length < MAX_PINNED_TABS;
+
+/** Unpin tab `id`: it becomes the first unpinned tab (it may then be archived as usual). */
+export const unpinTab = (state, id, now = Date.now()) => {
+  const tab = findTab(state, id);
+  if (!tab || !isPinned(tab)) { return state; }
+  const { pinned: _drop, ...unpinned } = tab;
+  const pinned = state.tabs.filter(t => isPinned(t) && t.id !== id);
+  const rest = state.tabs.filter(t => !isPinned(t));
+  return enforceTabLimit({ ...state, tabs: [...pinned, unpinned, ...rest] }, now);
+};
+
+/**
+ * Where a home-screen shortcut for tab `tabId` (book `title`) should open, decided when it is
+ * tapped, not when it was made:
+ *   { kind: 'tab', id }        the tab is open: show it at its latest place
+ *   { kind: 'archived', id }   it was archived since: reopen it at its place
+ *   { kind: 'ref', ref, title } it was closed: the book's last-read place (`lastReadRef(title)`,
+ *                              e.g. from reading history), else where the tab was closed
+ *   { kind: 'book', title }    nothing known: the book's start
+ *   { kind: 'none' }           no tab and no book
+ */
+export const resolveTabShortcut = (state, tabId, title = null, lastReadRef = () => null) => {
+  if (tabId && findTab(state, tabId)) { return { kind: 'tab', id: tabId }; }
+  if (tabId && (state.archived || []).some(a => a.id === tabId)) { return { kind: 'archived', id: tabId }; }
+  const closed = tabId ? (state.recentlyClosed || []).find(c => c.id === tabId) : null;
+  const book = title || (closed && closed.title) || null;
+  if (!book) { return { kind: 'none' }; }
+  let ref = null;
+  try { ref = lastReadRef(book) || null; } catch (e) { ref = null; }
+  if (!ref && closed && closed.title === book) { ref = closed.ref; }
+  return ref ? { kind: 'ref', ref, title: book } : { kind: 'book', title: book };
 };
 
 /** Reopen an archived tab as an open, active tab (may archive another LRU tab). */
@@ -215,11 +282,11 @@ export const deserializeTabs = (raw, now = Date.now()) => {
   }
   if (!parsed || typeof parsed !== 'object') { return emptyTabsState(); }
   const seen = new Set();
-  const tabs = (Array.isArray(parsed.tabs) ? parsed.tabs : []).filter(isValidEntry).filter(t => {
+  const tabs = pinnedFirst((Array.isArray(parsed.tabs) ? parsed.tabs : []).filter(isValidEntry).filter(t => {
     if (seen.has(t.id)) { return false; }
     seen.add(t.id);
     return true;
-  });
+  }));
   const archived = (Array.isArray(parsed.archived) ? parsed.archived : []).filter(isValidEntry).filter(a => !seen.has(a.id));
   const recentlyClosed = (Array.isArray(parsed.recentlyClosed) ? parsed.recentlyClosed : []).filter(isValidEntry).filter(c => !seen.has(c.id));
   let activeTabId = tabs.some(t => t.id === parsed.activeTabId) ? parsed.activeTabId : null;

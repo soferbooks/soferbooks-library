@@ -12,6 +12,7 @@ import com.facebook.react.ReactPackage
 import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
 import com.facebook.react.defaults.DefaultReactNativeHost
 import com.facebook.react.modules.i18nmanager.I18nUtil
+import org.sefaria.sefaria.shortcuts.PinnedShortcutsPackage
 
 class MainApplication : Application(), ReactApplication {
 
@@ -20,6 +21,7 @@ class MainApplication : Application(), ReactApplication {
             PackageList(this).packages.apply {
               // Packages that cannot be autolinked yet can be added manually here, for example:
               // add(MyReactNativePackage())
+              add(PinnedShortcutsPackage())  // home-screen shortcuts for pinned tabs (tabs/tabShortcuts.js)
             }
 
         override fun getJSMainModuleName(): String = "index"

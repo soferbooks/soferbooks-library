@@ -9,10 +9,11 @@ import styles from '../Styles';
 import strings from '../LocalizedStrings';
 import Sefaria from '../sefaria';
 import { tabLabel } from './ReaderTabBar';
+import { isPinned } from './tabState';
 
 /**
- * Home page strip of the reader's open tabs, most recently used first. Tapping one opens the
- * reader on that tab at its place. Renders nothing when no tabs are open.
+ * Home page strip of the reader's open tabs: pinned ones first, then most recently used first.
+ * Tapping one opens the reader on that tab at its place. Renders nothing when no tabs are open.
  * Data and the open handler come from ReaderApp through ReaderAppContext.
  * `Header`: the heading component (the home page passes its own section heading, in Cinzel).
  */
@@ -22,7 +23,8 @@ const OpenTabsStrip = ({ Header = null }) => {
   const tabs = readerTabs?.tabs || [];
   if (!tabs.length || !openReaderTab) { return null; }
   const isHeb = menuLanguage === 'hebrew';
-  const ordered = [...tabs].sort((a, b) => (b.lastUsed || 0) - (a.lastUsed || 0));
+  // pinned tabs first, then most recently used first
+  const ordered = [...tabs].sort((a, b) => (isPinned(b) - isPinned(a)) || ((b.lastUsed || 0) - (a.lastUsed || 0)));
   return (
     <View style={styles.homeSection}>
       {Header ? <Header /> :
@@ -31,7 +33,7 @@ const OpenTabsStrip = ({ Header = null }) => {
         {ordered.map(tab => (
           <TouchableOpacity key={tab.id} onPress={() => openReaderTab(tab.id)} style={[localStyles.card, theme.lighterGreyBorder, theme.mainTextPanel]}>
             <CategoryColorLine category={Sefaria.primaryCategoryForTitle(tab.title)} thickness={3} />
-            <Text numberOfLines={2} style={[localStyles.cardText, theme.text, isHeb ? localStyles.heText : null]}>{tabLabel(tab, isHeb)}</Text>
+            <Text numberOfLines={2} style={[localStyles.cardText, theme.text, isHeb ? localStyles.heText : null]}>{isPinned(tab) ? '📌 ' : ''}{tabLabel(tab, isHeb, { passage: true })}</Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
