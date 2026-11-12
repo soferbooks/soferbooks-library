@@ -18,6 +18,7 @@ import {
   SText,
 } from '../Misc';
 import styles from '../Styles';
+import * as extras from '../extras';
 import strings from '../LocalizedStrings';
 import {iconData} from "../IconData";
 import {
@@ -90,6 +91,7 @@ class AutocompleteList extends React.Component {
     Sefaria.api.name(q, true)
       .then(results => { noteNameApiSuccess(); return results; })
       .then(results => Sefaria.shomer?.filterNameResponse(results) ?? results)  // content filter
+      .then(results => extras.redirectNameResults(results))  // Sefaria's copy of a preferred extra book: ours
       // (the extra sources' books, which the API does not know, stay in the list)
       .then(results => withOwnBooks(q, results, t => !!(extras.isExtraTitle && extras.isExtraTitle(t))))
       .then(results => this.showResults(q, results))

@@ -52,7 +52,7 @@ import chok from './chok';
 import soferLibrary from './sofer';
 import {bookFiles, setEnglishNameLookup} from './schema7';
 import * as links from './links';
-import {chooseBooks, addToToc, categoryNames} from './catalog';
+import {chooseBooks, addToToc, categoryNames, replacementForRef, redirectNameResults as redirectNames} from './catalog';
 import {bookLines} from '../localSearch';
 import {clearOfflineSearchCache} from '../offlineSearch';
 import * as shomer from '../shomer';
@@ -75,6 +75,7 @@ let enabled = {};          // {sourceId: true}
 let catalogs = {};         // {sourceId: {fetchedAt, entries}}
 let state = {installed: {}, blocked: {}};
 let books = {};            // {title: entry}: the extra books in the library now
+let replaced = {};         // {Sefaria's title: title}: Sefaria's books a preferred book is used instead of
 let loaded = null;
 const listeners = new Set();
 
@@ -134,6 +135,22 @@ export const downloadedBooks = (source = null) => installedTitles(source).filter
 export const firstSectionOf = title => (state.installed[title] || {}).firstSection || null;
 export const getBooks = () => books;
 
+/**
+ * A preferred book is used instead of Sefaria's copy (catalog.chooseBooks: Wikisource's Rokeach on
+ * Shir HaShirim, with its footnotes): Sefaria's is not in the toc, and its title - a link, a
+ * sefaria.org address, a saved place - opens ours (offering to download it, as any extra book).
+ */
+export const replacementOf = title => (title && Object.prototype.hasOwnProperty.call(replaced, title) ? replaced[title] : null);
+/** The preferred book a ref of a replaced book opens (at its start), else null */
+export function redirectRef(ref) {
+  if (!ref || !Object.keys(replaced).length) { return null; }
+  let known = null;
+  try { known = typeof Sefaria !== 'undefined' && Sefaria.textTitleForRef ? Sefaria.textTitleForRef(ref) : null; } catch (e) { known = null; }
+  return replacementForRef(ref, replaced, known);
+}
+/** Sefaria's Name API answer (autocomplete) with the replaced books as ours */
+export const redirectNameResults = results => redirectNames(results, replaced, books);
+
 async function readJSON(path, fallback) {
   try { return JSON.parse(await FileSystem.readAsStringAsync(path)); } catch (e) { return fallback; }
 }
@@ -170,7 +187,9 @@ export function applyToToc(toc) {
   for (const [id, cat] of Object.entries(catalogs)) {
     if (enabled[id] && cat && Array.isArray(cat.entries)) { lists[id] = cat.entries.map(withCurrentShelf); }
   }
-  books = chooseBooks(toc, lists, state).books;
+  const chosen = chooseBooks(toc, lists, state);
+  books = chosen.books;
+  replaced = chosen.replaced;
   for (const [title, rec] of Object.entries(state.installed)) {    // (books made with another: its notes)
     if (rec.companionOf && books[rec.companionOf] && rec.entry) { books[title] = {...withCurrentShelf(rec.entry), source: rec.source, title}; }
   }
@@ -179,7 +198,7 @@ export function applyToToc(toc) {
   if (typeof Sefaria !== 'undefined' && Sefaria.hebrewCategories) {
     Object.assign(Sefaria.hebrewCategories, extraCategoryNames());
   }
-  return addToToc(toc, books, first);
+  return addToToc(toc, books, first, replaced);
 }
 
 /** {English category: Hebrew} for the categories the extra books brought */
@@ -613,6 +632,7 @@ export function _reset(next = {}) {
   catalogs = next.catalogs || {};
   state = {installed: {}, blocked: {}, ...(next.state || {})};
   books = next.books || {};
+  replaced = next.replaced || {};
   Object.keys(downloads).forEach(t => { delete downloads[t]; });
   links._reset();
   loaded = next.loaded === false ? null : Promise.resolve();
