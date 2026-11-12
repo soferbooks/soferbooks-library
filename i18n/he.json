@@ -266,6 +266,8 @@
     "reader.color": "צבע",
     "reader.commentary": "מפרשים",
     "reader.contents": "תוכן",
+    "reader.edition_note_chapter": "פרק זה אינו ב{edition}; מובא מתוך {other}.",
+    "reader.edition_note_section": "קטע זה אינו ב{edition}; מובא מתוך {other}.",
     "reader.font_size": "גודל גופן",
     "reader.inline_commentaries": "מפרשים",
     "reader.inline_connections": "קישורים (הטקסטים המקושרים לכל שורה)",

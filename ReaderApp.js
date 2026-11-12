@@ -119,6 +119,7 @@ import {
   setNakdanForBook,
 } from "./reader/nakdanPrefs";
 import { NakdanAskCard, NakdanCredit } from "./reader/NakdanNotices";
+import { ownReadingEditions, readingEditions, sameEditions } from "./reader/editionNotes";
 import { VOCALIZATION } from "./VocalizationEnum";
 import {
   panelFlexForTouch,
@@ -172,7 +173,7 @@ const TAB_SNAPSHOT_KEYS = [
   'textFlow', 'data', 'sectionArray', 'sectionHeArray', 'next', 'prev', 'textToc', 'relatedBySectionRef', 'linksLoaded',
   'textListVisible', 'textListFlex', 'connectionsMode', 'filterIndex', 'linkSummary', 'linkContents',
   'linkRecentFilters', 'linkStaleRecentFilters', 'loadingLinks', 'versionRecentFilters', 'versionFilterIndex',
-  'currVersionObjects', 'selectedVersions', 'versions', 'versionsApiError', 'versionStaleRecentFilters',
+  'currVersionObjects', 'selectedVersions', 'readingEditions', 'versions', 'versionsApiError', 'versionStaleRecentFilters',
   'versionContents', 'dictLookup', 'highlightedWordID', 'highlightedWordSegmentRef', 'translations',
   'currentTranslations', 'segmentRefOnSheet',
 ];
@@ -248,6 +249,7 @@ class ReaderApp extends React.PureComponent {
         versionRecentFilters: [],
         versionFilterIndex: null,
         currVersionObjects: {en: null, he: null}, /* actual current versions you're reading. Full version objects. */
+        readingEditions: null,  /* {en, he}: the editions being read (reader/editionNotes.js) */
         selectedVersions: {en: null, he: null}, /* custom versions you've selected. not necessarily available for the current section. Just version title. */
         versions: [],
         versionsApiError: false,
@@ -839,6 +841,7 @@ class ReaderApp extends React.PureComponent {
           selectedVersions: versions,
           currVersionObjects: {en: null, he: null},
           textToc: null,
+          readingEditions: null,
       },
       () => {
 
@@ -869,6 +872,8 @@ class ReaderApp extends React.PureComponent {
               sectionHeArray:    [textContent.heSectionRef || textContent.heRef], // backwards compatible because offline files are missing `heSectionRef`. we specifically want heSectionRef in case you load a segment ref with context
               loaded:            true,
               offsetRef:         !textContent.isSectionLevel ? textContent.requestedRef : null,
+              // the editions being read, so a section shown from another edition says so (reader/editionNotes.js)
+              readingEditions:   ownReadingEditions({sectionRef: textContent.sectionRef, selected: versions}).reading,
             };
             if (!isLoadingVersion) {
               // also overwrite sidebar state
@@ -889,6 +894,7 @@ class ReaderApp extends React.PureComponent {
               Sefaria.links.reset();
             }
             this.setState(nextState, ()=>{
+              this._checkReadingEditions(loadToken, textContent, versions);
               // Preload Text TOC data into memory
               this.loadTextToc(textContent.indexTitle, textContent.sectionRef).then(() => {
                 // dependent on versions cached from offline textToc
@@ -911,6 +917,17 @@ class ReaderApp extends React.PureComponent {
         });
       });
     });
+  };
+
+  // Opened at a section the book's edition lacks (Mishnah Bikkurim 4): the edition being read is
+  // the one of the section next to it (reader/editionNotes.js)
+  _checkReadingEditions = (loadToken, textContent, versions) => {
+    readingEditions({
+      sectionRef: textContent.sectionRef, selected: versions, prev: textContent.prev, next: textContent.next,
+    }).then(reading => {
+      if (loadToken !== this._loadToken || sameEditions(reading, this.state.readingEditions)) { return; }
+      this.setState({readingEditions: reading});
+    }).catch(() => {});
   };
 
   loadTextToc = (title, sectionRef) => {
@@ -2845,6 +2862,7 @@ ${strings.formatString(strings.extras.download_size,
                   setHighlightedWord={this.setHighlightedWord}
                   inlineCommentary={inlineCommentary}
                   nakdan={nakdanOn}
+                  readingEditions={this.state.readingEditions}
                 />
                 {showNakdanCredit ? <NakdanCredit theme={this.props.theme} /> : null}
                 {showNakdanAsk ?

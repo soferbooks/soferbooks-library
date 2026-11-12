@@ -62,6 +62,7 @@ import OpenTabsStrip from '../tabs/OpenTabsStrip';
 import ScheduleSequenceBar from '../learningSchedules/ScheduleSequenceBar';
 import ScheduleEndMarker from '../learningSchedules/ScheduleEndMarker';
 import SplitTabPane from '../reader/SplitTabPane';
+import EditionNote from '../reader/EditionNote';
 import ReaderAppContext from '../context';
 import NetInfo from '@react-native-community/netinfo';
 
@@ -1201,6 +1202,8 @@ describe('Strings with placeholders', () => {
     'download.library_up_to_date_message': { platform: 'ios' },
     'download.new_books_available': { count: 3 },
     'reader.category_commentary': { category: 'Talmud' },
+    'reader.edition_note_chapter': { edition: 'Torat Emet 357', other: 'Version of the Gemara' },
+    'reader.edition_note_section': { edition: 'Torat Emet 357', other: 'Version of the Gemara' },
     'search.more_versions': { count: 3 },
     'download.updates_available_message': { count: 7 },
     'filter.hidden_message': { title: 'Orot', reason: 'Rav Kook' },
@@ -1305,6 +1308,28 @@ describe('Version block', () => {
       version: richVersion, openUri: noop, openFilter: noop, segmentRef: 'Genesis 1:1',
       isCurrent: true, openRef: noop, heVersionTitle: 'התורה בת זמננו',
     }), ['versions.currently_selected']);
+  });
+});
+
+// A section shown from another edition than the one being read (Mishnah Bikkurim 4) says so
+// at its start, naming both editions -- in Hebrew by their Hebrew names (reader/editionNotes.js).
+describe('Edition note', () => {
+  const note = {
+    lang: 'he',
+    missing: { versionTitle: 'Torat Emet 357', versionTitleInHebrew: 'תורת אמת 357' },
+    shown: { versionTitle: 'Version of the Gemara', versionTitleInHebrew: 'נוסחת הגמרא' },
+  };
+  const build = chapters => () => (
+    <EditionNote notes={[note]} chapters={chapters} theme={{}}
+      interfaceLanguage={strings.getLanguage() === 'he' ? 'hebrew' : 'english'} />
+  );
+
+  test('a chapter says so in both languages', () => {
+    expectScreenLocalizes(build(true), ['reader.edition_note_chapter']);
+  });
+
+  test('another kind of section says so in both languages', () => {
+    expectScreenLocalizes(build(false), ['reader.edition_note_section']);
   });
 });
 

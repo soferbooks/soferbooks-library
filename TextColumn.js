@@ -25,6 +25,8 @@ import { createAnchor, isAnchorActive, anchorCorrection, renderedIndexRange, pic
 import { VOCALIZATION } from './VocalizationEnum';
 import { stringPair } from './LocalizedStrings';
 import ScheduleEndMarker from './learningSchedules/ScheduleEndMarker';
+import EditionNote from './reader/EditionNote';
+import { editionNotesFor, editionNotesKey, sectionsAreChapters } from './reader/editionNotes';
 const ViewPort  = Dimensions.get('window');
 const COMMENTARY_LINE_THRESHOLD = 100;
 
@@ -84,6 +86,7 @@ class TextColumn extends React.PureComponent {
     vowelToggleAvailable: PropTypes.oneOf([VOCALIZATION.TAAMIM_AND_NIKKUD, VOCALIZATION.NIKKUD, VOCALIZATION.NONE]),
     inlineCommentary:   PropTypes.string,  // "show under each passage": source key (reader/inlineCommentaryPrefs.js) or null
     nakdan:             PropTypes.bool,    // nikud by computer (Dicta) for texts without nikud (reader/nakdanPrefs.js)
+    readingEditions:    PropTypes.object,  // {en, he}: the editions being read (reader/editionNotes.js)
   };
 
   constructor(props) {
@@ -336,6 +339,13 @@ class TextColumn extends React.PureComponent {
       }
       segmentGenerator = this.renderSegmentedRow;
     }
+    if (!props.isSheet && props.readingEditions) {
+      // a section shown from another edition than the one being read says so (reader/editionNotes.js)
+      for (const section of dataSource) {
+        section.editionNotes = editionNotesFor(section.ref, props.readingEditions, props.textLanguage);
+        if (section.editionNotes.length) { section.changeString += `|${editionNotesKey(section.editionNotes)}`; }
+      }
+    }
     const jumpInfoMap = this.updateJumpInfoMap(dataSource);
     //console.log(sections);
     const componentsToMeasure = [];
@@ -450,6 +460,7 @@ class TextColumn extends React.PureComponent {
         //this.props.themeStr !== prevProps.themeStr ||
         this.props.linksLoaded !== prevProps.linksLoaded ||
         this.props.textToc !== prevProps.textToc ||
+        this.props.readingEditions !== prevProps.readingEditions ||
         (this.props.sheet && this.props.sheet.id) !== (prevProps.sheet && prevProps.sheet.id) ||
         this.props.showAliyot !== prevProps.showAliyot ||
         this.props.highlightedWordID !== prevProps.highlightedWordID ||
@@ -711,7 +722,7 @@ class TextColumn extends React.PureComponent {
     const isHeb = Sefaria.util.get_menu_language(props.interfaceLanguage, props.textLanguage) == "hebrew";
     // an extra book's sections are named by keys in English ("S1"): their Hebrew names instead
     const keyed = !isHeb && refHasSectionKeys(section.ref) && !!section.heRef;
-    return (
+    const header = (
       <TextHeader
         title={isHeb || keyed ?
                 this.inlineSectionHeader(section.heRef) :
@@ -720,6 +731,18 @@ class TextColumn extends React.PureComponent {
         theme={props.theme}
         outerStyle={styles.sectionHeaderBorder}
       />
+    );
+    if (!section.editionNotes || !section.editionNotes.length) { return header; }
+    return (
+      <View>
+        {header}
+        <EditionNote
+          notes={section.editionNotes}
+          interfaceLanguage={props.interfaceLanguage}
+          chapters={sectionsAreChapters(props.textToc || Sefaria.index(props.textTitle))}
+          theme={props.theme}
+        />
+      </View>
     );
   };
 

@@ -147,7 +147,7 @@ const AboutBox = ({ textToc, currVersionObjects, openFilter, sheet, openUri, seg
         segmentRef={segmentRef}
       />
     </View> : null );
-  const otherPrimaryVersions = versions.filter((v) => v.isPrimary && v.versionTitle !== vh.versionTitle);
+  const otherPrimaryVersions = (versions || []).filter((v) => v.isPrimary && v.versionTitle !== (vh && vh.versionTitle));  // (no Hebrew version: an English-only text)
   const versionBlocks = (
     otherPrimaryVersions.length > 0 && <View style={styles.currVersionSection}>
       <View style={[styles.aboutHeaderWrapper, theme.bordered]}>

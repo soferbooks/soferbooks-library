@@ -266,6 +266,8 @@
     "reader.color": "Color",
     "reader.commentary": "Commentary",
     "reader.contents": "Contents",
+    "reader.edition_note_chapter": "This chapter is not in {edition}; shown from {other}.",
+    "reader.edition_note_section": "This section is not in {edition}; shown from {other}.",
     "reader.font_size": "Font Size",
     "reader.inline_commentaries": "Commentaries",
     "reader.inline_connections": "Connections (the texts linked to each line)",

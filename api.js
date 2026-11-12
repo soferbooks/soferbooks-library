@@ -91,6 +91,8 @@ var Api = {
       return {
         "versionTitle": textResponse.versionTitle,
         "heVersionTitle": textResponse.heVersionTitle,
+        "versionTitleInHebrew": textResponse.versionTitleInHebrew,  // (an edition's Hebrew name)
+        "heVersionTitleInHebrew": textResponse.heVersionTitleInHebrew,
         "versionNotes": textResponse.versionNotes,
         "heVersionNotes": textResponse.heVersionNotes,
         "license": textResponse.license,
@@ -108,6 +110,10 @@ var Api = {
         "lengths": textResponse.length,
         "next": textResponse.next,
         "content": content,
+        // the editions that have this section (offline files list them the same way): a section an
+        // edition lacks is shown from another, and says so (reader/editionNotes.js)
+        "versions": Array.isArray(textResponse.versions) ?
+          textResponse.versions.map(v => ({versionTitle: v.versionTitle, language: v.language})) : undefined,
         "book": textResponse.book,
         "prev": textResponse.prev,
         "textDepth": textResponse.textDepth,

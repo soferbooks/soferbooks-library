@@ -436,6 +436,9 @@ global.Sefaria = {
     const attrs = ['versionTitle','versionNotes','license','versionSource','versionTitleInHebrew','versionNotesInHebrew'];
     const currVersions = {en: textContent.versionTitle, he: textContent.heVersionTitle};
     Sefaria.cacheCurrVersionsBySection(currVersions, textContent.sectionRef);
+    if (Array.isArray(textContent.versions)) {
+      Sefaria.cacheVersionsAvailableBySection(textContent.sectionRef, textContent.versions);
+    }
     const versionObjects = [];
     for (let lang of ['en', 'he']) {
       const versionObject = {};
