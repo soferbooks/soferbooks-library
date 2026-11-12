@@ -20,7 +20,10 @@
  *              corrections in, only editions whose licence allows giving them out)
  * The books come ready made, so nothing is converted: they are unzipped, their editions marked
  * as this library's (librarySource: "Report an error" goes to SoferBooks) and put in the library
- * as every extra book is (extras/index.js: convert).
+ * as every extra book is (extras/index.js: convert). Their own connections (the links in their
+ * sections' metadata: each piece of Chashukei Chemed on its Gemara line) are kept with the other
+ * extra books' (linksOf, extras/links.js), so they show on the other end too - under the Gemara's
+ * passage, in its Commentary and "Under each passage".
  */
 import * as FileSystem from 'expo-file-system/legacy';
 import {unzip} from 'react-native-zip-archive';
@@ -168,6 +171,36 @@ export function convert(entry, doc) {
   };
 }
 
+/**
+ * The book's own connections, as its files give them (export: each section's metadata, a list of
+ * links for each passage - build_sofer_library.py puts there the links Sofer's library has: each
+ * piece of Chashukei Chemed tied to its Gemara line, 2026-11-12) -> extras/links.js's links
+ * [{a, ah, t, th, r}]: 'base' (the passage explains the other end) when the other end is in a book
+ * it is on (base_text_titles), else 'cite'.
+ */
+export function ownLinks(entry, files) {
+  const bases = (entry.base_text_titles || []).map(b => (typeof b === 'string' ? b : b && b.en)).filter(Boolean);
+  const out = [];
+  for (const [name, meta] of Object.entries(files || {})) {
+    if (!name.endsWith('.metadata.json') || !meta || !meta.ref || !Array.isArray(meta.links)) { continue; }
+    meta.links.forEach((seg, j) => {
+      for (const l of seg || []) {
+        if (!l || !l.sourceRef) { continue; }
+        const t = String(l.sourceRef);
+        out.push({a: `${meta.ref}:${j + 1}`, ah: `${meta.heRef || meta.ref} ${j + 1}`, t, th: l.sourceHeRef || t,
+          r: bases.some(b => t.startsWith(`${b} `) || t.startsWith(`${b},`)) ? 'base' : 'cite'});
+      }
+    });
+  }
+  return out;
+}
+
+/** Where the book's connections are (extras/index.js collectLinks): its own files */
+export function linksOf(entry, doc) {
+  const links = doc && doc.book ? ownLinks(entry, doc.book.files) : [];
+  return links.length ? {ownLinks: links} : {};
+}
+
 export function versionOf(entry) {
   return {versionTitle: 'Sofer Library', versionSource: HOME_URL, license: entry.license, librarySource: ID};
 }
@@ -185,4 +218,5 @@ export default {
   // (the licences are checked when the release is built: build_sofer_library.py)
   isRestricted: () => false,
   versionOf,
+  linksOf,
 };

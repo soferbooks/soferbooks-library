@@ -16,6 +16,8 @@
  *             placed on the book's paragraphs by their letters. These take a request a page, so
  *             they are fetched after the book opens, in the background.
  *   Wikisource none: its pages link to other Wikisource pages, not to Sefaria's refs.
+ *   Sofer Library  the links in the book's own files (extras/sofer.js linksOf: each section's
+ *             metadata), as where.ownLinks - Chashukei Chemed's pieces on their Gemara lines.
  *
  * What the phone keeps: library/_extras/links/<md5(title)>.json, one per downloaded book:
  *   {v, title, heTitle,
@@ -218,9 +220,17 @@ export async function removeLinks(title) {
  * deleted meanwhile gets none). Never throws: a book without links is still a book.
  */
 export async function collect({title, heTitle, tree, where, fetchCitations, stillWanted = () => true}) {
+  const own = (where && where.ownLinks) || [];
+  if (!tree) {
+    // (a book that came ready made - the Sofer Library's: only the links its files give)
+    const data = {v: VERSION, title, heTitle, links: own, pending: []};
+    await writeJSON(linksFile(title), data).catch(e => console.log('extras: links', e));
+    invalidate();
+    return {data, later: Promise.resolve(false)};
+  }
   const passages = passagesOf(tree, title, heTitle);
   const lines = lineMap(tree, passages);
-  const data = {v: VERSION, title, heTitle, links: [], pending: [], secs: sectionSigns(tree, heTitle, passages)};
+  const data = {v: VERSION, title, heTitle, links: own.slice(), pending: [], secs: sectionSigns(tree, heTitle, passages)};
   if (lines) {
     data.leaves = passages.leaves;
     data.lines = lines;
