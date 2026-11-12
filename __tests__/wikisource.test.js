@@ -25,7 +25,7 @@ import wikisource, {
 import {sectionsOf} from '../extras/schema7';
 import * as links from '../extras/links';
 import CATALOG_DATA from '../extras/wikisourceBooks.json';
-import {chooseBooks} from '../extras/catalog';
+import {chooseBooks, addToToc, replacementForRef, redirectNameResults} from '../extras/catalog';
 import {bookFiles} from '../extras/schema7';
 import * as extras from '../extras';
 import {correctionEmail} from '../reportError';
@@ -211,7 +211,7 @@ describe('one copy of each sefer: Sefaria > Dicta > Otzaria > Wikisource, but So
     expect(books['ספר ייחודי'].source).toBe('wikisource');
   });
 
-  test('a PREFERRED book is used instead of the copy it replaces (Dicta\'s Rokeach), never Sefaria\'s', () => {
+  test('a PREFERRED book is used instead of the copy it replaces (Dicta\'s Rokeach)', () => {
     const {books} = chooseBooks(SEFARIA_TOC, {
       dicta: [other('dicta', 'd', 'פירוש הרוקח על שיר השירים'), other('dicta', 'd2', 'ספר ייחודי')],
       wikisource: ws,
@@ -220,7 +220,99 @@ describe('one copy of each sefer: Sefaria > Dicta > Otzaria > Wikisource, but So
     expect(books['פירוש הרוקח על שיר השירים']).toBeUndefined();
     expect(books['ספר ייחודי'].source).toBe('dicta');          // (not preferred: Dicta comes first)
     const real = parseCatalog().find(e => e.id === 'רוקח על שיר השירים');
-    expect(real).toMatchObject({preferred: true, replaces: ['פירוש הרוקח על שיר השירים']});
+    expect(real.preferred).toBe(true);
+    expect(real.replaces).toEqual(expect.arrayContaining(['פירוש הרוקח על שיר השירים', 'Rokeach on Song of Songs']));
+  });
+});
+
+// Owner, 2026-11-12: "Sefaria will soon add Rokeach on Shir HaShirim but without the footnotes; make
+// sure not to replace our footnoted edition with Sefaria's." Sefaria's exact name is not known yet.
+describe('a PREFERRED book wins over Sefaria\'s own copy too', () => {
+  const OURS = 'רוקח על שיר השירים';
+  const tocWith = (title, heTitle) => [
+    {category: 'Tanakh', heCategory: 'תנ״ך', contents: [
+      {title: 'Song of Songs', heTitle: 'שיר השירים', categories: ['Tanakh']},
+      {category: 'Commentary', heCategory: 'מפרשים', contents: [
+        {title: 'Rashi on Song of Songs', heTitle: 'רש״י על שיר השירים', categories: ['Tanakh', 'Commentary']},
+        {category: 'Rokeach', heCategory: 'רוקח', contents: [{title, heTitle, categories: ['Tanakh', 'Commentary', 'Rokeach']}]},
+      ]},
+    ]},
+  ];
+  const titlesIn = toc => {
+    const out = [];
+    const walk = list => (list || []).forEach(x => (x.contents ? walk(x.contents) : out.push(x.title)));
+    walk(toc);
+    return out;
+  };
+  const SEFARIAS = [
+    ['Rokeach on Song of Songs', 'רוקח על שיר השירים'],                  // (our Hebrew name)
+    ['Rokeach on Shir HaShirim', 'ספר הרוקח על שה״ש'],                   // (an English name only)
+    ['Commentary of Rokeach', 'פֵּירוּשׁ הָרוֹקֵחַ עַל שִׁיר־הַשִּׁירִים'],   // (the name of Dicta's copy, with nikud)
+    ['rokeach on song of songs', 'רוקח'],                                // (any case)
+  ];
+
+  test.each(SEFARIAS)('Sefaria adds "%s" (%s): ours is in the library, theirs leaves the toc', (title, heTitle) => {
+    const toc = tocWith(title, heTitle);
+    const {books, replaced} = chooseBooks(toc, {wikisource: parseCatalog()});
+    expect(books[OURS].source).toBe('wikisource');
+    expect(replaced).toEqual({[title]: OURS});
+    const out = addToToc(toc, books, {}, replaced);
+    expect(titlesIn(out)).not.toContain(title);
+    expect(titlesIn(out)).toEqual(expect.arrayContaining([OURS, 'Song of Songs', 'Rashi on Song of Songs']));
+    expect(JSON.stringify(out)).not.toContain('"Rokeach"');             // (its category, left empty, too)
+    expect(titlesIn(toc)).toContain(title);                             // (the toc given is not changed)
+  });
+
+  test('only the preferred book does so; a book of Sefaria\'s with another name stays', () => {
+    const toc = tocWith('Rokeach on Torah', 'רוקח על התורה');
+    const {books, replaced} = chooseBooks(toc, {wikisource: parseCatalog()});
+    expect(replaced).toEqual({});
+    expect(books[OURS]).toBeDefined();
+    expect(titlesIn(addToToc(toc, books, {}, replaced))).toContain('Rokeach on Torah');
+    // (a book that is not preferred is still left out for Sefaria's copy)
+    const plain = parseCatalog({books: [{page: OURS, category: 'Jewish Thought'}]});
+    const r = chooseBooks(tocWith('Rokeach on Song of Songs', OURS), {wikisource: plain});
+    expect(r.books[OURS]).toBeUndefined();
+    expect(r.replaced).toEqual({});
+  });
+
+  test('a blocked preferred book leaves Sefaria\'s copy in place', () => {
+    const toc = tocWith('Rokeach on Song of Songs', OURS);
+    const {books, replaced} = chooseBooks(toc, {wikisource: parseCatalog()}, {blocked: {[`wikisource|${OURS}`]: 'x'}});
+    expect(books[OURS]).toBeUndefined();
+    expect(replaced).toEqual({});
+  });
+
+  test('a ref of Sefaria\'s copy opens ours (from its start)', () => {
+    const replaced = {'Rokeach on Song of Songs': OURS};
+    expect(replacementForRef('Rokeach on Song of Songs', replaced)).toBe(OURS);
+    expect(replacementForRef('Rokeach on Song of Songs 1:2', replaced)).toBe(OURS);
+    expect(replacementForRef('Rokeach on Song of Songs, Introduction 3', replaced)).toBe(OURS);
+    expect(replacementForRef('Rokeach on Song of Songsx', replaced)).toBeNull();
+    expect(replacementForRef('Song of Songs 1:2', replaced)).toBeNull();
+    // (a longer title of the library keeps its ref)
+    expect(replacementForRef('Rokeach on Song of Songs Extra 1', replaced, 'Rokeach on Song of Songs Extra')).toBeNull();
+  });
+
+  test('autocomplete (Sefaria\'s Name API) shows ours instead of theirs, once', () => {
+    const replaced = {'Rokeach on Song of Songs': OURS};
+    const books = {[OURS]: {heTitle: OURS}};
+    const out = redirectNameResults({
+      completion_objects: [
+        {title: 'Rokeach on Song of Songs', key: 'Rokeach on Song of Songs', type: 'ref'},
+        {title: 'רוקח על שיר השירים', key: 'Rokeach on Song of Songs', type: 'ref'},
+        {title: 'Song of Songs', key: 'Song of Songs', type: 'ref'},
+      ],
+      completions: ['Rokeach on Song of Songs', 'Song of Songs'],
+      is_ref: true, ref: 'Rokeach on Song of Songs 1:2', book: 'Rokeach on Song of Songs', index: 'Rokeach on Song of Songs',
+      sections: [1, 2], sectionNames: ['Chapter', 'Verse'],
+    }, replaced, books);
+    expect(out.completion_objects).toEqual([
+      {title: OURS, key: OURS, type: 'book'},
+      {title: 'Song of Songs', key: 'Song of Songs', type: 'ref'},
+    ]);
+    expect(out.completions).toEqual([OURS, 'Song of Songs']);
+    expect(out).toMatchObject({is_ref: true, is_book: true, ref: OURS, index: OURS});
   });
 });
 

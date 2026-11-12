@@ -1329,6 +1329,9 @@ ${strings.formatString(strings.extras.download_size,
   enableAliyot - true when you click on an aliya form ReaderTextTableOfContents
   */
   openRef = (ref, calledFrom, versions, addToBackStack=true, enableAliyot=false, loadNewVersions=false) => {
+    // Sefaria's copy of a book a preferred extra book is used instead of (a link, a saved place):
+    // the preferred book, from its start (extras.redirectRef)
+    ref = extras.redirectRef(ref) || ref;
     // a book of an extra source (Otzaria ...): read only once downloaded
     const extraTitle = Sefaria.textTitleForRef(ref);
     if (extras.isExtraTitle(extraTitle)) {
@@ -1509,6 +1512,7 @@ ${strings.formatString(strings.extras.download_size,
   };
 
   openTextTocDirectly = (title) => {
+    title = extras.redirectRef(title) || title;  // (Sefaria's copy of a preferred extra book: ours)
 
     // used to open text toc witout going throught the reader
     if (extras.needsDownload(title)) {
@@ -2340,6 +2344,7 @@ ${strings.formatString(strings.extras.download_size,
 
   /** Open `ref` in a new tab; the current tab stays exactly where it is. */
   openRefInNewTab = (ref, versions) => {
+    ref = extras.redirectRef(ref) || ref;  // (Sefaria's copy of a preferred extra book: ours)
     const title = Sefaria.textTitleForRef(ref);
     if (!title) {
       this.textUnavailableAlert(ref);

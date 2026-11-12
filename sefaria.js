@@ -167,7 +167,12 @@ global.Sefaria = {
     url = url.replace(/\./, ' ');  // first period is guarenteed to be separation between title and sections
     url = url.replace(/_/g, ' ');
     const title = Sefaria.textTitleForRef(url);
-    if (!title) { return { ref: url, title }; }
+    if (!title) {
+      // a book of Sefaria's that a preferred extra book is used instead of: that book, from its start
+      const ours = extras.redirectRef(url);
+      if (ours) { return { ref: ours, title: ours }; }
+      return { ref: url, title };
+    }
     const ref = url.replace(/\./g, ':');
     return { ref, title };
   },
