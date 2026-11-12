@@ -36,7 +36,10 @@ Everything goes through the existing tools, as thin a layer as possible:
 * a translation Sofer keeps as a book of its own (``TRANSLATIONS``: Return to Your Homes) is
   laid out on its original's passages (``align_translation.py``) and given as that book's
   English edition, so the app shows the two side by side;
-* the shelves are Sofer's (``sofer.api.catalog.shelf_of``: poems on "שירה ופיוט" ...).
+* the shelves are Sofer's (``sofer.api.catalog.shelf_of``: poems on "שירה ופיוט" ...);
+* Sofer's own links of a book (``links/links_wikitext_*.csv``: each piece of Chashukei Chemed on
+  its Gemara line) go in its sections' metadata (``add_links``), which the app reads
+  (extras/sofer.js linksOf).
 
 Writes ``<out>/release/``: one ``<asset>.zip`` per book (ASCII names: GitHub renames others),
 ``sofer-library-catalog.json`` (each book: title, Hebrew title, kind, shelf, licences, size,
@@ -260,6 +263,63 @@ def stamp_source(zip_path: Path, title: str) -> None:
     tmp.replace(zip_path)
 
 
+# Sofer's own links of the books it imported (importers: "links/links_wikitext_<name>.csv" - each
+# piece of Chashukei Chemed tied to its Gemara line, Mordy 2026-11-12: "lay it out by the word, so
+# mikraos look prints and connections in app"); Sefaria's own links files are not read here
+OWN_LINKS = "links_wikitext_*.csv"
+_TALMUD_REF = re.compile(r"^(?P<title>.+) (?P<daf>\d+)(?P<side>[ab]):(?P<seg>\d+)$")
+
+
+def own_links(root: Path) -> dict[str, list[tuple[str, str]]]:
+    """{book title: [(its passage's ref, the ref it is linked to)]} from Sofer's own links files."""
+    import csv
+    out: dict[str, list[tuple[str, str]]] = {}
+    for f in sorted((root / "links").glob(OWN_LINKS)):
+        with open(f, encoding="utf-8", newline="") as fh:
+            rows = csv.reader(fh)
+            next(rows, None)
+            for row in rows:
+                if len(row) >= 4 and row[0] and row[1]:
+                    out.setdefault(row[3], []).append((row[0], row[1]))
+    return out
+
+
+def he_talmud_ref(ref: str, he_titles: dict[str, str]) -> str:
+    """A Gemara passage's Hebrew name as Sefaria gives it ("Berakhot 2a:5" -> "ברכות ב׳ א:ה")."""
+    m = _TALMUD_REF.match(ref)
+    if not m or m["title"] not in he_titles:
+        return ""
+    ai = 2 * int(m["daf"]) - 2 + (m["side"] == "b")
+    return f"{he_titles[m['title']]} {ev.format_address('Talmud', ai, 'he')}:{ev.gematria(int(m['seg']))}"
+
+
+def add_links(zip_path: Path, title: str, links: list[tuple[str, str]], he_titles: dict[str, str]) -> int:
+    """The book's own links put in its sections' metadata, as Sefaria's export has them (each
+    passage's list of {sourceRef, sourceHeRef}): the app shows them in the book's connections and,
+    from them, the book under the passage each is on (extras/sofer.js linksOf).  -> links added."""
+    by_section: dict[str, dict[int, list]] = {}
+    for a, t in links:
+        section, _, seg = a.rpartition(":")
+        if section.startswith(title + " ") and seg.isdigit():
+            by_section.setdefault(section, {}).setdefault(int(seg), []).append(
+                {"sourceRef": t, "sourceHeRef": he_talmud_ref(t, he_titles) or t})
+    added = 0
+    tmp = zip_path.with_suffix(".tmp")
+    with zipfile.ZipFile(zip_path) as zin, zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as zout:
+        for item in zin.infolist():
+            data = zin.read(item.filename)
+            section = item.filename[: -len(".metadata.json")] if item.filename.endswith(".metadata.json") else None
+            if section in by_section:
+                meta = json.loads(data)
+                segs = by_section[section]
+                meta["links"] = [segs.get(n) for n in range(1, max(segs) + 1)]
+                added += sum(len(v) for v in segs.values())
+                data = json.dumps(meta, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+            zout.writestr(item.filename, data)
+    tmp.replace(zip_path)
+    return added
+
+
 def shelf(lib: Library, title: str) -> tuple[list, list]:
     """The book's shelf (English, Hebrew), as Sofer's own catalogue shows it."""
     book = lib.get(title)
@@ -303,6 +363,8 @@ def main() -> int:
     blocked = ev.blocked_titles(Path(provider.root))
     found = ev.discover_books(Path(provider.root), set(originals.values()) | set(TRANSLATIONS), None)
     alignments = {}
+    linked = own_links(src)
+    he_titles = {b.title: b.he_title for b in lib.books.values()} if linked else {}
     print(f"{len(wanted)} Sofer-only books found", flush=True)
 
     left_out: dict[str, str] = {}
@@ -367,6 +429,9 @@ def main() -> int:
                 book.versions = []
                 continue
             stamp_source(zip_path, title)
+            if linked.get(original):
+                print(f"    {add_links(zip_path, title, linked[original], he_titles)} links to the text it is on",
+                      flush=True)
         schema = prov.get_schema(title)
         cats, he_cats = shelf(lib, original)
         exported[title] = {
