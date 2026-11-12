@@ -275,7 +275,7 @@ describe('as Sofer\'s loose_placement.py: Rishon LeTzion on Berakhot', () => {
     {path: ['S7', 'S4'], heTitles: ['פרק ז - שלשה שאכלו', 'דף מו:'], openings: [
       'גמ\' ויש מהן שחותם בהן וכו\'', 'גמ\' הטוב והמטיב אין דיין אמת כו\'']},
   ];
-  const placed = units => looseComments(comm, units).map(p => [comm[p.leaf].path.join(' ') + ':' + p.para, units[p.unit].ref, p.how]);
+  const placed = (units, opts) => looseComments(comm, units, opts).map(p => [comm[p.leaf].path.join(' ') + ':' + p.para, units[p.unit].ref, p.how]);
 
   test('the masechet and perek running into the first comment are not part of its quote', () => {
     expect(looseQuote('ברכות פרק א משעה שהכהנים וכו\' רש"י כתב')).toEqual(['משעה', 'שהכהנים']);
@@ -294,9 +294,85 @@ describe('as Sofer\'s loose_placement.py: Rishon LeTzion on Berakhot', () => {
 
   test('46a could not be read: its comment is left out, not put on 45b beside the one before', () => {
     const without46a = amudim.filter(([label]) => label !== '46a');
-    const got = placed(talmudUnits('Berakhot', 'ברכות', without46a));
+    const got = placed(talmudUnits('Berakhot', 'ברכות', without46a), {unread: new Set([90])});
     expect(got.map(([c]) => c)).not.toContain('S7 S3:0');
     expect(got).toHaveLength(4);
+  });
+});
+
+describe('as Sofer\'s placement recheck: Rashi\'s and Tosafos\' dibburim, letters, essays by siman', () => {
+  const {looseComments, talmudUnits, dibburimOf, dibburOf, onCommentary, namedDaf, perekNumber, partialRatioAtLeast,
+    stripNumber, innerDaf} = require('../extras/inferred');
+  // (Sofer's tests/test_loose_placement.py _gemara: made-up passages on 2a, 2b, 3a - not a real text)
+  const units = talmudUnits('M', 'מ', [
+    ['2a', ['אלף בית גימל דלת', 'הא וו זין חית']],
+    ['2b', ['טית יוד כף למד', 'מם נון סמך עין']],
+    ['3a', ['פא צדי קוף ריש', 'אלף בית גימל דלת שין']],
+  ]);
+  const leavesOf = list => {
+    const comm = [];
+    list.forEach(([heads, text]) => {
+      if (heads.length || !comm.length) { comm.push({path: ['S'], heTitles: heads, openings: []}); }
+      comm[comm.length - 1].openings.push(text);
+    });
+    return comm;
+  };
+  const run = (list, opts) => {
+    const comm = leavesOf(list);
+    return looseComments(comm, units, opts).map(p => [units[p.unit].key.join(':'), p.how]);
+  };
+
+  test('what a heading or an opening names', () => {
+    expect(namedDaf('סימן יח - לדף ט')).toEqual({daf: 9, side: null});
+    expect(namedDaf('(סימן כו - לדף צה)')).toEqual({daf: 95, side: null});
+    expect(namedDaf('חיובי נזקי ממונו (ריש המסכת)')).toEqual({daf: 2, side: 'a'});
+    expect(namedDaf('סימן א')).toBe(null);
+    expect(perekNumber('פרק תשיעי')).toBe(9);
+    expect(perekNumber('פרק של שלשה עשר')).toBe(13);
+    expect(perekNumber('סימן א')).toBe(null);
+    expect(onCommentary('בתוס\' בד"ה תנן וכו\'')).toBe('tosafot');
+    expect(onCommentary('בפירש"י בד"ה המביא')).toBe('rashi');
+    expect(onCommentary('דף ו\' ע"א. בתוס\' ד"ה לאתויי')).toBe('tosafot');
+    expect(onCommentary('בד"ה צריך')).toBe('either');
+    expect(onCommentary('שם מן הרקם')).toBe(null);
+    expect(stripNumber('א) גמ\' אמר')).toBe('גמ\' אמר');
+    expect(innerDaf('ובהא דאמרו בגמרא דף ה\' ע"ב')).toEqual({daf: 5, side: 'b'});
+    expect(innerDaf('תוספות כתובות דף ע"ד')).toBe(null);
+  });
+
+  test('a comment on Tosafos\' words goes on the line of their dibbur', () => {
+    const dibburim = new Map([[3, [{who: 'tosafot', words: 'מם נון', text: 'מם נון - פירוש התוספות כאן', line: 1}]]]);
+    const got = run([[['דף ב'], 'גמ\' אלף בית גימל'], [[], 'בתוס\' בד"ה מם נון וכו\' קשה לי'], [[], 'גמ\' פא צדי קוף ריש']],
+      {dibburim});
+    expect(got[1]).toEqual(['3:1', 'dibbur']);
+  });
+
+  test('Rashi\'s and Tosafos\' dibburim read as dibburim.load reads them', () => {
+    expect(dibburOf('<b>מתני\' המביא גט.</b> ממדינת הים')).toBe('המביא גט');
+    expect(dibburOf('המביא גט - שליח')).toBe('המביא גט');
+    const d = dibburimOf({rashi: [[2, [['<b>אלף</b> פירוש'], [], ['<b>הא וו</b> כו']]]], tosafot: [[2, [[], ['<b>בית</b> תוס']]]]});
+    expect(d.get(2).map(x => [x.who, x.words, x.line])).toEqual([['rashi', 'אלף', 0], ['tosafot', 'בית', 1], ['rashi', 'הא וו', 2]]);
+  });
+
+  test('a quote spelled its own way is found by its letters (rapidfuzz\'s partial ratio)', () => {
+    expect(partialRatioAtLeast('טתדכפלמד', 'טתדכפלמדמםנםסמכענ', 88)).toBe(true);
+    expect(partialRatioAtLeast('טתדכפלמד', 'אלפבתגמלדלת', 88)).toBe(false);
+    // (rapidfuzz: fuzz.partial_ratio("abcd", "xxabxdxx") is 75)
+    expect(partialRatioAtLeast('abcd', 'xxabxdxx', 75)).toBe(true);
+    expect(partialRatioAtLeast('abcd', 'xxabxdxx', 76)).toBe(false);
+  });
+
+  test('essays: each siman at the daf its heading names, a comment there by its quote', () => {
+    const essay = [0, 1, 2, 3, 4, 5, 6, 7].map(i => `והנה יש לומר בזה דבר חדש ${i}`);
+    expect(run([
+      [['סימן א - לדף ב'], 'סוגיא דכותרת'], [[], essay[0]], [[], essay[1]],
+      [['סימן ב'], 'דף ג\' ע"א, מם נון סמך עין וכו\''], [[], essay[2]], [[], essay[3]],
+      [['סימן ג'], `שם, ${essay[4]}`], [[], essay[5]],
+      [['סימן ד'], essay[6]], [[], essay[7]],
+    ])).toEqual([['2:0', 'daf'], ['2:0', 'daf'], ['2:0', 'daf'],
+      ['3:1', 'loose'], ['3:1', 'daf'], ['3:1', 'daf'],
+      ['4:0', 'daf'], ['4:0', 'daf'],
+      ['4:0', 'loose-neighbour'], ['4:0', 'loose-neighbour']]);
   });
 });
 

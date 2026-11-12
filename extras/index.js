@@ -106,7 +106,10 @@ export const isCompanion = title => !!(state.installed[title] && state.installed
 export function englishTitleOf(title) {
   const b = books[title];
   if (!b || b.source !== 'sofer_library') { return null; }
-  return /[A-Za-z]/.test(title) && !/[֐-׿]/.test(title) ? title : null;
+  const english = name => typeof name === 'string' && /[A-Za-z]/.test(name) && !/[֐-׿]/.test(name);
+  // (the catalogue's English name, from Sofer's schema - else the title itself, when English)
+  if (english(b.enTitle)) { return b.enTitle; }
+  return english(title) ? title : null;
 }
 
 // (the reader's header and tabs show a keyed ref with the book's English name: extras/schema7.js)
@@ -273,7 +276,10 @@ export function booksToUpdate(source = null) {
     const entry = books[title];
     const src = EXTRA_SOURCES[rec.source];
     if (!entry || !src || rec.companionOf) { return false; }
-    return (entry.hash && entry.hash !== rec.hash) || rec.converter !== src.converterVersion;
+    // (a zip of an earlier release with the same text - only its sections' metadata differs - is
+    //  not downloaded again: the Sofer Library's sameTextAs)
+    const sameText = Array.isArray(entry.sameTextAs) && entry.sameTextAs.includes(rec.hash);
+    return (entry.hash && entry.hash !== rec.hash && !sameText) || rec.converter !== src.converterVersion;
   });
 }
 
@@ -553,7 +559,11 @@ async function inferNow(changed) {
     const {result} = await loadText(ref, false, null, true, true);
     return result && result.he;
   };
-  const done = await links.inferAll({files, books: inferenceBooks(), changed, loadSection});
+  // (a Sefaria book's index, for the Gemara's length and perakim: the downloaded one)
+  const loadIndex = async title => {
+    try { return await require('../offline').loadTextIndexOffline(title); } catch (e) { return null; }
+  };
+  const done = await links.inferAll({files, books: inferenceBooks(), changed, loadSection, loadIndex});
   for (const t of done) {
     if (state.installed[t]) { await links.saveLinks(t, files[t]); }
   }

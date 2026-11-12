@@ -42,8 +42,10 @@ Everything goes through the existing tools, as thin a layer as possible:
   (extras/sofer.js linksOf).
 
 Writes ``<out>/release/``: one ``<asset>.zip`` per book (ASCII names: GitHub renames others),
-``sofer-library-catalog.json`` (each book: title, Hebrew title, kind, shelf, licences, size,
-sha256, md5, first section, the editors'-notes book that comes with it) and ``SHA256SUMS.txt``.
+``sofer-library-catalog.json`` (each book: title, Hebrew title, English title and other names,
+kind, shelf, licences, size, sha256, md5, first section, the editors'-notes book that comes with it,
+and - with ``--previous`` - the earlier zips whose text is the same, ``sameTextAs``) and
+``SHA256SUMS.txt``.
 Check it with ``verify_release_licences.py --sofer-library <out>/release`` before uploading.
 
 Run with Sofer's own Python (it has his dependencies):
@@ -215,6 +217,16 @@ def translation_edition(provider, found: dict, original_text, title: str, name: 
     return dataclasses.replace(v, text=text, version_title=name, title=TRANSLATIONS[title][0]), report
 
 
+def translation_names(provider, title: str) -> list[str]:
+    """A translation book's names in its own schema (its Hebrew one: "שובו לכם לאהליכם (באנגלית)")."""
+    try:
+        schema = provider.get_schema(title)
+    except Exception:  # noqa: BLE001
+        return []
+    root = schema.get("schema") if isinstance(schema.get("schema"), dict) else {}
+    return [t.get("text") for t in root.get("titles") or [] if t.get("text") and t.get("text") != title]
+
+
 class RenamedProvider:
     """Sofer's provider, with one book's schema under another title (a combined edition)."""
 
@@ -285,12 +297,12 @@ def own_links(root: Path) -> dict[str, list[tuple[str, str]]]:
 
 
 def he_talmud_ref(ref: str, he_titles: dict[str, str]) -> str:
-    """A Gemara passage's Hebrew name as Sefaria gives it ("Berakhot 2a:5" -> "ברכות ב׳ א:ה")."""
+    """A Gemara passage's Hebrew name as Sefaria gives it ("Berakhot 56a:15" -> "ברכות נ״ו א:ט״ו")."""
     m = _TALMUD_REF.match(ref)
     if not m or m["title"] not in he_titles:
         return ""
     ai = 2 * int(m["daf"]) - 2 + (m["side"] == "b")
-    return f"{he_titles[m['title']]} {ev.format_address('Talmud', ai, 'he')}:{ev.gematria(int(m['seg']))}"
+    return f"{he_titles[m['title']]} {ev.format_address('Talmud', ai, 'he')}:{ev.format_address('Integer', int(m['seg']), 'he')}"
 
 
 def add_links(zip_path: Path, title: str, links: list[tuple[str, str]], he_titles: dict[str, str]) -> int:
@@ -320,6 +332,82 @@ def add_links(zip_path: Path, title: str, links: list[tuple[str, str]], he_title
     return added
 
 
+_LATIN = re.compile(r"[A-Za-z]")
+_HEBREW = re.compile(r"[֐-׿]")
+
+
+def is_english(name) -> bool:
+    return bool(name) and bool(_LATIN.search(name)) and not _HEBREW.search(name)
+
+
+def catalog_titles(schema: dict, title: str, kind: str, translations: list[str]) -> dict:
+    """The book's names for the catalogue, from Sofer's schema: ``enTitle`` (its English title,
+    when it has one: English interfaces show it instead of the Hebrew) and ``titleVariants`` /
+    ``heTitleVariants`` (its other names, so a title search finds the book by them - Ben-David's
+    English translation, "Return to Your Homes", finds "Shuvu Lachem LeOhaleichem", whose English
+    edition it is).  A combined edition is named as its title says, with no other names (they are
+    Sefaria's book's, next to it)."""
+    root = schema.get("schema") if isinstance(schema.get("schema"), dict) else {}
+    names = list(root.get("titles") or schema.get("titles") or [])
+    en_primary = next((t.get("text") for t in names if t.get("lang") == "en" and t.get("primary")), None)
+    en = title if kind == "combined" or is_english(title) else en_primary
+    out = {"enTitle": en} if is_english(en) else {}
+    if kind == "combined":
+        return out
+    seen = {title, en, schema.get("heTitle"), root.get("heTitle")}
+    variants, he_variants = [], []
+    for name in [t.get("text") for t in names] + list(schema.get("titleVariants") or [])             + list(schema.get("heTitleVariants") or []) + translations:
+        if not name or name in seen:
+            continue
+        seen.add(name)
+        (variants if is_english(name) else he_variants).append(name)
+    if variants:
+        out["titleVariants"] = variants
+    if he_variants:
+        out["heTitleVariants"] = he_variants
+    return out
+
+
+DEFAULT_NAME = ", default"                 # (how earlier releases named a default node's files)
+
+
+def section_texts(zip_path: Path) -> dict:
+    """A book zip's section text (every edition's segments, by section), with the names earlier
+    releases gave a default node's files (", default") taken out: what the reader shows, without
+    the sections' metadata (prev/next, Hebrew refs) and the index."""
+    out = {}
+    with zipfile.ZipFile(zip_path) as z:
+        for name in z.namelist():
+            if name.endswith(".metadata.json") or name.endswith("_index.json") or not name.endswith(".json"):
+                continue
+            doc = json.loads(z.read(name))
+            if isinstance(doc, dict) and isinstance(doc.get("sections"), dict):
+                doc = {k.replace(DEFAULT_NAME, ""): v for k, v in doc["sections"].items()}
+            out[name.replace(DEFAULT_NAME, "")] = doc
+    return out
+
+
+def same_text_as(previous: Path | None, entries: list, books_dir: Path) -> int:
+    """Each book (and its notes) whose text is the same as in the release this one replaces gets
+    that release's zip in ``sameTextAs`` (with the zips it was the same as): a phone that has it
+    is not sent the book again for changes in the metadata alone (extras/index.js booksToUpdate).
+    -> how many."""
+    if not previous:
+        return 0
+    old = json.loads((previous / CATALOG_NAME).read_text(encoding="utf-8"))
+    old_by_title = {b["title"]: b for e in old["books"] for b in [e] + e.get("companions", [])}
+    same = 0
+    for e in entries:
+        for b in [e] + e.get("companions", []):
+            o = old_by_title.get(b["title"])
+            if not o or o.get("sha256") == b["sha256"] or not (previous / o["file"]).is_file():
+                continue
+            if section_texts(previous / o["file"]) == section_texts(books_dir / f"{b['title']}.zip"):
+                b["sameTextAs"] = sorted({o["sha256"], *(o.get("sameTextAs") or [])})
+                same += 1
+    return same
+
+
 def shelf(lib: Library, title: str) -> tuple[list, list]:
     """The book's shelf (English, Hebrew), as Sofer's own catalogue shows it."""
     book = lib.get(title)
@@ -343,6 +431,9 @@ def main() -> int:
     ap.add_argument("--tag", default=f"sofer-library-{datetime.now(timezone.utc):%Y-%m-%d}")
     ap.add_argument("--books", default="", help="only these titles (separated by '|'), for tests")
     ap.add_argument("--skip-export", action="store_true", help="reuse the zips already in <out>/books")
+    ap.add_argument("--previous", default="",
+                    help="a downloaded copy of the release this one replaces (its catalogue and zips): "
+                         "books whose text is unchanged name its zip in sameTextAs")
     args = ap.parse_args()
 
     out = Path(args.out)
@@ -434,9 +525,13 @@ def main() -> int:
                       flush=True)
         schema = prov.get_schema(title)
         cats, he_cats = shelf(lib, original)
+        # (a translation given as this book's edition: its names find this book)
+        translated = [n for tr, (orig, _name) in TRANSLATIONS.items() if orig == original
+                      for n in [tr, *translation_names(provider, tr)]]
         exported[title] = {
             "title": title,
             "heTitle": he_title,
+            **catalog_titles(schema, title, kind, translated),
             "kind": kind,
             "categories": cats,
             "heCategories": he_cats,
@@ -484,6 +579,7 @@ def main() -> int:
             b["sha256"] = sha256(zp)
             b["md5"] = hashlib.md5(zp.read_bytes()).hexdigest()
         entries.append(e)
+    same = same_text_as(Path(args.previous) if args.previous else None, entries, books_dir)
     catalog = {
         "format": CATALOG_FORMAT,
         "source": SOURCE_ID,
@@ -506,7 +602,8 @@ def main() -> int:
     total = sum(f.stat().st_size for f in release.iterdir())
     print(f"{len(entries)} books ({counts}), "
           f"{sum(len(e.get('companions', [])) for e in entries)} notes books with them; "
-          f"{len(left_out)} left out (left-out.json); {total / 1e6:.1f} MB -> {release}", flush=True)
+          f"{len(left_out)} left out (left-out.json); {total / 1e6:.1f} MB -> {release}; "
+          f"{same} with the same text as in --previous", flush=True)
     return 0
 
 

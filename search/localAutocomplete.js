@@ -39,7 +39,10 @@ function books() {
   return Object.keys(S.booksDict).map(title => {
     let index = null;
     try { index = S.index(title); } catch (e) { index = null; }
-    return {title, heTitle: (index && index.heTitle) || null};
+    return {title, heTitle: (index && index.heTitle) || null,
+      // (its other names - the Sofer Library's "Return to Your Homes" for Shuvu Lachem LeOhaleichem)
+      variants: (index && Array.isArray(index.titleVariants)) ? index.titleVariants : [],
+      heVariants: (index && Array.isArray(index.heTitleVariants)) ? index.heTitleVariants : []};
   });
 }
 
@@ -108,7 +111,8 @@ export function localNameResults(query) {
 
   const found = [];
   const consider = (item, type) => {
-    const s = isHe ? score(item.heTitle, low) : score(item.title, low);
+    const names = isHe ? [item.heTitle, ...(item.heVariants || [])] : [item.title, ...(item.variants || [])];
+    const s = names.reduce((best, n) => { const x = score(n, low); return x >= 0 && (best < 0 || x < best) ? x : best; }, -1);
     if (s < 0) { return; }
     found.push({s, len: item.title.length, c: {
       title: isHe && item.heTitle ? item.heTitle : item.title,

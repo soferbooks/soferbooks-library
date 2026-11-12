@@ -88,13 +88,27 @@ def format_address(address_type: str, n: int, lang: str) -> str:
     return _he_num(n)
 
 
+_HE_ONES = ["", "א", "ב", "ג", "ד", "ה", "ו", "ז", "ח", "ט"]
+_HE_TENS = ["", "י", "כ", "ל", "מ", "נ", "ס", "ע", "פ", "צ"]
+_HE_HUNDREDS = ["", "ק", "ר", "ש", "ת"]
+
+
 def _he_num(n: int) -> str:
-    """A Hebrew number, in the style Sefaria refs use ("י׳", "טז").
-    Sofer's gematria letters get a geresh when the number is a single letter."""
-    g = gematria(n)
-    if isinstance(g, str) and len(g.replace("׳", "")) == 1 and "׳" not in g:
-        g += "׳"
-    return g
+    """A Hebrew number exactly as Sefaria's refs write it: a geresh after a single letter
+    ("י׳"), gershayim before the last of several ("נ״ו", "ט״ו", "תקט״ו").  Sefaria's spelling,
+    not Sofer's: it rearranges only רע (270-279: "ע״ר", "ער״ד"), while Sofer's gematria also
+    rearranges 298, 304, 344 ... (Sefaria: "רצ״ח", "ש״ד", "שמ״ד" - its mobile export's heRefs).
+    From 1000 on, Sofer's gematria (Sefaria's refs never go that far in these books)."""
+    if n > 999 or n < 1:
+        return gematria(n)
+    hundreds, rest = divmod(n, 100)
+    g = "ת" * (hundreds // 4) + _HE_HUNDREDS[hundreds % 4]
+    if rest in (15, 16):
+        g += "ט" + _HE_ONES[rest - 9]
+    else:
+        g += _HE_TENS[rest // 10] + _HE_ONES[rest % 10]
+    g = g.replace("רע", "ער")
+    return g + "׳" if len(g) == 1 else g[:-1] + "״" + g[-1]
 
 
 # ---------------------------------------------------------------- schema machinery
@@ -503,6 +517,10 @@ class BookReference:
     def leaf_title_parts(self, leaf, path, lang):
         parts = []
         for node in path[1:] + (leaf,):      # skip the root envelope
+            if node.get("default"):
+                # (a default node adds nothing to the ref, as in Sefaria's: "Tur, Orach Chayim 1",
+                #  not "Tur, Orach Chayim, default 1" - nor a Hebrew "א" for its missing name)
+                continue
             part = node_ref_part(node, lang, None)
             if part:
                 parts.append(part)
@@ -560,10 +578,13 @@ def export_book(book: Book, provider: LocalExportProvider, links_index, out_dir:
     index_doc["versions"] = versions_doc
     index_doc.setdefault("title", book.title)
 
-    files: list[tuple[str, str]] = []  # (name-in-zip, json string)
+    files: list[tuple[str, object]] = []  # (name-in-zip, json string; a section's metadata as a dict)
 
     def add_file(name: str, doc):
-        files.append((name, json.dumps(doc, ensure_ascii=False, separators=(",", ":"))))
+        # (a section's metadata is written out at the end, when link_sections has filled its prev/
+        #  next; every other file as it is now - the index before the leaves' lengths are completed)
+        files.append((name, doc if name.endswith(".metadata.json")
+                      else json.dumps(doc, ensure_ascii=False, separators=(",", ":"))))
 
     add_file(f"{book.title}_index.json", index_doc)
 
@@ -603,20 +624,11 @@ def export_book(book: Book, provider: LocalExportProvider, links_index, out_dir:
                                                  unit, depth, len(refmod.leaves))
             en_ref = join_ref(book.title, en_parts, depth >= 2)
             he_ref = join_ref(he_title or "", he_parts, depth >= 2)
-            prev_next = {}
-            if depth >= 2 and len(units) > 1 and units[0] is not None:
-                # neighbours within this leaf's unit list
-                for where, offset in (("prev", -1), ("next", 1)):
-                    i = units.index(unit) + offset
-                    if 0 <= i < len(units):
-                        u = units[i]
-                        pp, hp = compose_top_ref(en_prefix, he_prefix, address_types, u,
-                                                 depth, len(refmod.leaves))
-                        prev_next[where] = join_ref(book.title, pp, True)
             export_top_section(
                 refmod, leaf, path, depth, address_types, section_names,
                 he_section_names, en_ref, he_ref, texts, unit_idx, links_index,
-                files, add_file, prev_next=prev_next)
+                files, add_file)
+    link_sections(files)
     # write everything into the zip
     zip_path = out_dir / f"{book.title}.zip"
     try:
@@ -625,8 +637,8 @@ def export_book(book: Book, provider: LocalExportProvider, links_index, out_dir:
             # Ashkenaz has three "Mourner's Kaddish" nodes under Musaf LeShabbat).
             # Official exports write such a file once; keep the last version.
             unique = {}
-            for name, data in files:
-                unique[name] = data
+            for name, doc in files:
+                unique[name] = doc if isinstance(doc, str) else json.dumps(doc, ensure_ascii=False, separators=(",", ":"))
             for name, data in unique.items():
                 z.writestr(name, data)
     except OSError as e:
@@ -635,6 +647,29 @@ def export_book(book: Book, provider: LocalExportProvider, links_index, out_dir:
         return False, None
     size = zip_path.stat().st_size
     return True, size
+
+
+def link_sections(files):
+    """Every section's prev/next across the whole book, as Sefaria's export has them: the nearest
+    section before / after it, in the schema's order, that has text - from one node to the next
+    ("Ramban on Genesis, Foreword" -> "Ramban on Genesis 1:1") and from one file's sections to the
+    next file's ("Rashi on Genesis 26:35" -> "27:1"), skipping sections with no text (Sefaria's
+    "48:22" -> "49:1").  A section with no text of its own (metadata only) names its neighbours too,
+    so reading goes on from it.  The ends of the book: null."""
+    order = []
+    for name, doc in files:
+        if name.endswith(".metadata.json"):
+            order.extend(doc["sections"].values() if "sections" in doc else [doc])
+    texted = [i for i, s in enumerate(order) if s.get("versions")]
+    k = 0                                  # (texted[k]: the first texted section at or after i)
+    for i, s in enumerate(order):
+        while k < len(texted) and texted[k] < i:
+            k += 1
+        before = texted[k - 1] if k > 0 else None
+        after_k = k + 1 if k < len(texted) and texted[k] == i else k
+        after = texted[after_k] if after_k < len(texted) else None
+        s["prev"] = order[before]["ref"] if before is not None else None
+        s["next"] = order[after]["ref"] if after is not None else None
 
 
 def v_id(v):

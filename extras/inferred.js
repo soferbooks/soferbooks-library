@@ -340,7 +340,7 @@ export function inferBase(heTitle, books, self = null) {
  * The links of a commentary to the text it is on, in extras/links.js's format
  * ({a, ah, t, th, r: 'base', c: 'sure' | 'likely'}: a explains t).
  * comm:  {leaves: [[ref, heRef, keys, heTitles, signs]]}   (what extras/links.js keeps of a book)
- * base:  {units: [{key, ref, he, words}]}
+ * base:  {units: [{key, ref, he, words}]}   (the Gemara's also dibburim, perakim, unread: looseComments)
  */
 export function inferredLinks(comm, base, likelyBook = false) {
   const leaves = comm.leaves || [];
@@ -351,13 +351,16 @@ export function inferredLinks(comm, base, likelyBook = false) {
   if (!placed.some(p => p.how !== 'neighbour')) {
     // (Sofer's rules found no place: the comments' opening words, matched loosely - beyond Sofer)
     placed = looseComments(leaves.map((l, i) => ({path: paths[i].path, heTitles: l[3], openings: l[5] || []})),
-      base.units);
+      base.units, {dibburim: base.dibburim || null, perakim: base.perakim || [], unread: base.unread || null});
   }
   const out = [];
   for (const p of placed) {
     const l = leaves[p.leaf];
     const u = base.units[p.unit];
-    const sure = (p.how === 'loose' ? p.exact : p.how !== 'neighbour' && p.how !== 'loose-neighbour')
+    // (a quote found whole in one place, a dibbur of Rashi's or Tosafos': sure; beside another
+    //  comment, or only at the daf its siman names: likely)
+    const sure = (p.how === 'loose' || p.how === 'dibbur' ? p.exact
+      : p.how !== 'neighbour' && p.how !== 'loose-neighbour' && p.how !== 'daf')
       && !paths[p.leaf].likely && !likelyBook;
     out.push({a: `${l[0]}:${p.para + 1}`, ah: `${l[1]} ${p.para + 1}`, t: u.ref, th: u.he, r: 'base',
       c: sure ? 'sure' : 'likely', how: p.how});
@@ -365,7 +368,7 @@ export function inferredLinks(comm, base, likelyBook = false) {
   return out;
 }
 
-// ---------------------------------------------------------------- beyond Sofer: loose matching
+// ---------------------------------------------------------------- loose matching (loose_placement.py)
 // For a commentary Sofer's rules cannot place (Dicta's pages without headings, a commentary on the
 // Gemara under "דף ב." headings): each comment's opening words - what it quotes, its dibbur
 // hamaschil - looked for in the text it is on, in order, forgiving the scan's errors (a word
@@ -373,6 +376,15 @@ export function inferredLinks(comm, base, likelyBook = false) {
 // which daf (a heading "דף ב." / "דף ב ע"א", or a comment opening "ע"ב"), only that amud and the
 // ones beside it are searched. A comment not found goes with the one before it (else the next).
 // All 'likely', except a quote found whole, and in one place only of where it was looked for.
+//
+// Sofer's placement recheck (Sofer src/sofer/loose_placement.py, dibburim.py, masechta_pieces.py,
+// 2026-11-12), ported here so the phone places as Sofer does, given the same text:
+//   - a comment on Rashi's or Tosafos' words ("בתוס' בד"ה ...", "[רש"י ד"ה ...]", "בד"ה") goes on the
+//     Gemara line their dibbur is on (Sefaria's Rashi and Tosafos are arranged by the Gemara's lines);
+//   - a quote spelled its own way is found by its letters in the amud named (rapidfuzz's partial
+//     ratio, ported exactly: partialRatioAtLeast);
+//   - essays on the daf, too few of whose comments quote the Gemara, are placed siman by siman at the
+//     daf each names ("סימן יח - לדף ט", "דף כג", "שם" / "עוד בענין" continuing): bySiman.
 
 const NIKUD_ALL = /[֑-ׇ]/g;
 /** A paragraph's opening, as kept for loose matching (no tags or nikud, 80 letters) */
@@ -380,6 +392,7 @@ export const paraOpening = html => String(html || '').replace(NIKUD_ALL, '').rep
   .replace(/\s+/g, ' ').trim().slice(0, 80);
 
 const Q = '["\'׳״]';
+const QG = new RegExp(Q, 'g');
 // what a comment opens with before its quote: which text it is on ("גמ'", "בתוס' ד"ה", "מתני'"),
 // its daf ("דף ב ע"א", "ע"ב"), "שם", "פי'"
 // (and the masechet and perek running into the first comment - "ברכות פרק א משעה שהכהנים" in the
@@ -408,9 +421,13 @@ export function looseQuote(opening) {
 }
 
 const FINALS = {'ך': 'כ', 'ם': 'מ', 'ן': 'נ', 'ף': 'פ', 'ץ': 'צ'};
-/** supercommentary.skeleton: without ו and י, final letters as others */
-const skel = w => w.replace(/[ךםןףץ]/g, c => FINALS[c]).replace(/[וי]/g, '') || w;
+const unfinal = w => w.replace(/[ךםןףץ]/g, c => FINALS[c]);
+/** supercommentary.skeleton / loose_placement._skel: without ו and י, final letters as others */
+const skel = w => unfinal(w).replace(/[וי]/g, '') || w;
 const near = (q, w) => sameWord(q, w) || sameWord(skel(q), skel(w));
+
+const AMUD = new RegExp(`^(?:[([]\\s*)?דף\\s+([א-ת]{1,3}${Q}?[א-ת]?)\\s*(?:([.:])|ע${Q}?\\s*([אב]))?`);
+const SIDE = new RegExp(`^ע${Q}\\s*([אב])`);
 
 /**
  * The amud a heading or a comment's opening names: {daf, side ('a' | 'b' | null)} or null.
@@ -418,19 +435,278 @@ const near = (q, w) => sameWord(q, w) || sameWord(skel(q), skel(w));
  */
 export function amudOf(text) {
   const s = String(text || '').replace(NIKUD_ALL, '').trim();
-  let m = new RegExp(`^(?:[([]\\s*)?דף\\s+([א-ת]{1,3}${Q}?[א-ת]?)\\s*(?:([.:])|ע${Q}?\\s*([אב]))?`).exec(s);
+  let m = AMUD.exec(s);
   if (m) {
-    const daf = NUMBERS.get(m[1].replace(new RegExp(Q, 'g'), ''));
+    const daf = NUMBERS.get(m[1].replace(QG, ''));
     if (!daf) { return null; }
     const side = m[2] === '.' || m[3] === 'א' ? 'a' : (m[2] === ':' || m[3] === 'ב' ? 'b' : null);
     return {daf, side};
   }
-  m = new RegExp(`^ע${Q}\\s*([אב])`).exec(s);
+  m = SIDE.exec(s);
   return m ? {daf: null, side: m[1] === 'א' ? 'a' : 'b'} : null;
 }
 
 /** An amud's place among a masechta's (Sefaria's: 1a is 0) */
-const amudIndex = (daf, side) => 2 * daf - 2 + (side === 'b' ? 1 : 0);
+export const amudIndex = (daf, side) => 2 * daf - 2 + (side === 'b' ? 1 : 0);
+
+// ---- what a siman's heading or first lines say of its place (loose_placement.py)
+
+// (Python's \b after a Hebrew word: no letter or digit follows)
+const WORD_END = '(?![0-9A-Za-z_\\u05D0-\\u05EA\\u05F0-\\u05F2])';
+// a heading's daf anywhere in it ("סימן יח - לדף ט", "(סימן כו - לדף צה)"), or the masechta's start
+const NAMED_DAF = new RegExp(`(?:^|[\\s(\\[\\-–—])ל?דף\\s+([א-ת]{1,3}${Q}?[א-ת]?)(?=[\\s.,:)\\]]|$)\\s*(?:([.:])|ע${Q}?\\s*([אב]))?`);
+const START = new RegExp(`\\(?\\s*(?:ב?ריש|בתחילת|תחילת)\\s+(?:ה)?(?:מסכת(?:א|ין)?|המסכתא)${WORD_END}`);
+const ORDINALS = {
+  'ראשון': 1, 'שני': 2, 'שלישי': 3, 'רביעי': 4, 'חמישי': 5, 'ששי': 6, 'שישי': 6, 'שביעי': 7, 'שמיני': 8,
+  'תשיעי': 9, 'עשירי': 10, 'אחד עשר': 11, 'שנים עשר': 12, 'שלשה עשר': 13, 'שלושה עשר': 13,
+  'ארבעה עשר': 14, 'חמשה עשר': 15, 'חמישה עשר': 15, 'ששה עשר': 16, 'שישה עשר': 16, 'שבעה עשר': 17,
+  'שמונה עשר': 18, 'תשעה עשר': 19, 'עשרים': 20,
+};
+const PEREK = /^\s*\(?\s*פרק\s+(?:של\s+)?(.+?)\s*\)?\s*$/;
+// what a comment says it is on before its quote, when Rashi's or Tosafos' (by their dibbur)
+const ON_TOSAFOT = new RegExp(`^(?:ו?ב?(?:תוס(?:פות|${Q})?|תוד${Q}ה|תד${Q}ה))(?=[\\s.,:]|$)`);
+const ON_RASHI = new RegExp(`^(?:ו?ב?(?:רש${Q}י|פירש${Q}י|פרש${Q}י|פירוש\\s+רש${Q}י|קונטרס|הקונטרס))(?=[\\s.,:]|$)`);
+const ON_DH = new RegExp(`^ו?ב?ד${Q}ה(?=[\\s.,:]|$)`);
+// a comment's own number before it: "א)", "(ב)", "ג."
+const ENUM = new RegExp(`^\\s*\\(?[א-ת]{1,2}\\)\\s*|^\\s*[א-ת]{1,2}\\.\\s+|^\\s*\\(?(?:הלכה|פיסקא|סעיף)\\s+[א-ת]{1,2}${Q}?\\)?[\\s.,:]+`);
+const DIBBUR_WORD = new RegExp(`[א-ת]+(?:${Q}[א-ת]+)*`, 'g');
+// a daf named inside a siman's first lines ("ובהא דאמרו בגמרא דף ה'") - not another masechet's
+const INNER_DAF = `(\\S+)\\s+ב?דף\\s+([א-ת]{1,3}${Q}?[א-ת]?)(?=[\\s.,:)\\]]|$)\\s*(?:ע${Q}?\\s*([אב]))?`;
+const ABBREVIATED = new Set(['ב"ק', 'ב"מ', 'ב"ב', 'ע"ז', 'ר"ה', 'מו"ק', 'בב"ק', 'בב"מ', 'בב"ב', 'בע"ז', "פ'", 'פרק', 'בפרק', "בפ'"]);
+// (sofer.wikisource.MASECHTOS: the masechtos' names, a word of one before "דף" is not this one's daf)
+const MASECHTOS = ['ברכות', 'שבת', 'עירובין', 'פסחים', 'שקלים', 'יומא', 'סוכה', 'ביצה', 'ראש השנה', 'תענית',
+  'מגילה', 'מועד קטן', 'חגיגה', 'יבמות', 'כתובות', 'נדרים', 'נזיר', 'סוטה', 'גיטין', 'קידושין', 'בבא קמא',
+  'בבא מציעא', 'בבא בתרא', 'סנהדרין', 'מכות', 'שבועות', 'עבודה זרה', 'הוריות', 'זבחים', 'מנחות', 'חולין',
+  'בכורות', 'ערכין', 'תמורה', 'כריתות', 'מעילה', 'תמיד', 'נידה', 'נדה'];
+const MASECHET_WORDS = new Set([].concat(...MASECHTOS.map(n => n.split(' ').flatMap(w => [w, `ב${w}`]))));
+// a siman on the same place as the one before: "שם," / "עוד בענין ..." / "בענין הנ"ל"
+const SAME_PLACE = new RegExp(`^(?:שם[\\s,.]|עוד\\s+ב|בענין\\s+הנ${Q}ל)`);
+const WORDS_LIKE_NUMBERS = new Set(['לא', 'לו', 'מה', 'כה', 'עד', 'פה', 'מי', 'זה', 'זו']);
+
+/** A comment's opening without its own number ("א)", "הלכה ה", "פיסקא", "יא מתני'") */
+export function stripNumber(text) {
+  let t = text;
+  for (let k = 0; k < 2; k++) {
+    t = t.replace(ENUM, '');
+    const s = t.trim();
+    const i = s.indexOf(' ');
+    const first = i < 0 ? s : s.slice(0, i);
+    const rest = i < 0 ? '' : s.slice(i + 1);
+    if (rest && first.length > 0 && first.length <= 2 && !WORDS_LIKE_NUMBERS.has(first) && NUMBERS.get(first)) { t = rest; }
+  }
+  return t;
+}
+
+/** A daf of this masechet named in the first words of a siman's text: {daf, side} or null */
+export function innerDaf(text) {
+  const re = new RegExp(INNER_DAF, 'g');
+  const s = text.slice(0, 100);
+  let m;
+  while ((m = re.exec(s)) !== null) {
+    const before = m[1].replace(/[.,:;()]/g, '');
+    if (MASECHET_WORDS.has(before) || ABBREVIATED.has(before) || ABBREVIATED.has(before.replace(QG, '"'))) { continue; }
+    const daf = NUMBERS.get(m[2].replace(QG, ''));
+    if (daf) { return {daf, side: m[3] === 'א' ? 'a' : (m[3] === 'ב' ? 'b' : null)}; }
+  }
+  return null;
+}
+
+/** The amud a section's heading names anywhere in it ("סימן יח - לדף ט", "(ריש המסכת)": 2a), or null */
+export function namedDaf(heading) {
+  const s = String(heading || '').replace(NIKUD_ALL, '');
+  const m = NAMED_DAF.exec(s);
+  if (m) {
+    const daf = NUMBERS.get(m[1].replace(QG, ''));
+    if (daf) { return {daf, side: m[2] === '.' || m[3] === 'א' ? 'a' : (m[2] === ':' || m[3] === 'ב' ? 'b' : null)}; }
+  }
+  return START.test(s) ? {daf: 2, side: 'a'} : null;
+}
+
+/** The perek a heading names ("פרק תשיעי", "פרק של שלשה עשר", "פרק ט"), or null */
+export function perekNumber(heading) {
+  const m = PEREK.exec(String(heading || '').replace(NIKUD_ALL, ''));
+  if (!m) { return null; }
+  const t = m[1].replace(QG, '').trim();
+  return ORDINALS[t] || (t.length <= 3 ? NUMBERS.get(t) || null : null);
+}
+
+/** Whose dibbur a comment opens with: 'tosafot', 'rashi', 'either' (a bare "בד"ה"), or null - after a daf it names */
+export function onCommentary(openingText) {
+  let s = openingText.trim();
+  const m = AMUD.exec(s) || SIDE.exec(s);
+  if (m) { s = s.slice(m[0].length).replace(/^[ .,:)\]]+/, ''); }
+  if (ON_TOSAFOT.test(s)) { return 'tosafot'; }
+  if (ON_RASHI.test(s)) { return 'rashi'; }
+  if (ON_DH.test(s)) { return 'either'; }
+  return null;
+}
+
+/** A dibbur's words as its quote is matched (an abbreviation one word, its marks dropped) */
+const dibburWords = text => (String(text || '').replace(NIKUD_ALL, '').match(DIBBUR_WORD) || []).map(w => w.replace(QG, ''));
+
+// ---- Rashi's and Tosafos' dibburim (dibburim.py)
+
+// what opens a dibbur before its words: "מתני'", "גמ'", "הג"ה", "ה"ג", "בא"ד"
+const DIBBUR_LEAD = new RegExp(`^\\s*(?:(?:מתני(?:תין)?|גמ(?:רא)?|הג${Q}ה|ה${Q}ג|בא${Q}ד|שם)${Q}?\\s+)+`);
+const plainText = html => String(html || '').replace(NIKUD_ALL, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+const stripEnds = (s, chars) => {
+  let a = 0;
+  let b = s.length;
+  while (a < b && chars.includes(s[a])) { a++; }
+  while (b > a && chars.includes(s[b - 1])) { b--; }
+  return s.slice(a, b);
+};
+
+/** A comment's dibbur hamaschil: its bold opening, else up to " - " or the first stop */
+export function dibburOf(html) {
+  const m = /^\s*<b>([\s\S]*?)<\/b>/.exec(html || '');
+  let t = m && plainText(m[1]).length > 1 ? plainText(m[1]) : '';
+  if (!t) {
+    const s = plainText(html);
+    const cut = /\s[-–—]\s|[.:]/.exec(s);
+    t = cut && cut.index <= 100 ? s.slice(0, cut.index) : s.split(/\s+/).filter(Boolean).slice(0, 5).join(' ');
+  }
+  return stripEnds(t.replace(DIBBUR_LEAD, ''), ' -–—.:');
+}
+
+/**
+ * Rashi's and Tosafos' comments on a masechta as dibburim.load gives them: {rashi, tosafot} each
+ * [[amud index (1a = 0), [line: html or [html]]]] -> Map(amud -> [{who, words, text, line}]) in line order.
+ */
+export function dibburimOf({rashi = [], tosafot = []} = {}) {
+  const out = new Map();
+  for (const [who, amudim] of [['rashi', rashi], ['tosafot', tosafot]]) {
+    for (const [ai, lines] of amudim || []) {
+      (Array.isArray(lines) ? lines : []).forEach((line, li) => {
+        for (const c of Array.isArray(line) ? line : [line]) {
+          if (typeof c === 'string' && c.trim()) {
+            if (!out.has(ai)) { out.set(ai, []); }
+            out.get(ai).push({who, words: dibburOf(c), text: plainText(c), line: li});
+          }
+        }
+      });
+    }
+  }
+  for (const v of out.values()) { v.sort((a, b) => a.line - b.line); }   // (stable: Rashi before Tosafos on a line)
+  return out;
+}
+
+const skeleton = w => unfinal(w).replace(/[וי]/g, '');
+/** dibburim.alike: two words alike, or one the other's start by their letters (3 or more) */
+function alike(a, b) {
+  if (near(a, b)) { return true; }
+  const x = skeleton(a);
+  const y = skeleton(b);
+  return Math.min(x.length, y.length) >= 3 && Math.abs(x.length - y.length) <= 2 && (x.startsWith(y) || y.startsWith(x));
+}
+
+/**
+ * dibburim.find: {amud, line} of the first dibbur on `amuds` (in order) whose words open with the
+ * quote q (by `who` when given; on the first amud the first at or after line `after` if any), or null.
+ */
+function findDibburLine(index, amuds, q, who, after) {
+  if (!q.some(w => w !== '*')) { return null; }
+  for (let n = 0; n < amuds.length; n++) {
+    const ai = amuds[n];
+    const hits = [];
+    for (const d of index.get(ai) || []) {
+      if (who && d.who !== who) { continue; }
+      // (the comment from its dibbur on: a quote often runs on into its words) ...
+      const dw = dibburWords(d.text.replace(DIBBUR_LEAD, '')).slice(0, q.length);
+      if (dw.length >= q.length && q.every((a, i) => a === '*' || near(a, dw[i]))) { hits.push(d.line); continue; }
+      // ... or the dibbur alone: its first word and most of the rest alike
+      const dib = dibburWords(d.words.replace(DIBBUR_LEAD, ''));
+      const k = Math.min(q.length, dib.length);
+      if (!k || q[0] === '*' || !alike(q[0], dib[0])) { continue; }
+      if (k === 1 && q.length > 1 && q[0].length < 4) { continue; }      // (one short word: too common to tell)
+      let got = 0;
+      for (let i = 0; i < k; i++) { if (q[i] === '*' || alike(q[i], dib[i])) { got += 1; } }
+      if (got >= Math.max(1, Math.ceil((3 * k) / 5))) { hits.push(d.line); }
+    }
+    if (hits.length) {
+      const later = n === 0 ? hits.filter(h => h >= after) : hits;
+      return {amud: ai, line: (later.length ? later : hits)[0]};
+    }
+  }
+  return null;
+}
+
+// ---- a quote by its letters (masechta_pieces.letters, rapidfuzz's partial ratio)
+
+/** masechta_pieces.words run together: without ו and י, a final ן as ם, final letters as others */
+export function letters(words) {
+  let out = '';
+  for (let w of words) {
+    w = w.replace(QG, '');
+    if (w.endsWith('ן')) { w = `${w.slice(0, -1)}ם`; }
+    out += unfinal(w).replace(/[וי]/g, '');
+  }
+  return out;
+}
+
+/** The length of the longest common subsequence of a and b (Hyyrö's bit-parallel algorithm) */
+function lcsLength(a, b, pm) {
+  const m = a.length;
+  if (!m || !b.length) { return 0; }
+  const W = Math.ceil(m / 32);
+  const V = new Array(W).fill(0xFFFFFFFF);
+  for (let j = 0; j < b.length; j++) {
+    const M = pm.get(b[j]);
+    if (!M) { continue; }
+    let carry = 0;
+    for (let w = 0; w < W; w++) {
+      const v = V[w];
+      const u = (v & M[w]) >>> 0;
+      const sum = v + u + carry;
+      carry = sum > 0xFFFFFFFF ? 1 : 0;
+      V[w] = ((sum >>> 0) | (v & ~M[w])) >>> 0;
+    }
+  }
+  let zeros = 0;
+  for (let i = 0; i < m; i++) { if (!((V[i >> 5] >>> (i & 31)) & 1)) { zeros += 1; } }
+  return zeros;
+}
+
+function patternOf(a) {
+  const W = Math.ceil(a.length / 32);
+  const pm = new Map();
+  for (let i = 0; i < a.length; i++) {
+    if (!pm.has(a[i])) { pm.set(a[i], new Array(W).fill(0)); }
+    const arr = pm.get(a[i]);
+    arr[i >> 5] = (arr[i >> 5] | (1 << (i & 31))) >>> 0;
+  }
+  return pm;
+}
+
+/** rapidfuzz's Indel normalized similarity (0..1) of a (pattern pm) and b */
+const indelSimilarity = (a, b, pm) => {
+  const lensum = a.length + b.length;
+  if (!lensum) { return 1; }
+  return 1.0 - (lensum - 2 * lcsLength(a, b, pm)) / lensum;
+};
+
+/** The best Indel similarity of the shorter `s1` against any part of `s2` (rapidfuzz's short needle:
+ *  each prefix of s2 shorter than s1, each window as long as s1, each suffix) */
+function partialSimilarity(s1, s2) {
+  const pm = patternOf(s1);
+  const n = s1.length;
+  let best = 0;
+  for (let i = 1; i < n; i++) { best = Math.max(best, indelSimilarity(s1, s2.slice(0, i), pm)); }
+  for (let i = 0; i < s2.length - n; i++) { best = Math.max(best, indelSimilarity(s1, s2.slice(i, i + n), pm)); }
+  for (let i = Math.max(0, s2.length - n); i < s2.length; i++) { best = Math.max(best, indelSimilarity(s1, s2.slice(i), pm)); }
+  return best;
+}
+
+/** fuzz.partial_ratio(s1, s2, score_cutoff=cutoff) is not 0 (both shorter than 65 letters, as a quote is) */
+export function partialRatioAtLeast(s1, s2, cutoff) {
+  if (!s1.length || !s2.length) { return false; }
+  const [shorter, longer] = s1.length > s2.length ? [s2, s1] : [s1, s2];
+  let best = partialSimilarity(shorter, longer);
+  if (s1.length === s2.length && best < 1) { best = Math.max(best, partialSimilarity(longer, shorter)); }
+  return best >= cutoff / 100;
+}
+
+// ---- the commentary's comments and the Gemara's units
 
 /** Each comment's amud, from its section's headings and the comments' openings: [[index or null]] per leaf */
 function amudsOf(comm) {
@@ -453,7 +729,7 @@ function amudsOf(comm) {
   });
 }
 
-/** The amudim (Sefaria's refs' "2a") a commentary names, and the ones beside them: for loading them */
+/** The amudim (Sefaria's refs' "2a") a commentary names, and the ones beside them */
 export function amudimWanted(comm) {
   const leaves = (comm.leaves || []).map(l => ({heTitles: l[3], openings: l[5] || []}));
   const out = new Set();
@@ -464,7 +740,13 @@ export function amudimWanted(comm) {
     .map(i => `${Math.floor(i / 2) + 1}${i % 2 ? 'b' : 'a'}`);
 }
 
-/** The units of a masechta of Sefaria's Gemara: amudim [["2a", [segment html]]] */
+/** A commentary's comments that open on Rashi's or Tosafos' words (their dibburim are then needed) */
+export const quotesDibburim = comm => (comm.leaves || []).some(l => (l[5] || []).some(o => o && onCommentary(stripNumber(o))));
+
+/** "2a" for an amud's index (1a = 0) */
+export const amudLabel = i => `${Math.floor(i / 2) + 1}${i % 2 ? 'b' : 'a'}`;
+
+/** The units of a masechta of Sefaria's Gemara: amudim [["2a", [segment html]]] (its lines with text, as Sofer's leaves) */
 export function talmudUnits(title, heTitle, amudim) {
   const units = [];
   for (const [label, segs] of amudim) {
@@ -473,7 +755,8 @@ export function talmudUnits(title, heTitle, amudim) {
     const daf = parseInt(m[1], 10);
     const a = amudIndex(daf, m[2]);
     (segs || []).forEach((s, i) => {
-      units.push({key: [a, i], amud: a, ref: `${title} ${label}:${i + 1}`,
+      if (typeof s !== 'string' || !s.trim()) { return; }
+      units.push({key: [a, i], amud: a, line: i, ref: `${title} ${label}:${i + 1}`,
         he: `${heTitle} ${gematria(daf)}${m[2] === 'a' ? '.' : ':'} ${i + 1}`, words: hebrewWords(s)});
     });
   }
@@ -483,59 +766,80 @@ export function talmudUnits(title, heTitle, amudim) {
 const LOOK_AHEAD = 40;        // units looked at past the last placed before the whole text is searched
 
 /**
- * The comments put on the text by their quotes, loosely (see above).
- * comm: [{path, heTitles, openings}]; units: [{key, words, amud?}]
- * -> [{leaf, para, unit, how: 'loose' | 'loose-neighbour', exact}]
+ * The comments put on the text by their quotes, loosely - LoosePlacer.place of Sofer's
+ * loose_placement.py, for the same text and comments the same places.
+ * comm:  [{path, heTitles, openings}]   the commentary's sections in order (heTitles: the Hebrew
+ *        names of its levels; openings: each paragraph's paraOpening, null for an empty one)
+ * units: [{key, words, amud?, line?}]   the text's passages in order (a masechta: each one's amud,
+ *        1a = 0, and line in it)
+ * opts:  dibburim  Map(amud -> [{who, words, text, line}]) Rashi's and Tosafos' (dibburimOf)
+ *        perakim   [[first amud, last amud]] of each perek
+ *        unread    Set of amudim that could not be read: a comment on those only is left out (Sofer
+ *                  reads the whole masechet, so its loose_placement.py never meets this)
+ * -> [{leaf, para, unit, how, exact}]: how 'loose' (by its quote), 'dibbur' (by Rashi's / Tosafos'
+ *    dibbur), 'daf' (beside a comment of its siman, at the daf the siman names), 'loose-neighbour'
+ *    (beside the one before or after it); exact: the quote found whole, in one place only.
  */
-export function looseComments(comm, units) {
-  const amuds = amudsOf(comm);
+export function looseComments(comm, units, {dibburim = null, perakim = [], unread = null} = {}) {
+  const n = units.length;
+  const words = units.map(u => u.words || []);
+  const amudOfUnit = units.map(u => (u.amud === undefined ? null : u.amud));
+  const lineOfUnit = units.map(u => (u.line === undefined ? null : u.line));
   const byAmud = new Map();
+  const unitAt = new Map();
   units.forEach((u, i) => {
-    if (u.amud === undefined) { return; }
+    if (u.amud === undefined || u.amud === null) { return; }
     if (!byAmud.has(u.amud)) { byAmud.set(u.amud, []); }
     byAmud.get(u.amud).push(i);
+    if (u.line !== undefined && u.line !== null) { unitAt.set(`${u.amud}|${u.line}`, i); }
   });
   const chapter = new Map();          // a chapter's number -> [first unit, after the last]
-  units.forEach((u, i) => {
-    if (u.amud !== undefined || typeof u.key[0] !== 'number') { return; }
-    if (!chapter.has(u.key[0])) { chapter.set(u.key[0], [i, i]); }
-    chapter.get(u.key[0])[1] = i + 1;
-  });
-  const skels = units.map(u => (u.words || []).map(skel));
+  if (!byAmud.size) {
+    units.forEach((u, i) => {
+      if (typeof u.key[0] !== 'number') { return; }
+      if (!chapter.has(u.key[0])) { chapter.set(u.key[0], [i, i]); }
+      chapter.get(u.key[0])[1] = i + 1;
+    });
+  }
+  const dib = dibburim && dibburim.size ? dibburim : null;
+  const skels = words.map(ws => ws.map(skel));
+  const lettersOf = new Map();
+  const range = (a, b) => { const out = []; for (let i = a; i < b; i++) { out.push(i); } return out; };
 
   /** The longest run of the quote found at word p of unit i, a word of the text missed or misread at most once */
   const run = (q, i, p) => {
-    const ws = units[i].words || [];
-    let n = 0;
+    const ws = words[i];
+    let k = p;
+    let m = 0;
     let exact = true;
     let slips = 0;
-    let k = p;
     let wild = 0;
-    while (n < q.length && k < ws.length) {
-      if (q[n] === '*') {
-        wild += 1; exact = false; n += 1; k += 1;
-      } else if (sameWord(q[n], ws[k])) {
-        n += 1; k += 1;
-      } else if (near(q[n], ws[k])) {
-        exact = false; n += 1; k += 1;
-      } else if (slips < 1 && n > 0) {
+    while (m < q.length && k < ws.length) {
+      if (q[m] === '*') {
+        wild += 1; exact = false; m += 1; k += 1;
+      } else if (sameWord(q[m], ws[k])) {
+        m += 1; k += 1;
+      } else if (near(q[m], ws[k])) {
+        exact = false; m += 1; k += 1;
+      } else if (slips < 1 && m > 0) {
         slips += 1; exact = false;
-        if (k + 1 < ws.length && near(q[n], ws[k + 1])) { k += 1; } else { n += 1; k += 1; }   // (a word added, or misread)
+        if (k + 1 < ws.length && near(q[m], ws[k + 1])) { k += 1; } else { m += 1; k += 1; }   // (a word added, or misread)
       } else { break; }
     }
-    return {n: n - slips - wild, exact: exact && n === q.length};
+    return {n: m - slips - wild, exact: exact && m === q.length};
   };
   const real = q => q.filter(w => w !== '*').length;
+  /** _find_in: the first of `list` (in order) holding the quote -> {unit, exact, unique} or null */
   const findIn = (q, list) => {
     const need = Math.min(3, real(q));
     let best = null;
     let count = 0;
     const s0 = skel(q[0]);
     for (const i of list) {
-      const ws = units[i].words || [];
+      const ws = words[i];
       let here = null;
       for (let p = 0; p < ws.length; p++) {
-        if (!(sameWord(q[0], ws[p]) || skels[i][p] === s0 || near(q[0], ws[p]))) { continue; }
+        if (!(skels[i][p] === s0 || near(q[0], ws[p]))) { continue; }
         const r = run(q, i, p);
         if (r.n >= need && (!here || r.n > here.n)) { here = {unit: i, ...r}; }
       }
@@ -544,86 +848,283 @@ export function looseComments(comm, units) {
         if (!best) { best = here; }
       }
     }
-    return best ? {...best, unique: count === 1} : null;
+    return best ? {unit: best.unit, exact: best.exact, unique: count === 1} : null;
   };
-
-  const out = [];
-  let cursor = 0;
-  comm.forEach((leaf, li) => {
-    const chap = typeof leaf.path[0] === 'number' ? chapter.get(leaf.path[0]) : null;
-    (leaf.openings || []).forEach((opening, j) => {
-      if (opening === null || opening === undefined) { return; }
-      const q = looseQuote(opening);
-      const amud = amuds[li][j];
-      // (the amud it names could not be read - not in the offline pack, say: it is left out, not put
-      //  beside a comment of the amud before, where it does not belong - "גמ' לא סבר לה מר להא" of
-      //  Rishon LeTzion on 46a was shown on Berakhot 45b. Sofer reads the whole masechet, so its
-      //  loose_placement.py never meets this.)
-      if (amud && byAmud.size && !amud.some(a => byAmud.has(a))) {
-        out.push({leaf: li, para: j, unit: null, how: 'loose-neighbour', exact: false, window: [], unread: true});
-        return;
-      }
-      let window;
-      if (amud && byAmud.size) {
-        const near3 = new Set();
-        amud.forEach(a => [a - 1, a, a + 1].forEach(x => near3.add(x)));
-        window = [...near3].sort((a, b) => a - b).flatMap(a => byAmud.get(a) || []);
-      } else if (chap) {
-        window = [];
-        for (let i = chap[0]; i < chap[1]; i++) { window.push(i); }
-      } else {
-        window = null;
-      }
-      let found = null;
-      if (real(q) >= 2 || (real(q) === 1 && window && q[0].length >= 4)) {
-        if (window) {
-          // (in order: from the last placed, then anywhere in the window)
-          found = findIn(q, window.filter(i => i >= cursor)) || findIn(q, window);
-          if (found) { found.unique = countIn(q, window) === 1; }
-        } else {
-          const ahead = [];
-          for (let i = cursor; i < Math.min(units.length, cursor + LOOK_AHEAD); i++) { ahead.push(i); }
-          found = findIn(q, ahead);
-          if (!found) {
-            const all = [];
-            for (let i = cursor; i < units.length; i++) { all.push(i); }
-            found = findIn(q, all);
-          }
-        }
-      }
-      if (found) {
-        cursor = found.unit;
-        out.push({leaf: li, para: j, unit: found.unit, how: 'loose', exact: found.exact && found.unique, window});
-      } else {
-        out.push({leaf: li, para: j, unit: null, how: 'loose-neighbour', exact: false, window});
-      }
-    });
-  });
-  function countIn(q, list) {
-    let n = 0;
+  const countIn = (q, list) => {
+    let c = 0;
     const need = Math.min(3, real(q));
     for (const i of list) {
-      const ws = units[i].words || [];
+      const ws = words[i];
       for (let p = 0; p < ws.length; p++) {
-        if (near(q[0], ws[p]) && run(q, i, p).n >= need) { n += 1; break; }
+        if (near(q[0], ws[p]) && run(q, i, p).n >= need) { c += 1; break; }
       }
     }
-    return n;
+    return c;
+  };
+  /** _fuzzy_in: a quote spelled its own way, found by its letters (its longest stretch without an abbreviation) */
+  const fuzzyIn = (q, list) => {
+    const runs = [];
+    let cur = [];
+    for (const w of q.concat('*')) {
+      if (w === '*') { if (cur.length) { runs.push(cur); } cur = []; } else { cur.push(w); }
+    }
+    let longest = [];
+    for (const r of runs) { if (r.join('').length > longest.join('').length) { longest = r; } }
+    const qs = letters(longest);
+    if (longest.length < 2 || qs.length < 8) { return null; }
+    const cutoff = qs.length < 14 ? 88.0 : 84.0;
+    const hits = [];
+    for (const i of list) {
+      if (!lettersOf.has(i)) { lettersOf.set(i, letters(words[i])); }
+      const t = lettersOf.get(i);
+      if (t.length >= qs.length * 0.8 && partialRatioAtLeast(qs, t, cutoff)) { hits.push(i); }
+    }
+    return hits.length ? {unit: hits[0], exact: false, unique: hits.length === 1} : null;
+  };
+  /** _find_dibbur: the unit of the Gemara line whose Rashi or Tosafos dibbur the comment quotes */
+  const findDibbur = (text, q, amuds, afterUnit) => {
+    const who = onCommentary(text);
+    if (!who || !dib || !unitAt.size) { return null; }
+    const r = q.filter(w => w !== '*');
+    if (!r.length || (r.length === 1 && r[0].length < 3)) { return null; }
+    let after = -1;
+    if (afterUnit !== null && afterUnit !== undefined && amuds.length && amudOfUnit[afterUnit] === amuds[0]) {
+      after = lineOfUnit[afterUnit];
+    }
+    let got = findDibburLine(dib, amuds, q, who === 'either' ? null : who, after);
+    if (!got && who !== 'either') { got = findDibburLine(dib, amuds, q, null, after); }
+    if (!got) { return null; }
+    const unit = unitAt.get(`${got.amud}|${got.line}`);
+    return unit === undefined ? null : {unit, exact: true, unique: true};
+  };
+  const uniq = list => [...new Set(list)];
+
+  // the comments in order, as Sofer's: [heads (a new section's headings, else []), chapter, opening]
+  const comments = [];
+  comm.forEach((leaf, li) => {
+    let first = true;
+    (leaf.openings || []).forEach((opening, j) => {
+      if (opening === null || opening === undefined) { return; }
+      comments.push({leaf: li, para: j, heads: first ? (leaf.heTitles || []) : [],
+        chapter: typeof (leaf.path || [])[0] === 'number' ? leaf.path[0] : null, text: opening});
+      first = false;
+    });
+  });
+
+  // ---- place (LoosePlacer.place)
+  let daf = null;
+  let side = null;
+  const out = [];                     // [{unit, window, unread}]
+  const byDib = new Set();
+  let cursor = 0;
+  comments.forEach((c, k) => {
+    for (const h of c.heads) {
+      const a = amudOf(h);
+      if (a && a.daf) { daf = a.daf; side = a.side; }
+    }
+    const a = amudOf(c.text);
+    if (a) {
+      if (a.daf) { daf = a.daf; }
+      if (a.side) { side = a.side; }
+    }
+    const amud = !daf ? null : (side ? [amudIndex(daf, side)] : [amudIndex(daf, 'a'), amudIndex(daf, 'b')]);
+    if (amud && unread && unread.size && amud.every(x => unread.has(x))) {
+      out.push({unit: null, window: [], unread: true});
+      return;
+    }
+    const q = looseQuote(c.text);
+    let window = null;
+    if (amud && byAmud.size) {
+      const near3 = uniq(amud.flatMap(x => [x - 1, x, x + 1])).sort((x, y) => x - y);
+      window = near3.flatMap(x => byAmud.get(x) || []);
+    } else if (c.chapter !== null && chapter.has(c.chapter)) {
+      window = range(...chapter.get(c.chapter));
+    }
+    let found = null;
+    if (onCommentary(c.text) && dib) {
+      // (a comment on Rashi's or Tosafos' words: the line their dibbur is on)
+      const here = cursor < n ? amudOfUnit[cursor] : null;
+      const look = amud ? amud.concat([-1, 1].flatMap(d => amud.map(x => x + d)))
+        : (here !== null ? [here, here + 1, here + 2] : []);
+      found = findDibbur(c.text, q, uniq(look), cursor);
+      if (found) { byDib.add(k); }
+    }
+    if (!found && (real(q) >= 2 || (real(q) === 1 && window && q[0].length >= 4))) {
+      if (window) {
+        // (in order: from the last placed, then anywhere in the window; then by its letters)
+        const later = window.filter(i => i >= cursor);
+        found = findIn(q, later) || findIn(q, window) || fuzzyIn(q, later) || fuzzyIn(q, window);
+        if (found && found.exact) { found.unique = countIn(q, window) === 1; }
+      } else {
+        found = findIn(q, range(cursor, Math.min(n, cursor + LOOK_AHEAD))) || findIn(q, range(cursor, n));
+      }
+    }
+    if (found) { cursor = found.unit; }
+    out.push({unit: found ? found.unit : null, window, exact: !!(found && found.exact && found.unique)});
+  });
+  const counted = out.filter(p => !p.unread);
+  const got = out.filter(p => p.unit !== null).length;
+  const result = placed => placed.map((p, k) => (p && p.unit !== null && p.unit !== undefined
+    ? {leaf: comments[k].leaf, para: comments[k].para, unit: p.unit, how: p.how, exact: !!p.exact} : null)).filter(Boolean);
+  // nothing much found: not a commentary on this text (a book of responsa named for it) - unless it
+  // is essays each on the daf its siman names
+  if (got < 3 || got < 0.2 * counted.length) {
+    return byAmud.size ? result(bySiman() || []) : [];
   }
-  // nothing found at all: not a commentary on this text (a book of responsa named for it)
-  const found = out.filter(p => p.unit !== null).length;
-  if (found < 3 || found < 0.2 * out.filter(p => !p.unread).length) { return []; }
   // a comment not found: with the one before it (in its own amud or chapter when known), else the next
-  return out.map((p, k) => {
-    if (p.unit !== null) { return p; }
+  return result(out.map((p, k) => {
     if (p.unread) { return null; }
+    if (p.unit !== null) { return {unit: p.unit, how: byDib.has(k) ? 'dibbur' : 'loose', exact: p.exact}; }
     const ok = u => u !== null && (!p.window || p.window.includes(u));
     let t = null;
     for (let x = k - 1; x >= 0 && t === null; x--) { if (ok(out[x].unit)) { t = out[x].unit; } }
     for (let x = k + 1; x < out.length && t === null; x++) { if (ok(out[x].unit)) { t = out[x].unit; } }
     if (t === null && p.window && p.window.length) { t = p.window[0]; }
-    return t === null ? null : {...p, unit: t};
-  }).filter(Boolean).map(({window, ...p}) => p);
+    return {unit: t, how: 'loose-neighbour', exact: false};
+  }));
+
+  /** _by_siman: a masechet's essays placed siman by siman at the daf each names; null: not such essays */
+  function bySiman() {
+    const sections = [];
+    comments.forEach((c, k) => {
+      if (c.heads.length || !sections.length) { sections.push([]); }
+      sections[sections.length - 1].push(k);
+    });
+    const res = comments.map(() => null);     // [{unit, how, exact}]
+    let withDaf = 0;
+    let here = 2;                             // (the amud the last placed comment is on: from 2a)
+    let top = null;
+    let last = null;                          // (the siman a part is in, and the daf the part before ended on)
+    const prevIn = (sec, j) => { for (let x = j - 1; x >= 0; x--) { if (res[sec[x]]) { return res[sec[x]].unit; } } return null; };
+    const nextIn = (sec, j) => { for (let x = j + 1; x < sec.length; x++) { if (res[sec[x]]) { return res[sec[x]].unit; } } return null; };
+    for (const sec of sections) {
+      const heads = comments[sec[0]].heads;
+      let named = null;
+      for (const h of heads) { named = namedDaf(h); if (named) { break; } }
+      let perek = null;
+      for (const h of heads) { perek = perekNumber(h); if (perek) { break; } }
+      const inherit = heads.length > 1 && heads[0] === top ? last : null;
+      top = heads.length ? heads[0] : top;
+      if (!named && !perek) {
+        const firsts = sec.slice(0, 3).map(k => stripNumber(comments[k].text));
+        for (const t of firsts) {
+          const a = amudOf(t);
+          if (a && a.daf) { named = a; break; }
+          if (START.test(t.slice(0, 60))) { named = {daf: 2, side: 'a'}; break; }
+        }
+        if (!named && last && firsts.slice(0, 2).some(t => SAME_PLACE.test(t))) { named = last; }    // ("שם", "עוד בענין")
+        if (!named) { for (const t of firsts) { named = innerDaf(t); if (named) { break; } } }
+      }
+      if (!named && !perek && inherit) { named = inherit; }     // (a part of a siman: the daf the part before was on)
+      let d = named ? named.daf : null;
+      let s = named ? named.side : null;
+      let span = perek && perek > 0 && perek <= perakim.length && !named ? perakim[perek - 1] : null;
+      if (d === null && !span) {
+        // (no daf named: each comment by its quote near the place the one before was found)
+        here = inOrder(sec, here, res);
+        sec.forEach((k, j) => {
+          if (res[k]) { return; }
+          let t = prevIn(sec, j);
+          if (t === null) { t = nextIn(sec, j); }
+          if (t !== null) { res[k] = {unit: t, how: 'loose-neighbour', exact: false}; }
+        });
+        continue;
+      }
+      withDaf += sec.length;
+      let anchor = null;
+      let cur = null;
+      for (const k of sec) {
+        const text = stripNumber(comments[k].text);
+        const a = amudOf(text);
+        if (a && a.daf) { d = a.daf; s = a.side; span = null; } else if (a && a.side && d) { s = a.side; }
+        let amuds;
+        let nearBy;
+        if (span) {
+          amuds = range(span[0], span[1] + 1);
+          nearBy = amuds;
+        } else {
+          amuds = s ? [amudIndex(d, s)] : [amudIndex(d, 'a'), amudIndex(d, 'b')];
+          nearBy = uniq(amuds.flatMap(x => [x - 1, x, x + 1])).sort((x, y) => x - y);
+        }
+        if (anchor === null) {
+          const x = amuds.find(y => (byAmud.get(y) || []).length);
+          anchor = x === undefined ? null : byAmud.get(x)[0];
+        }
+        const window = nearBy.flatMap(x => byAmud.get(x) || []);
+        const q = looseQuote(text);
+        let hit = null;
+        let how = 'loose';
+        if (onCommentary(text)) {
+          hit = findDibbur(text, q, uniq(amuds.concat(nearBy)), cur);
+          how = 'dibbur';
+        }
+        if (!hit && (real(q) >= 2 || (real(q) === 1 && q[0].length >= 4))) {
+          const later = window.filter(i => cur === null || i >= cur);
+          hit = findIn(q, later) || findIn(q, window) || fuzzyIn(q, later) || fuzzyIn(q, window);
+          how = 'loose';
+        }
+        if (hit) {
+          cur = hit.unit;
+          res[k] = {unit: hit.unit, how, exact: how === 'dibbur' || (hit.exact && hit.unique)};
+        }
+      }
+      last = d ? {daf: d, side: s} : null;
+      const placedHere = sec.filter(k => res[k]).map(k => res[k].unit);
+      if (placedHere.length && amudOfUnit[placedHere[placedHere.length - 1]] !== null) {
+        here = amudOfUnit[placedHere[placedHere.length - 1]];
+      }
+      // (the rest of the siman: beside the comment before it, else after it, else at its daf)
+      sec.forEach((k, j) => {
+        if (res[k]) { return; }
+        let t = prevIn(sec, j);
+        if (t === null) { t = nextIn(sec, j); }
+        if (t === null) { t = anchor; }
+        if (t !== null) { res[k] = {unit: t, how: d ? 'daf' : 'loose-neighbour', exact: false}; }
+      });
+    }
+    const foundAll = res.filter(r => r && (r.how === 'loose' || r.how === 'dibbur')).length;
+    if (withDaf + foundAll < 0.5 * comments.length || !res.some(Boolean)) { return null; }
+    return res.map((r, k) => {
+      if (r) { return r; }
+      let t = null;
+      for (let x = k - 1; x >= 0 && t === null; x--) { if (res[x]) { t = res[x].unit; } }
+      for (let x = k + 1; x < res.length && t === null; x++) { if (res[x]) { t = res[x].unit; } }
+      return {unit: t, how: 'loose-neighbour', exact: false};
+    });
+  }
+
+  /** _in_order: comments with no daf named, by their quote near amud `here` and on -> the amud the last one found is on */
+  function inOrder(ks, here, res) {
+    let cur = null;
+    for (const k of ks) {
+      const text = stripNumber(comments[k].text);
+      const a = amudOf(text);
+      if (a && a.daf) { here = amudIndex(a.daf, a.side || 'a'); }
+      const nearBy = range(here - 1, here + 5).filter(x => x >= 0);
+      const q = looseQuote(text);
+      let hit = null;
+      let how = 'loose';
+      if (onCommentary(text)) {
+        hit = findDibbur(text, q, [here, here + 1, here - 1, here + 2, here + 3].filter(x => x >= 0), cur);
+        how = 'dibbur';
+      }
+      if (!hit && real(q) >= 2) {
+        const list = nearBy.flatMap(x => byAmud.get(x) || []);
+        hit = findIn(q, list.filter(i => cur === null || i >= cur)) || findIn(q, list);
+        how = 'loose';
+      }
+      if (!hit && real(q) >= 3) {
+        const far = findIn(q, range(cur || 0, n));
+        hit = far && far.exact && far.unique ? far : null;
+      }
+      if (hit) {
+        cur = hit.unit;
+        res[k] = {unit: hit.unit, how, exact: how === 'dibbur' || (hit.exact && hit.unique)};
+        if (amudOfUnit[hit.unit] !== null) { here = amudOfUnit[hit.unit]; }
+      }
+    }
+    return here;
+  }
 }
 
 /** Which chapters (0-based, at the top) of a book in numbered sections a commentary needs */

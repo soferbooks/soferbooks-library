@@ -67,6 +67,16 @@ export function entryFor(b) {
   };
   if (b.dependence) { entry.dependence = b.dependence; }
   if (b.base_text_titles) { entry.base_text_titles = b.base_text_titles; }
+  // its English name (English interfaces show it) and its other names (a title search finds the
+  // book by them: "Return to Your Homes" -> Shuvu Lachem LeOhaleichem, whose English edition it is)
+  if (typeof b.enTitle === 'string' && b.enTitle) { entry.enTitle = b.enTitle; }
+  const names = list => (Array.isArray(list) ? list.filter(n => typeof n === 'string' && n) : []);
+  if (names(b.titleVariants).length) { entry.titleVariants = names(b.titleVariants); }
+  if (names(b.heTitleVariants).length) { entry.heTitleVariants = names(b.heTitleVariants); }
+  // the zips of earlier releases whose text is this one's (only the sections' metadata changed:
+  // prev/next, names, Hebrew refs - which the reader works out itself): a phone that has one is
+  // not sent the book again (extras/index.js booksToUpdate)
+  if (names(b.sameTextAs).length) { entry.sameTextAs = names(b.sameTextAs); }
   const companions = (b.companions || []).map(entryFor).filter(Boolean);
   if (companions.length) { entry.companions = companions; }
   return entry;

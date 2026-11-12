@@ -47,7 +47,7 @@ import {sectionsOf} from './schema7';
 import {normTitle} from './tree';
 import {linksUrlForPath} from './otzaria';
 import {paraSign, paraOpening, inferBase, inferredLinks, chaptersWanted, sefariaUnits, extraUnits, amudimWanted,
-  talmudUnits} from './inferred';
+  talmudUnits, quotesDibburim, dibburimOf, amudLabel} from './inferred';
 
 export const VERSION = 1;
 const DIR = () => `${FileSystem.documentDirectory}library/_extras/links/`;
@@ -297,9 +297,10 @@ const devLog = (...args) => {
  *   books    [{key, kind, title, heTitle, commentary}]   the books a commentary may be on: Sefaria's
  *            (as the content filter leaves its toc) and the downloaded extra books ('extra:<title>')
  *   loadSection(ref) -> [paragraph html]        a section's text (offline, else Sefaria's API)
+ *   loadIndex(title) -> its index or null       a Sefaria book's index (the Gemara's length and perakim)
  * Returns the titles whose file changed.
  */
-export async function inferAll({files, books, changed = null, loadSection}) {
+export async function inferAll({files, books, changed = null, loadSection, loadIndex = null}) {
   const out = [];
   for (const [title, f] of Object.entries(files)) {
     if (!f || !f.secs) { continue; }
@@ -317,7 +318,7 @@ export async function inferAll({files, books, changed = null, loadSection}) {
         devLog(f.heTitle, '- its own links already tie it to', base.title);
       } else {
         try {
-          inferred = await linksTo(f, base, files, loadSection);
+          inferred = await linksTo(f, base, files, loadSection, loadIndex);
           if (found.confidence === 'likely') { inferred = inferred.map(l => ({...l, c: 'likely'})); }
           devLog(f.heTitle, '->', base.title, `(${found.why}):`, inferred.length, 'links');
         } catch (e) {
@@ -334,8 +335,84 @@ export async function inferAll({files, books, changed = null, loadSection}) {
   return out;
 }
 
+const MAX_AMUDIM = 400;        // (a masechta read amud by amud when its index does not say how long it is)
+
+/** "Gittin 2a:1-15a:7" -> [first amud, last amud] (1a = 0): mg_books._perek_amuds */
+export function perekAmuds(index) {
+  const nodes = (((index && index.alts) || {}).Chapters || {}).nodes || [];
+  const out = [];
+  for (const n of nodes) {
+    const last = String(n.wholeRef || '').split(' ').pop();
+    const m = [...last.matchAll(/(\d+)([ab])/g)].map(x => 2 * parseInt(x[1], 10) - 2 + (x[2] === 'b' ? 1 : 0));
+    if (m.length) { out.push([m[0], m[m.length - 1]]); }
+  }
+  return out;
+}
+
+/** A Gemara commentary's lines of one amud ("Rashi on Gittin 2a"): [line: [comment html]], or null */
+async function commentaryLines(ref, nLines, loadSection) {
+  let got = null;
+  try { got = await loadSection(ref); } catch (e) { got = null; }
+  if (!Array.isArray(got)) { return null; }
+  // (Sefaria's API: the amud's lines, each a list of comments)
+  if (!got.length || got.some(Array.isArray)) { return got.map(l => (Array.isArray(l) ? l : [l])); }
+  // (the offline files give one line at a time: each line of the Gemara's amud)
+  const lines = [];
+  for (let i = 0; i < nLines; i++) {
+    let line = null;
+    try { line = await loadSection(`${ref}:${i + 1}`); } catch (e) { line = null; }
+    lines.push(Array.isArray(line) ? line.filter(c => typeof c === 'string') : []);
+  }
+  return lines;
+}
+
+/**
+ * The Gemara a commentary is on, as Sofer reads it for its loose placement (mg_books._loose_place):
+ * the whole masechta, amud by amud from 2a; Rashi's and Tosafos' dibburim on it when the commentary
+ * opens comments on their words (dibburim.load); the amudim of its perakim. -> {units, dibburim,
+ * perakim, unread} or null (none of it could be read).
+ */
+async function talmudBase(f, base, loadSection, loadIndex) {
+  let index = null;
+  try { index = loadIndex ? await loadIndex(base.title) : null; } catch (e) { index = null; }
+  const length = index && index.schema && Array.isArray(index.schema.lengths) ? index.schema.lengths[0] : null;
+  const named = amudimWanted({leaves: f.secs}).map(l => {
+    const m = /^(\d+)([ab])$/.exec(l);
+    return 2 * parseInt(m[1], 10) - 2 + (m[2] === 'b' ? 1 : 0);
+  });
+  const lastNamed = named.length ? Math.max(...named) : 2;
+  const amudim = [];
+  const unread = new Set();
+  for (let i = 2; i < (length || MAX_AMUDIM); i++) {
+    let segs = null;
+    try { segs = await loadSection(`${base.title} ${amudLabel(i)}`); } catch (e) { segs = null; }
+    if (Array.isArray(segs) && segs.length && segs.every(v => typeof v === 'string')) {
+      amudim.push([amudLabel(i), segs]);
+    } else if (!length && i > lastNamed && amudim.length) {
+      break;                    // (past the masechta's end)
+    } else {
+      unread.add(i);
+    }
+  }
+  if (!amudim.length) { return null; }
+  let dibburim = null;
+  if (quotesDibburim({leaves: f.secs})) {
+    const of = {rashi: [], tosafot: []};
+    for (const [label, segs] of amudim) {
+      const m = /^(\d+)([ab])$/.exec(label);
+      const ai = 2 * parseInt(m[1], 10) - 2 + (m[2] === 'b' ? 1 : 0);
+      for (const [who, name] of [['rashi', 'Rashi'], ['tosafot', 'Tosafot']]) {
+        const lines = await commentaryLines(`${name} on ${base.title} ${label}`, segs.length, loadSection);
+        if (lines) { of[who].push([ai, lines]); }
+      }
+    }
+    dibburim = dibburimOf(of);
+  }
+  return {units: talmudUnits(base.title, base.heTitle, amudim), dibburim, perakim: perekAmuds(index), unread};
+}
+
 /** The links of commentary f to `base`: a Sefaria book in chapters and verses, or a downloaded extra book */
-async function linksTo(f, base, files, loadSection) {
+async function linksTo(f, base, files, loadSection, loadIndex = null) {
   let units;
   if (base.kind === 'extra') {
     const g = files[base.title];
@@ -344,18 +421,13 @@ async function linksTo(f, base, files, loadSection) {
     for (const l of g.secs) { texts[l[0]] = await loadSection(l[0]); }
     units = extraUnits(g.secs, texts);
   } else if ((base.categories || [])[0] === 'Talmud') {
-    // (the Gemara: the amudim the commentary names, and those beside them)
-    const amudim = [];
-    for (const label of amudimWanted({leaves: f.secs})) {
-      let segs = null;
-      try { segs = await loadSection(`${base.title} ${label}`); } catch (e) { segs = null; }
-      if (Array.isArray(segs) && segs.every(v => typeof v === 'string')) { amudim.push([label, segs]); }
-    }
-    if (!amudim.length) {
-      devLog(f.heTitle, '-', base.title, ': no daf named, or none could be read');
+    // (the Gemara: the whole masechta, with Rashi's and Tosafos' dibburim - as Sofer reads it)
+    const gemara = await talmudBase(f, base, loadSection, loadIndex);
+    if (!gemara) {
+      devLog(f.heTitle, '-', base.title, ': it could not be read');
       return [];
     }
-    units = talmudUnits(base.title, base.heTitle, amudim);
+    return inferredLinks({leaves: f.secs}, gemara).map(({how, ...l}) => l);
   } else {
     const chapters = [];
     const wanted = chaptersWanted({leaves: f.secs});

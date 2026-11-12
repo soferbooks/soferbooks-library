@@ -365,6 +365,37 @@ when it is opened, checks its md5 and puts its files in the library as they came
 `librarySource: sofer_library` ("Report an error" goes to corrections@soferbooks.com); the
 content filter applies to them as to every book.
 
+Rebuilding a release in place (2026-11-12): download the release as it is into a folder of its own,
+build with `--previous <that folder>`, check, then `gh release upload <tag> --clobber` every file
+of `release\` (the asset names come from the titles, so they stay the same) and download it back to
+check `SHA256SUMS.txt`. `--previous` compares each book's section text with the old zip's: a book
+whose text is the same (only its sections' metadata changed) names the old zip in `sameTextAs`, and
+the phone's "Check for updates" does not send it again (`extras/index.js` `booksToUpdate`; the app
+reads the old metadata's shortcomings itself: `reader/sectionOrder.js`). The catalogue also gives each
+book's English name (`enTitle`, from Sofer's schema) and other names (`titleVariants`,
+`heTitleVariants`: the search box finds Shuvu Lachem LeOhaleichem by "Return to Your Homes").
+The 2026-11-12 rebuild (same tag, 144 assets): each section's `prev`/`next` across the whole book
+as Sefaria's (the nearest section with text, from node to node), a default node's files named as
+Sefaria names them ("Tur, Orach Chayim 1", not "..., default 1"), Hebrew refs with gershayim
+("נ״ו", Sefaria's spelling), editors'-note anchors kept whole in every book; Ritva on Sukkah
+(Combined editions) had been one daf off in the release before (exported before the Talmud-address
+fix) and is right now. 100 of the 142 books kept their text (`sameTextAs`).
+
+**Loose placement on the phone, checked against Sofer** (`extras/inferred.js` `looseComments`, a port
+of Sofer's `loose_placement.py` with `dibburim.py` and the letter matching of `masechta_pieces.py`):
+
+```powershell
+C:\Users\morde\Sofer\.venv\Scripts\python.exe tools\library-export\loose_fixtures.py C:\tmp\loose
+node -r @babel/register tools\library-export\compare_loose.js C:\tmp\loose
+```
+
+2026-11-12: the ten commentaries of Sofer's tests (Rishon LeTzion on Berakhot, Tiferes Yaakov on
+Gittin, Levush Mordechai on Menachot / Yevamot / Zevachim, the Migash on Bava Basra, R' Shimon on
+Bava Kamma / Kiddushin, Atzmos Yosef, Yam Shel Shlomo): 7,123 of 7,123 comments placed the same
+(the port before: 40%), and Rashi's and Tosafos' dibburim read the same. On the phone the Gemara is
+read whole, as Sofer reads it (`extras/links.js` `talmudBase`: every amud, Rashi's and Tosafos'
+lines when the commentary quotes them, the perakim from the masechta's index).
+
 **Full library** (`fullLibrary.js`, `extrasQueue.js`, `FullLibraryPanel.js`; owner, 2026-11-11). The
 reader who downloads the whole library gets the extra sources' books too: Settings shows each part
 (Sefaria's library, Dicta, Otzaria, Wikisource, the Sofer Library) as a tick box, all ticked, with

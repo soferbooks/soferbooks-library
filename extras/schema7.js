@@ -169,6 +169,9 @@ export function tocItem(entry, firstSection) {
   };
   if (entry.dependence) { item.dependence = entry.dependence; }
   if (entry.base_text_titles) { item.base_text_titles = entry.base_text_titles; }
+  // (the book's other names: the search box finds it by them - search/localAutocomplete.js)
+  if (entry.titleVariants) { item.titleVariants = entry.titleVariants; }
+  if (entry.heTitleVariants) { item.heTitleVariants = entry.heTitleVariants; }
   return item;
 }
 
