@@ -13,7 +13,11 @@ Otzaria and Wikisource do not serve:
 * ``combined``  Sofer's "Combined editions" (``sofer.combined``): offered as a book of its own,
                 "<Title> (Combined editions)" / "<he> (מהדורה משולבת)", next to Sefaria's;
 * ``sofer``     anything else Sofer imported from a source the app does not have (the Kiddush
-                book from its Word file, Tehillim 119 by a name ...).
+                book from its Word file, Tehillim 119 by a name ...);
+* ``wikisource`` the Wikitext books Sofer makes into other books than the page, which the phone's
+                Wikisource source does not convert (``wikitext_not_on_phone``, owner 2026-11-12):
+                Megillat Antiochus in Rabbi Menashe Zelicha's edition with its Targum, and
+                Chashukei Chemed on each masechta, arranged by amud - with their editors' notes.
 
 Everything goes through the existing tools, as thin a layer as possible:
 
@@ -111,6 +115,37 @@ def source_of(version_title: str) -> str:
     return "sofer"
 
 
+def wikitext_not_on_phone() -> dict[str, str]:
+    """{title: Hebrew title in the app} of the books Sofer imports from Wikitext pages the phone's
+    Wikisource source does not convert (wikisource_books.py leaves them out): a page holding a sefer
+    in several versions (``wikisource.VERSIONS``: Megillat Antiochus, Rabbi Menashe Zelicha's
+    edition - the sefer and its Targum) and a book split by masechta (``wikisource.BY_MASECHTA``:
+    Chashukei Chemed on each masechta), with their editors' notes.  Exported here from Sofer's own
+    import, as Sofer converts them (owner, 2026-11-12).  A version of a sefer the library has from
+    Sefaria under the same Hebrew name ("מגילת אנטיוכוס") keeps its edition in its Hebrew name, as
+    its English one does, so the app keeps it beside Sefaria's copy (extras/catalog.js: one copy
+    of each Hebrew name) - the combined editions' rule.  A title that is a prefix ends with " ":
+    every book whose title starts with it."""
+    from sofer import wikisource as ws
+    out: dict[str, str] = {}
+    for page, versions in ws.VERSIONS.items():
+        edition = re.search(r"\s*\([^()]*\)$", page)
+        for en, he, *_ in versions.values():
+            out[en] = he + (edition.group(0) if edition else "")
+            out[NOTES_PREFIX + he] = ""             # (the editors' notes on it: named as Sofer names them)
+    for en, he in ws.BY_MASECHTA.values():
+        out[f"{en} on "] = ""
+        out[f"{NOTES_PREFIX}{he} על "] = ""
+    return out
+
+
+def wikitext_he_title(title: str, table: dict[str, str]) -> str | None:
+    """None: not one of wikitext_not_on_phone's books; '': Sofer's own Hebrew title; else the app's."""
+    if title in table:
+        return table[title]
+    return "" if any(k.endswith(" ") and title.startswith(k) for k in table) else None
+
+
 def kind_of(version_title: str) -> str:
     if version_title == saba.VERSION:
         return "ben-david"
@@ -132,8 +167,12 @@ def sofer_only_books(data: Path, sefaria_titles: set[str]) -> dict[str, str]:
         parts = p.replace("\\", "/").split("/")
         if parts[0] == "json" and len(parts) >= 4:
             by_title.setdefault(parts[-3], set()).add(parts[-1][: -len(".json")])
+    not_on_phone = wikitext_not_on_phone()
     for title, versions in by_title.items():
         if title in out or title in sefaria_titles:
+            continue
+        if wikitext_he_title(title, not_on_phone) is not None and all(source_of(v) == "wikisource" for v in versions):
+            out[title] = "wikisource"           # (Wikitext books the phone's Wikisource does not convert)
             continue
         if any(source_of(v) != "sofer" for v in versions):
             continue                        # (served by Dicta / Otzaria / Wikisource itself)
@@ -256,6 +295,7 @@ def main() -> int:
     sefaria_titles = set(json.loads(Path(args.sefaria_titles).read_text(encoding="utf-8"))["titles"])
 
     wanted = sofer_only_books(SOFER_DATA, sefaria_titles)
+    not_on_phone = wikitext_not_on_phone()
     if args.books:
         only = set(args.books.split("|"))
         wanted = {t: k for t, k in wanted.items() if t in only}
@@ -314,6 +354,10 @@ def main() -> int:
             kept = [dataclasses.replace(v, license=v.license if all(
                 licence_open(p.get("license")) for p in v.extra.get("sofer_combined") or []) else "Unknown")
                 for v in kept]
+        wiki_he = wikitext_he_title(title, not_on_phone) if kind == "wikisource" else None
+        if wiki_he:
+            he_title = wiki_he             # (an edition beside Sefaria's copy: its edition in its name)
+            prov = RenamedProvider(provider, original, title, he_title)
         book.versions = kept
         zip_path = books_dir / f"{title}.zip"
         if not (args.skip_export and zip_path.is_file()):
@@ -339,14 +383,18 @@ def main() -> int:
                          for v in kept],
             "droppedVersions": closed,
             "firstSection": ev.first_section_ref(title, schema)[0],
-            **({"dependence": "Commentary"} if sofer_book.dependence == "Commentary" else {}),
+            **({"dependence": sofer_book.dependence} if sofer_book.dependence in ("Commentary", "Targum") else {}),
             **({"base_text_titles": list(sofer_book.bases)} if sofer_book.bases else {}),
+            "_sofer_he": sofer_book.he_title,
         }
         book.versions = []
         print(f"  {kind}: {title} ({len(kept)} editions)", flush=True)
 
     # the editors' notes on a book ("הערות המהדיר על X") come with it, as Wikisource's do
     by_he = {e["heTitle"]: t for t, e in exported.items()}
+    by_he.update({e["_sofer_he"]: t for t, e in exported.items() if e["_sofer_he"] not in by_he})
+    for e in exported.values():
+        e.pop("_sofer_he")                  # (Sofer's own Hebrew title: its notes book is named by it)
     for title in list(exported):
         if title.startswith(NOTES_PREFIX) and by_he.get(title[len(NOTES_PREFIX):]):
             main = exported[by_he[title[len(NOTES_PREFIX):]]]

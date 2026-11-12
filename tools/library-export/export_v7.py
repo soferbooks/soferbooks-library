@@ -63,17 +63,22 @@ _LICENCE_RANK = {licenses.UNKNOWN: 3, licenses.REQUIRES_REVIEW: 2,
 # ---------------------------------------------------------------- gematria / addresses
 
 _DAF_EN = {0: "a", 1: "b"}
+# a Talmud-addressed text's first amud in the array: 2a (Sefaria's refs and its official export start
+# there - "Berakhot 2a", prev null; 1a and 1b do not exist)
+TALMUD_FIRST = 2
 
 
 def format_address(address_type: str, n: int, lang: str) -> str:
     """Format one address number the way Sefaria refs do.
 
     `n` is the address value in Sefaria's own numbering: for normal 1-based
-    types (Perek, Pasuk, Integerâ€¦) the ref number is n; for Talmud the amud
-    index runs 0,1,2â€¦ from "2a" onward.
+    types (Perek, Pasuk, Integerâ€¦) the ref number is n; for Talmud n is the
+    amud's index in the text array, as Sefaria's arrays have it: 0 = 1a, 1 = 1b,
+    2 = "2a" (the official export's "Berakhot 2a" is the array's third entry; the
+    first two are always empty: TALMUD_FIRST).
     """
     if address_type == "Talmud":
-        page, amud = (n >> 1) + 2, n & 1
+        page, amud = (n >> 1) + 1, n & 1
         if lang == "en":
             return f"{page}{_DAF_EN[amud]}"
         # (the amud's own letter keeps no geresh: "ברכות י׳ א" - Sefaria's heRefs)
@@ -517,7 +522,9 @@ class BookReference:
         if depth == 1:
             return [None]  # single top unit: whole leaf
         n = (lengths[0] if lengths else 0) or 0
-        return list(range(1, n + 1))
+        # (a Talmud text from 2a: the array's third entry - unit 3, 1-based)
+        first = TALMUD_FIRST + 1 if (leaf_address_types(leaf) or [""])[0] == "Talmud" else 1
+        return list(range(first, n + 1))
 
 
 def export_book(book: Book, provider: LocalExportProvider, links_index, out_dir: Path,
@@ -675,7 +682,7 @@ def first_section_ref(title, schema):
     if depth >= 2:
         ats = leaf_address_types(leaf)
         at = ats[0] if ats else "Integer"
-        value = 0 if at == "Talmud" else 1
+        value = TALMUD_FIRST if at == "Talmud" else 1
         en_parts = en_prefix + [format_address(at, value, "en")]
         he_parts = he_prefix + [format_address(at, value, "he")]
         en = join_ref(title, en_parts, True)
@@ -684,7 +691,7 @@ def first_section_ref(title, schema):
             # the export wraps deeper books per top section; the first inner
             # section is part of the first ref ("Rashi on Genesis 1:1")
             at2 = ats[1] if len(ats) > 1 else "Integer"
-            value2 = 0 if at2 == "Talmud" else 1
+            value2 = TALMUD_FIRST if at2 == "Talmud" else 1
             en += ":" + format_address(at2, value2, "en")
             he += ":" + format_address(at2, value2, "he")
         return en, he
@@ -901,10 +908,16 @@ def export_top_section(refmod, leaf, path, depth, address_types, section_names,
             add_file(f"{en_ref}.{md5_hash8(vt)}.{lang}.json", doc)
 
 
+_ITAG = re.compile(r"(<i\s[^>]*\bdata-commentator\b[^>]*></i>)|</?i>")
+
+
 def strip_itags(text):
-    """Strip inline itags (format markers like <i>) from a text segment."""
+    """Strip inline itags (format markers like <i>) from a text segment.  A commentary's
+    invisible anchor ("<i data-commentator=... data-order=...></i>": Sofer's editors' notes, as the
+    phone's own Wikisource books have them) is kept whole - its "</i>" alone taken away left an
+    open <i> that swallowed the rest of the paragraph (reader/dibbur.js skips inside it)."""
     if isinstance(text, str):
-        return re.sub(r"</?i>", "", text)
+        return _ITAG.sub(lambda m: m.group(1) or "", text)
     if isinstance(text, list):
         return [strip_itags(x) for x in text]
     if isinstance(text, dict):

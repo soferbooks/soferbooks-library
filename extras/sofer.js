@@ -5,7 +5,11 @@
  * their own source (every other book still comes from its source's server): the books Sofer
  * splits out of a Sefaria book (Ben Ish Hai's Derashos and Halachos, the Tur and its
  * commentaries in parts, Shaar HaBitachon), the Ben-Yehuda collections, Rabbi Eliezer
- * Ben-David's sefarim, Sofer's combined editions, and the like.
+ * Ben-David's sefarim, Sofer's combined editions, and the like - and two Wikisource books
+ * Sofer makes into other books than the site's page, which extras/wikisource.js does not
+ * convert (kind "wikisource", 2026-11-12): Megillat Antiochus in Rabbi Menashe Zelicha's
+ * edition with its Targum ("(מהדורת הרב מנשה זליכה)" in its Hebrew name, so it stays beside
+ * Sefaria's "מגילת אנטיוכוס"), and Chashukei Chemed on each masechta, by amud ("... 2a").
  *
  * Where it comes from: one GitHub Release of github.com/soferbooks/soferbooks-library-data,
  * made by tools/library-export/build_sofer_library.py:
