@@ -1170,6 +1170,7 @@ describe('Strings with placeholders', () => {
     'topics.this_source_is_connected_to': { title: 'Passover', sources: '4 sources' },
     'versions.merged_from': { sources: 'two editions' },
     'tabs.archived_tabs_count': { count: 4 },
+    'tabs.pin_limit': { count: 10 },
     'learning_schedules.reading_n_of_m': { n: 2, m: 7 },
     'learning_schedules.day_done': { title: 'Chok LeYisrael' },
     'extras.download_size': { download: 8, stored: 26 },
@@ -1628,10 +1629,13 @@ describe('Reader tabs', () => {
     tabs, activeTabId: 'a', archived,
     onSelect: noop, onClose: noop, onCloseOthers: noop, onNewTab: noop,
     onRestoreArchived: noop, onRemoveArchived: noop, onClearArchived: noop,
+    onPin: noop, onUnpin: noop, onAddToHomeScreen: noop,
   };
+  const pinnedTabs = [{ ...tabs[0], pinned: true }, tabs[1]];
 
   test('the tab bar labels its buttons in both languages', () => {
     expectScreenLocalizes(wrap(ReaderTabBar, tabBarProps), ['tabs.close_tab', 'tabs.tab_options']);
+    expectScreenLocalizes(wrap(ReaderTabBar, { ...tabBarProps, tabs: pinnedTabs }), ['tabs.pinned_tab']);
   });
 
   test('the archived tabs list renders in both languages', () => {
@@ -1786,7 +1790,63 @@ describe('Reader tabs', () => {
         });
         act(() => { inst.unmount(); });
         return sheetText();
-      }, ['tabs.new_tab', 'tabs.close_other_tabs', 'tabs.archived_tabs_count', 'tabs.close_tab']);
+      }, ['tabs.new_tab', 'tabs.close_other_tabs', 'tabs.archived_tabs_count', 'tabs.close_tab', 'tabs.pin_tab']);
+    });
+
+    test("a pinned tab's menu is offered in both languages", () => {
+      const realOS = Platform.OS;
+      Platform.OS = 'android';  // home-screen shortcuts are Android only
+      try {
+        expectMessagesLocalize(() => {
+          let inst;
+          act(() => { inst = renderer.create(wrap(ReaderTabBar, { ...tabBarProps, tabs: pinnedTabs })()); });
+          act(() => {
+            inst.root.findAll(n => n.props?.accessibilityRole === 'tab' && n.props.onLongPress)[0].props.onLongPress();
+          });
+          act(() => { inst.unmount(); });
+          return sheetText();
+        }, ['tabs.unpin_tab', 'tabs.add_to_home_screen']);
+      } finally {
+        Platform.OS = realOS;
+      }
+    });
+
+    test('closing a pinned tab asks first, in both languages', () => {
+      const { closeWithCare } = require('../tabs/ReaderTabBar');
+      jest.spyOn(Alert, 'alert').mockImplementation(noop);
+      try {
+        expectMessagesLocalize(() => {
+          Alert.alert.mockClear();
+          closeWithCare(pinnedTabs[0], noop);
+          return Alert.alert.mock.calls.flatMap(([title, body, buttons]) => [title, body, ...buttons.map(b => b.text)]);
+        }, ['tabs.close_pinned_title', 'tabs.close_pinned_message', 'tabs.close_tab', 'common.cancel']);
+      } finally {
+        Alert.alert.mockRestore();
+      }
+    });
+
+    test('pinning past the limit and a phone without shortcuts say so in both languages', async () => {
+      const { MAX_PINNED_TABS } = require('../tabs/tabState');
+      const many = Array.from({ length: MAX_PINNED_TABS + 1 }, (_, i) => ({ id: `p${i}`, title: 'Genesis', ref: 'Genesis 1', pinned: i < MAX_PINNED_TABS }));
+      const app = new ReaderApp({ dispatch: noop, showErrorBoundary: noop, theme: {}, themeStr: 'white', biLayout: 'stacked', textLanguage: 'hebrew' });
+      app.setState = noop;
+      const messages = [];
+      app.showToast = m => messages.push(m);
+      app.state = { ...app.state, readerTabs: { tabs: many, activeTabId: 'p0', archived: [], recentlyClosed: [] } };
+      expectMessagesLocalize(() => {
+        messages.length = 0;
+        app.pinReaderTab(`p${MAX_PINNED_TABS}`);
+        return [...messages];
+      }, ['tabs.pin_limit']);
+      // no native module in tests: the phone "cannot add shortcuts"
+      markCovered(['tabs.shortcut_unsupported']);
+      for (const lang of ['en', 'he']) {
+        strings.setLanguage(lang);
+        messages.length = 0;
+        await app.addReaderTabToHomeScreen('p0');
+        expect(messages).toEqual([strings.tabs.shortcut_unsupported]);
+        expect(shows(messages.map(normalize), lang, 'tabs.shortcut_unsupported')).toBe(true);
+      }
     });
 
     test('opening a source in a new tab says so in both languages', () => {

@@ -3,6 +3,7 @@
 import PropTypes from 'prop-types';
 import URL from 'url-parse';
 import React from 'react';
+import { parseTabShortcutUrl } from './tabs/tabShortcuts';
 
 // First path segments of sefaria.org pages the app does not show (DeepLinkRouter hands them to the browser)
 export const WEB_ONLY_PAGES = [
@@ -20,6 +21,7 @@ class DeepLinkRouter extends React.PureComponent {
     openRef:                 PropTypes.func.isRequired,
     openUri:                 PropTypes.func.isRequired,
     openRefInNewTab:         PropTypes.func,  // links from outside the app open their passage in a new tab
+    openTabShortcut:         PropTypes.func,  // a pinned tab's home-screen shortcut: soferbooks://tab/<id>
     openTextTocDirectly:     PropTypes.func.isRequired,
     openSearch:              PropTypes.func.isRequired,
     setSearchOptions:        PropTypes.func.isRequired,
@@ -120,6 +122,12 @@ class DeepLinkRouter extends React.PureComponent {
     this.props.openUri(url);
   };
   route = (url, fromOutside=false) => {
+    const tabShortcut = parseTabShortcutUrl(url);
+    if (tabShortcut) {
+      // a home-screen shortcut of a pinned tab (tabs/tabShortcuts.js): never goes to the browser
+      if (this.props.openTabShortcut) { this.props.openTabShortcut(tabShortcut); }
+      return;
+    }
     const u = new URL(url, Sefaria.api._baseHost, true);
     let { pathname, query, host, hostname } = u;
     if (!hostname.match('(?:www\.)?sefaria\.org')) {
