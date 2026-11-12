@@ -101,9 +101,34 @@ export function entryFor(b) {
     // the names it may have in the library (importers.wiki_keys), and the copies it is used instead of
     names: b.names || wikiKeys(b.page),
     ...(b.preferred ? {preferred: true, replaces: b.replaces || []} : {}),
+    // its English name and other names, when it has them (the Rokeach on Shir HaShirim, used
+    // instead of Sefaria's "Rokeach on Song of Songs"): shown in English and found by them
+    ...englishNames(b),
     license: LICENSE,
     pageCount: b.pages || 0,
   };
+}
+
+const isEnglishName = n => typeof n === 'string' && /[A-Za-z]/.test(n) && !/[֐-׿]/.test(n);
+
+/** {enTitle, titleVariants} of a book of the list: its own, else the English names it replaces */
+export function englishNames(b) {
+  const names = [...(Array.isArray(b.titleVariants) ? b.titleVariants : []), ...(b.preferred && Array.isArray(b.replaces) ? b.replaces : [])]
+    .filter(isEnglishName);
+  const enTitle = isEnglishName(b.enTitle) ? b.enTitle : names[0];
+  if (!enTitle) { return {}; }
+  return {enTitle, titleVariants: [...new Set([enTitle, ...names])]};
+}
+
+/**
+ * A catalogue entry kept on the phone, with what the bundled list now says of its names (an entry
+ * kept before the list gave English names has none: they are taken from the list at once)
+ */
+export function withBundledNames(entry, data = CATALOG) {
+  if (!entry || entry.source !== ID) { return entry; }
+  const b = (data.books || []).find(x => x.page === entry.id);
+  const names = b ? englishNames(b) : {};
+  return names.enTitle ? {...entry, ...names} : entry;
 }
 
 export const parseCatalog = (data = CATALOG) => (data.books || []).map(entryFor);
@@ -518,6 +543,7 @@ export default {
   id: ID,
   converterVersion: CONVERTER_VERSION,
   catalogUrl: null,
+  currentEntry: entry => withBundledNames(entry),
   parseCatalog: () => parseCatalog(),
   loadCatalog: installed => loadCatalog({installed}),
   fetchBook: (entry, job = null) => fetchBook(entry, job),

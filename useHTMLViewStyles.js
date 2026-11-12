@@ -51,11 +51,14 @@ export function useHTMLViewStyles(bilingual, textType, fontSizeOverride = null) 
         strong: {
           fontWeight: 'bold'
         },
+        // Hebrew has no italic: the reader's Hebrew fonts have no italic face, so Android drew <i>
+        // in another font - larger than the text around it, its slant cut off at the right edge of
+        // a line (QA round 16: the Rokeach on Shir HaShirim). It is drawn upright, in the text's font.
         i: {
-          fontStyle: 'italic'
+          fontStyle: isHeb ? 'normal' : 'italic'
         },
         em: {
-          fontStyle: 'italic'
+          fontStyle: isHeb ? 'normal' : 'italic'
         },
         u: {
           textDecorationLine: 'underline'

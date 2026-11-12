@@ -22,6 +22,7 @@ import {
   FULL_LIBRARY, SEFARIA, fullLibraryParts, estimateAll, formatSize, partName,
 } from './fullLibrary';
 import { freeBytes, sizeOf, MARGIN_BYTES } from './storage';
+import { useOnline, downloadNeedsConnection } from './connectivity';
 
 const sefariaBytes = () => {
   const p = PackagesState && PackagesState[FULL_LIBRARY];
@@ -120,6 +121,9 @@ export const FullLibraryPanel = ({ langStyle, onDownloadSefaria }) => {
   const theme = getTheme(themeStr);
   const isHebrew = interfaceLanguage === 'hebrew';
   const ids = fullLibraryParts();
+  const online = useOnline();
+  // (Dicta's books are made from its server's pages: not offered while offline - owner, 2026-11-12)
+  const offline = id => !online && downloadNeedsConnection(id);
   const [ticked, setTicked] = useState(() => Object.fromEntries(ids.map(id => [id, true])));
   const [space, setSpace] = useState({free: null, used: null});
   const [, setTick] = useState(0);
@@ -148,7 +152,7 @@ export const FullLibraryPanel = ({ langStyle, onDownloadSefaria }) => {
   const complete = Object.fromEntries(ids.map(id => [id, partComplete(id)]));
   const fits = Object.fromEntries(ids.map(id => [id, partFits(parts[id], space.free)]));
   // (what Download brings: the parts ticked that fit and are not on the phone already)
-  const chosen = ids.filter(id => ticked[id] && fits[id] && !complete[id]);
+  const chosen = ids.filter(id => ticked[id] && fits[id] && !complete[id] && !offline(id));
   const {totalLine, total} = partLines(chosen, isHebrew);
   const totalFits = partFits(total, space.free);
   const st = queue.getState();
@@ -176,7 +180,8 @@ export const FullLibraryPanel = ({ langStyle, onDownloadSefaria }) => {
       {download: formatSize(parts[id].downloadKB), phone: formatSize(parts[id].phoneKB)});
     const books = parts[id].books ? `  ·  ${strings.formatString(strings.full_library.part_books, {count: parts[id].books.toLocaleString()})}` : '';
     const room = fits[id] ? '' : `  ·  ${strings.full_library.part_no_room}`;
-    return `${size}${books}${room}`;
+    const connection = offline(id) ? `  ·  ${strings.extras.needs_connection}` : '';
+    return `${size}${books}${room}${connection}`;
   };
   return (
     <View style={styles.settingsSection} testID="full-library-panel">
@@ -188,7 +193,7 @@ export const FullLibraryPanel = ({ langStyle, onDownloadSefaria }) => {
         </Text>
       ) : null}
       {ids.map(id => {
-        const disabled = complete[id] || !fits[id];
+        const disabled = complete[id] || !fits[id] || offline(id);
         const checked = !!ticked[id] && !disabled;
         return (
           <TouchableOpacity

@@ -58,7 +58,8 @@ test('Sefaria adds the book: the library has ours in its place, and Sefaria\'s t
   app.openRef(`${SEFARIAS} 1:2`, 'deep link');
   expect(alert).toHaveBeenCalledTimes(1);           // (ours is not downloaded: offered for download)
   expect(alert.mock.calls[0][0]).toBe(strings.extras.not_downloaded_title);
-  expect(alert.mock.calls[0][1]).toContain(OURS);
+  // (named by its English name in an English interface: the list gives it one - QA round 16)
+  expect(alert.mock.calls[0][1]).toContain('Rokeach on Song of Songs');
   alert.mockClear();
   app.openTextTocDirectly(SEFARIAS);
   expect(alert).toHaveBeenCalledTimes(1);

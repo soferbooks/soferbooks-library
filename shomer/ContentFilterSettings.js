@@ -9,6 +9,7 @@ import { CHOICES, GROUPS, configForPreset, toggleGroup } from './presets';
 import { SOURCES } from '../sources';
 import * as extras from '../extras';
 import { ExtraDownloadStatus } from '../ExtraDownloadProgress';
+import { useOnline, downloadNeedsConnection } from '../connectivity';
 // What each group really hides in the library (tools/library-export/shomer_group_examples.js):
 // groups with nothing in the library are not listed
 import GROUP_EXAMPLES from './groupExamples.json';
@@ -132,6 +133,9 @@ export const ExtraSourceRow = ({ source, langStyle, theme, interfaceLanguage }) 
   const [busy, setBusy] = useState(false);
   useEffect(() => extras.subscribe(() => setTick(t => t + 1)), []);
   const on = extras.isEnabled(source.id);
+  const online = useOnline();
+  // (Dicta's books are made from its server's pages: no download while offline - owner, 2026-11-12)
+  const offline = !online && downloadNeedsConnection(source.id);
   const name = interfaceLanguage === 'hebrew' ? source.heName : source.name;
   const downloaded = extras.downloadedBooks(source.id).length;   // (not the notes books made with them)
   const underWay = extras.downloadsUnderWay().filter(t => (extras.extraBook(t) || {}).source === source.id);
@@ -179,8 +183,13 @@ export const ExtraSourceRow = ({ source, langStyle, theme, interfaceLanguage }) 
           {on ? <Text style={[langStyle, theme.secondaryText, local.detail]}>
             {countString(strings.extras.downloaded_count, strings.extras.downloaded_count_one, downloaded)}
           </Text> : null}
+          {offline ? (
+            <Text style={[langStyle, theme.text, local.detail]} testID={`library-source-${source.id}-offline`}>
+              {strings.extras.needs_connection}
+            </Text>
+          ) : null}
           {on && downloaded ? (
-            <TouchableOpacity onPress={checkUpdates} disabled={busy} accessibilityRole="button" style={local.link}>
+            <TouchableOpacity onPress={checkUpdates} disabled={busy || offline} accessibilityRole="button" style={local.link}>
               <Text style={[langStyle, theme.text, local.linkText]}>{strings.download.check_for_updates}</Text>
             </TouchableOpacity>
           ) : null}

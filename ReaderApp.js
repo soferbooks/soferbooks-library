@@ -64,7 +64,9 @@ import * as extras from "./extras";
 import {ExtraDownloadModal} from "./ExtraDownloadProgress";
 import {SOURCES} from "./sources";
 import {partLines} from "./FullLibraryPanel";
-import {fullLibraryParts, formatSize, knownBookSize} from "./fullLibrary";
+import {fullLibraryParts, formatSize, knownBookSize, bookSizeText} from "./fullLibrary";
+import {downloadNeedsConnection} from "./connectivity";
+import ActionToast from "./tabs/ActionToast";
 import * as extrasQueue from "./extrasQueue";
 import ReaderTabBar, { READER_TAB_BAR_HEIGHT } from "./tabs/ReaderTabBar";
 import {
@@ -88,6 +90,8 @@ import {
   unpinTab,
   canPinTab,
   isPinned,
+  pinnedTabAction,
+  mostRecentUnpinnedTabForBook,
   resolveTabShortcut,
   MAX_PINNED_TABS,
 } from "./tabs/tabState";
@@ -147,6 +151,20 @@ export const isOtherPassage = (state, section, segment) =>
  * it and seemed to do nothing (once seen: 3 taps on passage 1 after switching tabs). Such a panel
  * comes back closed.
  */
+/**
+ * Is the connections panel to be seen? Open (textListVisible) and not squeezed to nothing: a panel
+ * restored or left by an animation at ~0 height is closed for the reader, so a tap on a passage opens
+ * it instead of "closing" it (QA round 16: after a restart the Berakhot tab's taps did nothing).
+ */
+export const PANEL_SHOWN_MIN_FLEX = 0.02;
+export const panelIsShown = state => !!(state && state.textListVisible
+  && !(typeof state.textListFlex === 'number' && state.textListFlex < PANEL_SHOWN_MIN_FLEX));
+
+/** An animation of the panel that should have ended long ago (its timer lost): not one to wait for */
+export const PANEL_ANIMATION_STALE_MS = 1500;
+export const panelAnimationStuck = (animating, startedAt, now = Date.now()) =>
+  !!animating && !!startedAt && now - startedAt > PANEL_ANIMATION_STALE_MS;
+
 export const settledPanelState = state => {
   if (state && state.textListVisible && typeof state.textListFlex === 'number' && state.textListFlex < 0.001) {
     return { textListVisible: false, textListFlex: 0.0001 };
@@ -185,7 +203,7 @@ const TAB_PLACE_STATE_KEYS = ['menuOpen', 'loaded', 'textTitle', 'textReference'
 // "the download is over", so the snapshot still has it; restoring it brought back a "Downloading"
 // box with no download behind it (no progress, no Cancel, stuck).
 const NON_HISTORY_STATE_KEYS = ['readerTabs', 'inlineCommentaryPrefs', 'nakdanPrefs', 'splitView', 'splitTabId', 'windowWidth',
-  'textListFlexPreference', 'hasInternet', 'extraDownload'];
+  'textListFlexPreference', 'hasInternet', 'extraDownload', 'actionToast'];
 const SPLIT_VIEW_STORAGE_KEY = 'readerSplitView';
 const SPLIT_VIEW_MIN_WIDTH = 600;  // dp: tablets and large foldables
 
@@ -752,10 +770,27 @@ class ReaderApp extends React.PureComponent {
 
   textSegmentPressed = (section, segment, segmentRef, shouldToggle, onlyOpen) => {
     const isSheet = !!this.state.sheet;
-    if (shouldToggle && this.state.textListVisible) {
+    // (an animation whose end never came - its timer lost on a restart or a tab switch - does not
+    //  keep every tap waiting for it)
+    let animating = this.state.textListAnimating;
+    // (an animation this app did not see start - state restored with it - is timed from now)
+    if (animating && !this._panelAnimationStartedAt) { this._panelAnimationStartedAt = Date.now(); }
+    if (panelAnimationStuck(animating, this._panelAnimationStartedAt)) {
+      animating = false;
+      this.setState({textListAnimating: false});
+    }
+    // a panel open but not to be seen (~0 high: restored so, or left so by an animation) is closed:
+    // a tap on a passage opens it - also on the passage it was open on (that used to "close" it,
+    // so it took two taps, or seemed to do nothing - QA round 16)
+    let visible = this.state.textListVisible;
+    if (shouldToggle && visible && !animating && !panelIsShown(this.state)) {
+      visible = false;
+      this.setState({textListVisible: false, textListFlex: 0.0001});
+    }
+    if (shouldToggle && visible) {
       if (!onlyOpen && !isOtherPassage(this.state, section, segment)) {
         // (a second tap while it is already closing would close it again and drop a Back step)
-        if (this.state.textListAnimating) { return; }
+        if (animating) { return; }
         this.animateTextList(this.state.textListFlex, 0.0001, 200);
         this.modifyHistory({dir: "back", type: "secondary"});
         return; // Don't bother with other changes if we are simply closing the TextList
@@ -770,8 +805,8 @@ class ReaderApp extends React.PureComponent {
       return;
     }
     
-    const justOpened = shouldToggle && !this.state.textListVisible;
-    const justScrolling = !shouldToggle && !this.state.textListVisible; // true when called while scrolling with text list closed
+    const justOpened = shouldToggle && !visible;
+    const justScrolling = !shouldToggle && !visible; // true when called while scrolling with text list closed
     
     if (((segment !== this.state.segmentIndexRef || section !== this.state.sectionIndexRef) && !justScrolling) || justOpened) {
       if (this.state.linksLoaded[section]) {
@@ -796,8 +831,9 @@ class ReaderApp extends React.PureComponent {
       }
       
       if (shouldToggle) {
-        this.modifyHistory({ dir: "forward", state: {textListVisible: prevState.textListVisible}, type: "secondary" });
-        stateObj.textListVisible = !prevState.textListVisible;
+        // (only ever opening here: a tap that closes the panel returned above)
+        this.modifyHistory({ dir: "forward", state: {textListVisible: false}, type: "secondary" });
+        stateObj.textListVisible = true;
         stateObj.offsetRef = null; //offsetRef is used to highlight. once you open textlist, you should remove the highlight
       }
       
@@ -1039,7 +1075,7 @@ class ReaderApp extends React.PureComponent {
     if (iSec === -1) { console.log("could not find section ref in sectionArray", ref); return; }
     return Sefaria.offlineOnline.loadRelated(ref, online)
       .then(response => {
-        if (ref !== this.state.sectionArray[iSec] || iSec >= this.state.data.length) {
+        if (ref !== this.state.sectionArray?.[iSec] || !this.state.data || iSec >= this.state.data.length) {
           // this async call to load links is for a section that is no longer being viewed
           return;
         }
@@ -1257,6 +1293,9 @@ class ReaderApp extends React.PureComponent {
         } catch (e) {
           this.setState({extraDownload: null});
           if (e instanceof extras.DownloadCancelledError) { resolve(false); return; }   // (the reader cancelled)
+          // (what went wrong, for the log: the alert only says to check the connection - QA round 16
+          //  found the Zelicha Megillat Antiochus failing with nothing in logcat)
+          console.log('extras: the download of', title, 'failed:', String((e && (e.stack || e.message)) || e));
           if (e && e.name === 'LowSpaceError') {        // (storage.js: no room on the phone)
             Alert.alert(strings.storage.low_space_title, strings.formatString(strings.storage.low_space_message,
               {needed: formatSize(e.needed / 1024), free: formatSize(e.free / 1024)}), [{text: strings.common.ok}]);
@@ -1273,11 +1312,21 @@ class ReaderApp extends React.PureComponent {
       };
       // (how big it is, when its source says - Chok LeYisrael - or its size is known: the Sofer
       //  Library's catalogue, fullLibrarySizes.json)
-      const size = extras.approxSizeOf(title) || knownBookSize(book);
+      // (Dicta's books are made from its server's pages: offline, no download is offered, and the
+      //  warning says why - owner, 2026-11-12)
+      if (downloadNeedsConnection(sourceId) && this.state.hasInternet === false) {
+        Alert.alert(strings.extras.not_downloaded_title,
+          strings.formatString(strings.extras.not_downloaded_message,
+            {title: isolate((!isHe && extras.englishTitleOf && extras.englishTitleOf(title)) || book?.heTitle || title),
+              source: isHe ? heSourceName : sourceName}) + `\n\n${strings.extras.needs_connection}`,
+          [{text: strings.common.ok, onPress: () => resolve(false)}],
+          {cancelable: true, onDismiss: () => resolve(false)});
+        return;
+      }
+      const size = bookSizeText(extras.approxSizeOf(title) || knownBookSize(book));
       const sizeLine = size ? `
 
-${strings.formatString(strings.extras.download_size,
-        {download: size.downloadMB, stored: size.storedMB})}` : '';
+${strings.formatString(strings.extras.download_size, size)}` : '';
       Alert.alert(
         strings.extras.not_downloaded_title,
         strings.formatString(strings.extras.not_downloaded_message,
@@ -1369,6 +1418,13 @@ ${strings.formatString(strings.extras.download_size,
     if (calledFrom !== 'tab' && this._isOutsideReader()) {
       const routed = this._openRefFromOutside(ref, calledFrom, versions, addToBackStack, enableAliyot, loadNewVersions);
       if (routed) { return routed; }
+    } else if (calledFrom !== 'tab' && !this.state.menuOpen) {
+      // the tab being read is pinned: "Open here", a link in the text ... open a new tab, and the
+      // pinned one keeps its place (owner, 2026-11-12)
+      const active = findTab(this.state.readerTabs, this.state.readerTabs.activeTabId);
+      const action = active && active.title === this.state.textTitle ? pinnedTabAction({pinned: active, calledFrom,
+        insideReader: true, sameBook: Sefaria.textTitleForRef(ref) === this.state.textTitle, loadNewVersions}) : 'here';
+      if (action === 'new-tab') { return this._openKeepingPinned(ref, versions, active.id); }
     }
     return new Promise((resolve, reject) => {
       if (enableAliyot) {
@@ -1849,6 +1905,7 @@ ${strings.formatString(strings.extras.download_size,
   };
 
   onTextListAnimateFinish = () => {
+    this._panelAnimationStartedAt = null;
     const { textListFlex } = this.state;
     const tempState = { textListAnimating: false };
     if (textListFlex < 0.001) {
@@ -1859,6 +1916,7 @@ ${strings.formatString(strings.extras.download_size,
   };
 
   animateTextList = (fromValue, toValue, duration) => {
+    this._panelAnimationStartedAt = Date.now();
     this.setState({ textListAnimating: true, textListFlex: fromValue}, () => {
       const CustomLayoutLinear = {
         duration,
@@ -2337,7 +2395,21 @@ ${strings.formatString(strings.extras.download_size,
     const title = Sefaria.textTitleForRef(ref);
     if (!title) { return null; }  // openRef shows the "text unavailable" alert
     let readerTabs = this.state.readerTabs;
-    const existing = findTabForBook(readerTabs, title);
+    let existing = findTabForBook(readerTabs, title);
+    if (existing && isPinned(existing)) {
+      // a pinned tab keeps its place: the book opened as a book goes to it; a particular place of it
+      // goes to an unpinned tab of the book, else a new one (owner, 2026-11-12)
+      const historyItem = Sefaria.history.getHistoryRefForTitle(title);
+      const isResume = ref === existing.ref || ref === tabResumeRef(existing) || (!!historyItem && historyItem.ref === ref);
+      const action = pinnedTabAction({pinned: existing, calledFrom, isResume});
+      if (action === 'switch') {
+        if (addToBackStack) { this.modifyHistory({ dir: "forward", state: this.state, calledFrom }); }
+        return this.switchToTab(existing.id, null, { keepHistory: true });
+      }
+      const unpinned = mostRecentUnpinnedTabForBook(readerTabs, title);
+      if (!unpinned) { return this._openKeepingPinned(ref, versions, existing.id); }
+      existing = unpinned;
+    }
     if (existing) {
       const historyItem = Sefaria.history.getHistoryRefForTitle(title);
       const isResume = ref === existing.ref || ref === tabResumeRef(existing) || (!!historyItem && historyItem.ref === ref);
@@ -2361,8 +2433,25 @@ ${strings.formatString(strings.extras.download_size,
     return null;
   };
 
+  /**
+   * `ref` in a new unpinned tab, because pinned tab `pinnedId` keeps its place: a notice says so,
+   * with "Go to pinned tab" (owner, 2026-11-12)
+   */
+  _openKeepingPinned = (ref, versions, pinnedId) => {
+    const opened = this.openRefInNewTab(ref, versions, {quiet: true});
+    this.setState({ actionToast: {
+      text: strings.tabs.opened_new_tab_pinned,
+      actionLabel: strings.tabs.go_to_pinned,
+      onAction: () => { if (findTab(this.state.readerTabs, pinnedId)) { this.switchToTab(pinnedId); } },
+      key: Date.now(),
+    } });
+    return opened;
+  };
+
+  hideActionToast = () => this.setState({ actionToast: null });
+
   /** Open `ref` in a new tab; the current tab stays exactly where it is. */
-  openRefInNewTab = (ref, versions) => {
+  openRefInNewTab = (ref, versions, {quiet = false} = {}) => {
     ref = extras.redirectRef(ref) || ref;  // (Sefaria's copy of a preferred extra book: ours)
     const title = Sefaria.textTitleForRef(ref);
     if (!title) {
@@ -2373,7 +2462,7 @@ ${strings.formatString(strings.extras.download_size,
     const readerTabs = openTab(this.state.readerTabs, { title, heTitle: Sefaria.index(title)?.heTitle || null, ref, versions: versions || null });
     this._pruneSnapshots(readerTabs);
     this.tabHistory.clear({ tab: this.state.footerTab });
-    this.showToast(strings.tabs.opened_in_new_tab, Toast.durations.SHORT);
+    if (!quiet) { this.showToast(strings.tabs.opened_in_new_tab, Toast.durations.SHORT); }
     return new Promise(resolve => this.setState({ readerTabs, loaded: false, ReaderDisplayOptionsMenuVisible: false }, () => {
       this.openRef(ref, 'tab', versions || undefined, false).then(resolve, resolve);
     }));
@@ -3106,6 +3195,16 @@ ${strings.formatString(strings.extras.download_size,
               title={this.state.extraDownload.title}
               name={this.state.extraDownload.name}
               theme={this.props.theme}
+              langStyle={this.props.interfaceLanguage === 'hebrew' ? styles.heInt : styles.enInt}
+            />
+          ) : null}
+          {this.state.actionToast ? (
+            <ActionToast
+              key={this.state.actionToast.key}
+              text={this.state.actionToast.text}
+              actionLabel={this.state.actionToast.actionLabel}
+              onAction={this.state.actionToast.onAction}
+              onHide={this.hideActionToast}
               langStyle={this.props.interfaceLanguage === 'hebrew' ? styles.heInt : styles.enInt}
             />
           ) : null}

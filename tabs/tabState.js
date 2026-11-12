@@ -65,6 +65,12 @@ export const findTabForBook = (state, title) => {
   return mostRecentlyUsed(state.tabs.filter(t => t.title === title && !t.schedule));
 };
 
+/** Most recently used unpinned tab showing `title` (not a schedule's), or null */
+export const mostRecentUnpinnedTabForBook = (state, title) => {
+  if (!title) { return null; }
+  return mostRecentlyUsed(state.tabs.filter(t => t.title === title && !t.schedule && !t.pinned));
+};
+
 /** The open tab of learning schedule `key` (e.g. "Chok LeYisrael"), or null. */
 export const findTabForSchedule = (state, key) => {
   if (!key) { return null; }
@@ -297,3 +303,30 @@ export const deserializeTabs = (raw, now = Date.now()) => {
     recentlyClosed: recentlyClosed.slice(0, MAX_RECENTLY_CLOSED_TABS),
   }, now);
 };
+
+/**
+ * Pinned tabs keep their place (owner, 2026-11-12). What to do when something is opened that would
+ * land in a pinned tab - `pinned`, the book's tab outside the reader, or the reader's own tab:
+ *   'switch'   go to the pinned tab, at its own place: the book opened as a book (the library shelf,
+ *              its contents page, Continue reading, a home-screen shortcut: calledFrom 'navigation',
+ *              'text toc' from outside the reader), or its own place asked for (isResume)
+ *   'new-tab'  a particular place of it opened from elsewhere (the connections panel, a search result,
+ *              a link, Today's learning ...), or "Open here" in a pinned tab: a new unpinned tab, and
+ *              the pinned one stays where it was
+ *   'here'     not a pinned tab's business (not pinned; or the reader moving in its own book: its
+ *              contents, prev/next, another translation of it)
+ * insideReader: the pinned tab is the one being read. sameBook: ref is in the tab's book.
+ */
+export const BOOK_OPENING = new Set(['navigation', 'text toc']);
+export function pinnedTabAction({pinned, calledFrom, isResume = false, insideReader = false, sameBook = true,
+  loadNewVersions = false}) {
+  if (!isPinned(pinned)) { return 'here'; }
+  if (calledFrom === 'tab') { return 'here'; }                     // (the tab itself: switching to it, prev/next)
+  if (insideReader) {
+    if (calledFrom === 'text toc' && sameBook) { return 'here'; }   // (its own contents, from the reader)
+    if (loadNewVersions && sameBook) { return 'here'; }             // (another translation of it)
+    return 'new-tab';
+  }
+  if (isResume || BOOK_OPENING.has(calledFrom)) { return 'switch'; }
+  return 'new-tab';
+}

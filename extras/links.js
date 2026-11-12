@@ -46,7 +46,7 @@ import md5 from 'md5';
 import {sectionsOf} from './schema7';
 import {normTitle} from './tree';
 import {linksUrlForPath} from './otzaria';
-import {paraSign, paraOpening, inferBase, inferredLinks, chaptersWanted, sefariaUnits, extraUnits, amudimWanted,
+import {paraSign, paraOpening, inferBase, inferredLinksAsync, chaptersWanted, sefariaUnits, extraUnits, amudimWanted,
   talmudUnits, quotesDibburim, dibburimOf, amudLabel} from './inferred';
 
 export const VERSION = 1;
@@ -285,6 +285,14 @@ const MAX_CHAPTERS = 160;     // (a book's chapters read one by one when the com
 /** A ref in `title` (Sefaria's "Title 1:2", an extra book's "Title, S1:2") */
 const inBook = (ref, title) => String(ref || '').startsWith(`${title} `) || String(ref || '').startsWith(`${title},`);
 
+/**
+ * A moment for the reader between two steps of the obvious connections' work: it reads a whole
+ * masechta (with Rashi and Tosafos) a section at a time, and the app answers taps meanwhile.
+ */
+export const yieldToUI = () => new Promise(resolve => setTimeout(resolve, 0));
+
+const now = () => (typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now());
+
 const devLog = (...args) => {
   if (typeof __DEV__ !== 'undefined' && __DEV__) { console.log('extras: inferred links:', ...args); }
 };
@@ -318,9 +326,12 @@ export async function inferAll({files, books, changed = null, loadSection, loadI
         devLog(f.heTitle, '- its own links already tie it to', base.title);
       } else {
         try {
+          const started = now();
           inferred = await linksTo(f, base, files, loadSection, loadIndex);
           if (found.confidence === 'likely') { inferred = inferred.map(l => ({...l, c: 'likely'})); }
-          devLog(f.heTitle, '->', base.title, `(${found.why}):`, inferred.length, 'links');
+          // (how long it took, in the log: a masechta is read whole - QA round 16)
+          console.log('extras: inferred links of', title, 'on', base.title, `(${found.why}):`, inferred.length,
+            'links in', Math.round(now() - started), 'ms');
         } catch (e) {
           devLog(f.heTitle, '->', base.title, '- its text could not be read now:', String((e && e.message) || e));
           continue;                 // (tried again at the next download)
@@ -336,6 +347,9 @@ export async function inferAll({files, books, changed = null, loadSection, loadI
 }
 
 const MAX_AMUDIM = 400;        // (a masechta read amud by amud when its index does not say how long it is)
+const MAX_MISSES = 6;          // (amudim missing in a row that end a masechta whose length is not known)
+const READ_AT_ONCE = 6;        // (amudim read at once when the length is known)
+const amudims = (amudim, i, segs) => { amudim.push([amudLabel(i), segs]); };
 
 /** "Gittin 2a:1-15a:7" -> [first amud, last amud] (1a = 0): mg_books._perek_amuds */
 export function perekAmuds(index) {
@@ -383,14 +397,35 @@ async function talmudBase(f, base, loadSection, loadIndex) {
   const lastNamed = named.length ? Math.max(...named) : 2;
   const amudim = [];
   const unread = new Set();
-  for (let i = 2; i < (length || MAX_AMUDIM); i++) {
+  const read = async i => {
     let segs = null;
     try { segs = await loadSection(`${base.title} ${amudLabel(i)}`); } catch (e) { segs = null; }
-    if (Array.isArray(segs) && segs.length && segs.every(v => typeof v === 'string')) {
-      amudim.push([amudLabel(i), segs]);
-    } else if (!length && i > lastNamed && amudim.length) {
-      break;                    // (past the masechta's end)
-    } else {
+    return Array.isArray(segs) && segs.length && segs.every(v => typeof v === 'string') ? segs : null;
+  };
+  if (length) {
+    // (its length known: several amudim at once - read online they are a request each - with a
+    //  moment for the reader between batches)
+    for (let from = 2; from < length; from += READ_AT_ONCE) {
+      const batch = [];
+      for (let i = from; i < Math.min(length, from + READ_AT_ONCE); i++) { batch.push(i); }
+      const got = await Promise.all(batch.map(read));
+      batch.forEach((i, k) => { if (got[k]) { amudims(amudim, i, got[k]); } else { unread.add(i); } });
+      await yieldToUI();
+    }
+  } else {
+    let misses = 0;
+    for (let i = 2; i < MAX_AMUDIM; i++) {
+      if (i % 4 === 0) { await yieldToUI(); }
+      const segs = await read(i);
+      if (segs) {
+        misses = 0;
+        amudims(amudim, i, segs);
+        continue;
+      }
+      misses += 1;
+      // (past the masechta's end: after the last amud the commentary names, or - a heading read as a
+      //  daf it is not - after several missing in a row: QA round 17 read Berakhot on to 138a)
+      if (amudim.length && (i > lastNamed || misses >= MAX_MISSES)) { break; }
       unread.add(i);
     }
   }
@@ -398,13 +433,17 @@ async function talmudBase(f, base, loadSection, loadIndex) {
   let dibburim = null;
   if (quotesDibburim({leaves: f.secs})) {
     const of = {rashi: [], tosafot: []};
-    for (const [label, segs] of amudim) {
-      const m = /^(\d+)([ab])$/.exec(label);
-      const ai = 2 * parseInt(m[1], 10) - 2 + (m[2] === 'b' ? 1 : 0);
-      for (const [who, name] of [['rashi', 'Rashi'], ['tosafot', 'Tosafot']]) {
-        const lines = await commentaryLines(`${name} on ${base.title} ${label}`, segs.length, loadSection);
-        if (lines) { of[who].push([ai, lines]); }
-      }
+    for (let k = 0; k < amudim.length; k += READ_AT_ONCE) {
+      const batch = amudim.slice(k, k + READ_AT_ONCE);
+      const got = await Promise.all(batch.map(([label, segs]) => Promise.all(['Rashi', 'Tosafot'].map(name =>
+        commentaryLines(`${name} on ${base.title} ${label}`, segs.length, loadSection)))));
+      batch.forEach(([label], j) => {
+        const m = /^(\d+)([ab])$/.exec(label);
+        const ai = 2 * parseInt(m[1], 10) - 2 + (m[2] === 'b' ? 1 : 0);
+        if (got[j][0]) { of.rashi.push([ai, got[j][0]]); }
+        if (got[j][1]) { of.tosafot.push([ai, got[j][1]]); }
+      });
+      await yieldToUI();
     }
     dibburim = dibburimOf(of);
   }
@@ -422,12 +461,15 @@ async function linksTo(f, base, files, loadSection, loadIndex = null) {
     units = extraUnits(g.secs, texts);
   } else if ((base.categories || [])[0] === 'Talmud') {
     // (the Gemara: the whole masechta, with Rashi's and Tosafos' dibburim - as Sofer reads it)
+    const read = now();
     const gemara = await talmudBase(f, base, loadSection, loadIndex);
     if (!gemara) {
       devLog(f.heTitle, '-', base.title, ': it could not be read');
       return [];
     }
-    return inferredLinks({leaves: f.secs}, gemara).map(({how, ...l}) => l);
+    console.log('extras: inferred links:', base.title, 'read in', Math.round(now() - read), 'ms');
+    await yieldToUI();
+    return (await inferredLinksAsync({leaves: f.secs}, gemara, false, yieldToUI)).map(({how, ...l}) => l);
   } else {
     const chapters = [];
     const wanted = chaptersWanted({leaves: f.secs});
@@ -447,7 +489,7 @@ async function linksTo(f, base, files, loadSection, loadIndex = null) {
     }
     units = sefariaUnits(base.title, base.heTitle, chapters);
   }
-  return inferredLinks({leaves: f.secs}, {units}).map(({how, ...l}) => l);
+  return (await inferredLinksAsync({leaves: f.secs}, {units}, false, yieldToUI)).map(({how, ...l}) => l);
 }
 
 // ---------------------------------------------------------------- the index: section -> links

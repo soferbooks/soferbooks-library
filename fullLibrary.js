@@ -61,7 +61,30 @@ export function knownBookSize(b, sizes = SIZES) {
   }
   if (!kB) { return null; }
   const mb = n => Math.max(1, Math.round((n * 1024) / 1e6));
-  return {downloadMB: mb(kB), storedMB: mb(kB * ratioOf(b.source, sizes))};
+  const stored = kB * ratioOf(b.source, sizes);
+  // (in kB too: a book of 12 kB was "About 1 MB" - QA round 16, Megillat Antiochus)
+  return {downloadMB: mb(kB), storedMB: mb(stored), downloadKB: kB, storedKB: Math.round(stored)};
+}
+
+/**
+ * A book's size as the "Download to read" warning says it: kB under a megabyte, else MB (one
+ * decimal under 10 MB). size: {downloadKB, storedKB} or (a source's own estimate) {downloadMB, storedMB}.
+ */
+export function formatBookSize(kB) {
+  if (!(kB > 0)) { return null; }
+  const mb = (kB * 1024) / 1e6;
+  if (mb < 1) { return `${Math.max(1, Math.round((kB * 1024) / 1000))} KB`; }
+  if (mb < 10) { return `${Math.round(mb * 10) / 10} MB`; }
+  return formatSize(kB);
+}
+
+/** {download, stored} for the warning ("12 KB", "1.4 MB") of a size from knownBookSize or a source */
+export function bookSizeText(size) {
+  if (!size) { return null; }
+  const kB = (k, m) => (typeof k === 'number' ? k : (typeof m === 'number' ? (m * 1e6) / 1024 : 0));
+  const download = formatBookSize(kB(size.downloadKB, size.downloadMB));
+  const stored = formatBookSize(kB(size.storedKB, size.storedMB));
+  return download && stored ? {download, stored} : null;
 }
 
 /**

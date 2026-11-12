@@ -14,6 +14,7 @@ export const NAME_DEBOUNCE_MS = 300;    // wait for a pause in typing before ask
 export const NAME_RETRY_MS = 30000;     // after a failure, do not ask again for this long
 const MAX_COMPLETIONS = 10;
 const HEBREW = /[א-ת]/;
+const LATIN = /[A-Za-z]/;
 const REF_TAIL = /^(\d+[ab]?)((?:[:. ]\d+)*)$/;   // "1", "1:1", "2a", "2a 5", "1.3"
 
 let lastFailure = 0;
@@ -114,8 +115,10 @@ export function localNameResults(query) {
     const names = isHe ? [item.heTitle, ...(item.heVariants || [])] : [item.title, ...(item.variants || [])];
     const s = names.reduce((best, n) => { const x = score(n, low); return x >= 0 && (best < 0 || x < best) ? x : best; }, -1);
     if (s < 0) { return; }
+    // (an English query finds a book named in Hebrew by its English names: shown by one of them)
+    const english = !isHe && !LATIN.test(item.title) ? (item.variants || []).find(v => LATIN.test(v)) : null;
     found.push({s, len: item.title.length, c: {
-      title: isHe && item.heTitle ? item.heTitle : item.title,
+      title: isHe && item.heTitle ? item.heTitle : (english || item.title),
       key: item.key || item.title,
       type,
       is_primary: s === 0,
@@ -141,11 +144,15 @@ export function withOwnBooks(query, results, isOwnBook) {
   const local = localNameResults(query);
   const keys = new Set(results.completion_objects.map(c => c.key));
   const own = local.completion_objects.filter(c => c.type === 'ref' && isOwnBook(c.key) && !keys.has(c.key));
-  if (!own.length) { return results; }
+  // (a ref in one of these books - "Shuvu Lachem LeOhaleichem 3" - the API does not know either; nor
+  //  the book's whole title, which the local list gives as the ref and not as a line of its own: the
+  //  book dropped out of the list once its title was typed in full - QA round 16, "Chashukei
+  //  Chemed on Berakhot")
+  const ownRef = local.is_ref && isOwnBook(local.book) && !(results.is_ref && results.book === local.book);
+  if (!own.length && !ownRef) { return results; }
   const completion_objects = own.concat(results.completion_objects);
   const out = {...results, completion_objects, completions: completion_objects.map(c => c.title)};
-  // (a ref in one of these books - "Shuvu Lachem LeOhaleichem 3" - the API does not know either)
-  if (!results.is_ref && local.is_ref && isOwnBook(local.book)) {
+  if (ownRef) {
     Object.assign(out, {
       is_ref: true, ref: local.ref, book: local.book, index: local.index, sections: local.sections,
       is_book: local.is_book, is_section: local.is_section, is_segment: local.is_segment,

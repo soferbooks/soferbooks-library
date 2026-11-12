@@ -343,6 +343,18 @@ export function inferBase(heTitle, books, self = null) {
  * base:  {units: [{key, ref, he, words}]}   (the Gemara's also dibburim, perakim, unread: looseComments)
  */
 export function inferredLinks(comm, base, likelyBook = false) {
+  return runSteps(inferredSteps(comm, base, likelyBook));
+}
+
+/**
+ * inferredLinks a few milliseconds at a time, the app answering between (QA round 17: placing a
+ * Gemara commentary on a whole masechta took 22 s at once, and taps waited for it)
+ */
+export function inferredLinksAsync(comm, base, likelyBook = false, pause = undefined) {
+  return runStepsAsync(inferredSteps(comm, base, likelyBook), pause);
+}
+
+function* inferredSteps(comm, base, likelyBook = false) {
   const leaves = comm.leaves || [];
   const paths = numberPaths(leaves.map(l => ({keys: l[2], heTitles: l[3]})));
   // (the Gemara by amudim: a heading's "דף קיב" is no chapter 112 - Sofer's rules are for chapters)
@@ -350,7 +362,7 @@ export function inferredLinks(comm, base, likelyBook = false) {
   let placed = talmud ? [] : placeComments(leaves.map((l, i) => ({...paths[i], signs: l[4] || []})), base.units);
   if (!placed.some(p => p.how !== 'neighbour')) {
     // (Sofer's rules found no place: the comments' opening words, matched loosely - beyond Sofer)
-    placed = looseComments(leaves.map((l, i) => ({path: paths[i].path, heTitles: l[3], openings: l[5] || []})),
+    placed = yield* looseSteps(leaves.map((l, i) => ({path: paths[i].path, heTitles: l[3], openings: l[5] || []})),
       base.units, {dibburim: base.dibburim || null, perakim: base.perakim || [], unread: base.unread || null});
   }
   const out = [];
@@ -780,7 +792,41 @@ const LOOK_AHEAD = 40;        // units looked at past the last placed before the
  *    dibbur), 'daf' (beside a comment of its siman, at the daf the siman names), 'loose-neighbour'
  *    (beside the one before or after it); exact: the quote found whole, in one place only.
  */
-export function looseComments(comm, units, {dibburim = null, perakim = [], unread = null} = {}) {
+export function looseComments(comm, units, options = {}) {
+  return runSteps(looseSteps(comm, units, options));
+}
+
+/** looseComments, a few milliseconds at a time with the app answering between (extras/links.js) */
+export function looseCommentsAsync(comm, units, options = {}, pause) {
+  return runStepsAsync(looseSteps(comm, units, options), pause);
+}
+
+/** A generator of steps run to its end at once -> its value */
+export function runSteps(it) {
+  let r = it.next();
+  while (!r.done) { r = it.next(); }
+  return r.value;
+}
+
+const SLICE_MS = 12;           // (work between two moments for the reader)
+const clock = () => (typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now());
+
+/** The same, SLICE_MS at a time, `pause()` (a promise) between -> a promise of its value */
+export async function runStepsAsync(it, pause = () => new Promise(resolve => setTimeout(resolve, 0))) {
+  let start = clock();
+  let r = it.next();
+  while (!r.done) {
+    if (clock() - start >= SLICE_MS) {
+      await pause();
+      start = clock();
+    }
+    r = it.next();
+  }
+  return r.value;
+}
+
+/** looseComments as steps (a generator: one step a comment) */
+function* looseSteps(comm, units, {dibburim = null, perakim = [], unread = null} = {}) {
   const n = units.length;
   const words = units.map(u => u.words || []);
   const amudOfUnit = units.map(u => (u.amud === undefined ? null : u.amud));
@@ -917,7 +963,9 @@ export function looseComments(comm, units, {dibburim = null, perakim = [], unrea
   const out = [];                     // [{unit, window, unread}]
   const byDib = new Set();
   let cursor = 0;
-  comments.forEach((c, k) => {
+  for (let k = 0; k < comments.length; k++) {
+    const c = comments[k];
+    yield;
     for (const h of c.heads) {
       const a = amudOf(h);
       if (a && a.daf) { daf = a.daf; side = a.side; }
@@ -930,7 +978,7 @@ export function looseComments(comm, units, {dibburim = null, perakim = [], unrea
     const amud = !daf ? null : (side ? [amudIndex(daf, side)] : [amudIndex(daf, 'a'), amudIndex(daf, 'b')]);
     if (amud && unread && unread.size && amud.every(x => unread.has(x))) {
       out.push({unit: null, window: [], unread: true});
-      return;
+      continue;
     }
     const q = looseQuote(c.text);
     let window = null;
@@ -961,7 +1009,7 @@ export function looseComments(comm, units, {dibburim = null, perakim = [], unrea
     }
     if (found) { cursor = found.unit; }
     out.push({unit: found ? found.unit : null, window, exact: !!(found && found.exact && found.unique)});
-  });
+  }
   const counted = out.filter(p => !p.unread);
   const got = out.filter(p => p.unit !== null).length;
   const result = placed => placed.map((p, k) => (p && p.unit !== null && p.unit !== undefined
@@ -969,7 +1017,7 @@ export function looseComments(comm, units, {dibburim = null, perakim = [], unrea
   // nothing much found: not a commentary on this text (a book of responsa named for it) - unless it
   // is essays each on the daf its siman names
   if (got < 3 || got < 0.2 * counted.length) {
-    return byAmud.size ? result(bySiman() || []) : [];
+    return byAmud.size ? result((yield* bySiman()) || []) : [];
   }
   // a comment not found: with the one before it (in its own amud or chapter when known), else the next
   return result(out.map((p, k) => {
@@ -984,7 +1032,7 @@ export function looseComments(comm, units, {dibburim = null, perakim = [], unrea
   }));
 
   /** _by_siman: a masechet's essays placed siman by siman at the daf each names; null: not such essays */
-  function bySiman() {
+  function* bySiman() {
     const sections = [];
     comments.forEach((c, k) => {
       if (c.heads.length || !sections.length) { sections.push([]); }
@@ -1021,7 +1069,7 @@ export function looseComments(comm, units, {dibburim = null, perakim = [], unrea
       let span = perek && perek > 0 && perek <= perakim.length && !named ? perakim[perek - 1] : null;
       if (d === null && !span) {
         // (no daf named: each comment by its quote near the place the one before was found)
-        here = inOrder(sec, here, res);
+        here = yield* inOrder(sec, here, res);
         sec.forEach((k, j) => {
           if (res[k]) { return; }
           let t = prevIn(sec, j);
@@ -1034,6 +1082,7 @@ export function looseComments(comm, units, {dibburim = null, perakim = [], unrea
       let anchor = null;
       let cur = null;
       for (const k of sec) {
+        yield;
         const text = stripNumber(comments[k].text);
         const a = amudOf(text);
         if (a && a.daf) { d = a.daf; s = a.side; span = null; } else if (a && a.side && d) { s = a.side; }
@@ -1094,9 +1143,10 @@ export function looseComments(comm, units, {dibburim = null, perakim = [], unrea
   }
 
   /** _in_order: comments with no daf named, by their quote near amud `here` and on -> the amud the last one found is on */
-  function inOrder(ks, here, res) {
+  function* inOrder(ks, here, res) {
     let cur = null;
     for (const k of ks) {
+      yield;
       const text = stripNumber(comments[k].text);
       const a = amudOf(text);
       if (a && a.daf) { here = amudIndex(a.daf, a.side || 'a'); }

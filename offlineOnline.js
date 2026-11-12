@@ -17,6 +17,7 @@ import * as shomer from "./shomer";
 import * as extras from "./extras";
 import {
     isEnglishTranslation, isForeignTitle, stripForeignEnglish, stripForeignPreviewEnglish,
+    preferredEnglishVersion, isTanakhText,
 } from "./translationLanguage";
 
 // A ref in a book of an extra source (Otzaria ...): Sefaria's API does not know it, so it is
@@ -55,12 +56,15 @@ export const loadText = function(ref, context, versions, fallbackOnDefaultVersio
             }
             if (error === ERRORS.MISSING_OFFLINE_DATA) {
                 // Expected case: the text isn't downloaded offline, so fall back to the API.
-                return api.textApi(ref, context, versions, failSilently)
+                // (the book's preferred English, once known, asked for at once: one request)
+                const asked = withKnownPreferredEnglish(ref, context, versions);
+                return api.textApi(ref, context, asked, failSilently)
                     .then(data => {
-                        api.processTextApiData(ref, context, versions, data);
+                        api.processTextApiData(ref, context, asked, data);
                         return data;
                     })
-                    .then(data => avoidHiddenTranslationOnline(ref, context, versions, failSilently, data))
+                    .then(data => preferEnglishOnline(ref, context, asked, failSilently, data, versions))
+                    .then(data => avoidHiddenTranslationOnline(ref, context, asked, failSilently, data))
             }
             // Unexpected: offline loading failed for a reason other than "not downloaded"
             // (e.g. a bug while parsing/assembling the offline file, or a corrupt file).
@@ -89,6 +93,56 @@ export const loadVersions = async (ref) => {
         versions = await api.versions(ref, true);
     }
     return shomer.filterVersions(versions);  // content filter
+};
+
+// ---- the owner's order of English translations (translationLanguage.js), online
+// {book title: the version title it prefers, or null for Sefaria's own}, once its versions are known
+const _preferredEnglishByTitle = {};
+// (the content filter changed: which translations it allows may have too)
+if (typeof shomer.subscribe === "function") shomer.subscribe(() => { Object.keys(_preferredEnglishByTitle).forEach(k => { delete _preferredEnglishByTitle[k]; }); });
+export const _forgetPreferredEnglish = () => { Object.keys(_preferredEnglishByTitle).forEach(k => { delete _preferredEnglishByTitle[k]; }); };
+
+const tanakhCategories = ref => {
+    try {
+        const categories = Sefaria.categoriesForTitle(Sefaria.textTitleForRef(ref));
+        return isTanakhText(categories) ? categories : null;
+    } catch (e) { return null; }
+};
+
+/** versions with the book's preferred English when it is already known and none was asked for */
+export const withKnownPreferredEnglish = (ref, context, versions) => {
+    if (!context || versions?.en || !tanakhCategories(ref)) { return versions; }
+    const title = Sefaria.textTitleForRef(ref);
+    const known = _preferredEnglishByTitle[title];
+    return known ? {...(versions || {}), en: known} : versions;
+};
+
+/**
+ * The server sent its default English: for a book of Tanakh, the owner's preferred translation
+ * instead when it has one the content filter allows (Metsudah, Koren, JPS 1985 ...). A translation
+ * the reader asked for by name (requested.en) is kept.
+ */
+export const preferEnglishOnline = async (ref, context, versions, failSilently, data, requested = versions) => {
+    const textContent = data?.textContent;
+    const categories = tanakhCategories(ref);
+    if (!context || requested?.en || !textContent || !categories) { return data; }
+    const title = Sefaria.textTitleForRef(ref);
+    try {
+        if (!(title in _preferredEnglishByTitle)) {
+            const best = preferredEnglishVersion(await api.versions(ref, true),
+                {categories, isHidden: v => shomer.isActive() && shomer.isVersionHidden(v)});
+            _preferredEnglishByTitle[title] = best ? best.versionTitle : null;
+        }
+        const want = _preferredEnglishByTitle[title];
+        if (!want || want === textContent.versionTitle) { return data; }
+        const newVersions = {...(versions || {}), en: want};
+        const other = await api.textApi(ref, context, newVersions, failSilently);
+        api.processTextApiData(ref, context, newVersions, other);
+        return other?.textContent ? other : data;
+    } catch (e) {
+        console.log('could not load the preferred English translation', e);
+        return data;
+    }
 };
 
 const avoidHiddenTranslationOnline = async (ref, context, versions, failSilently, data) => {

@@ -43,6 +43,7 @@
  */
 import * as FileSystem from 'expo-file-system/legacy';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {InteractionManager} from 'react-native';
 import {zip} from 'react-native-zip-archive';
 import md5 from 'md5';
 import otzaria from './otzaria';
@@ -56,7 +57,7 @@ import {chooseBooks, addToToc, categoryNames, replacementForRef, redirectNameRes
 import {bookLines} from '../localSearch';
 import {clearOfflineSearchCache} from '../offlineSearch';
 import * as shomer from '../shomer';
-import {WORK_DIR, ensureRoom, replaceFile, MB} from '../storage';
+import {WORK_DIR, ensureRoom, replaceFile, MB, safeUnzip} from '../storage';
 
 // (chok: Chok LeYisrael, one book from Otzaria's library, turned on by its learning schedule - no
 //  switch in Settings: extras/chok.js)
@@ -101,14 +102,16 @@ export const isCompanion = title => !!(state.installed[title] && state.installed
  * The book's English title, when it has a real one to show: the Sofer Library's books are named
  * in English (Sefaria's names, or their translators'); the other sources' "English" title is only
  * the Hebrew name made safe for a file name, or a transliteration, so null for those (and for a
- * Sofer book named only in Hebrew).
+ * Sofer book named only in Hebrew) - unless the source's list names it in English (Wikisource's
+ * Rokeach on Shir HaShirim, used instead of Sefaria's "Rokeach on Song of Songs").
  */
 export function englishTitleOf(title) {
   const b = books[title];
-  if (!b || b.source !== 'sofer_library') { return null; }
+  if (!b) { return null; }
   const english = name => typeof name === 'string' && /[A-Za-z]/.test(name) && !/[֐-׿]/.test(name);
   // (the catalogue's English name, from Sofer's schema - else the title itself, when English)
   if (english(b.enTitle)) { return b.enTitle; }
+  if (b.source !== 'sofer_library') { return null; }
   return english(title) ? title : null;
 }
 
@@ -188,7 +191,10 @@ export function loadExtras() {
 export function applyToToc(toc) {
   const lists = {};
   for (const [id, cat] of Object.entries(catalogs)) {
-    if (enabled[id] && cat && Array.isArray(cat.entries)) { lists[id] = cat.entries.map(withCurrentShelf); }
+    if (enabled[id] && cat && Array.isArray(cat.entries)) {
+      const current = (EXTRA_SOURCES[id] && EXTRA_SOURCES[id].currentEntry) || (e => e);
+      lists[id] = cat.entries.map(withCurrentShelf).map(current);
+    }
   }
   const chosen = chooseBooks(toc, lists, state);
   books = chosen.books;
@@ -456,9 +462,27 @@ export function downloadBook(title) {
   return promise;
 }
 
+/**
+ * The book's entry in a catalogue fetched now, when it differs from the one on the phone (another
+ * file, another checksum): a release rebuilt under the same name leaves the phone's catalogue - read
+ * again only weekly - naming files the release no longer has, and the book could never be
+ * downloaded (QA round 16: the Zelicha Megillat Antiochus, "Check the connection" every time).
+ * null: the catalogue could not be had, or says the same.
+ */
+export async function freshEntryOf(title, entry) {
+  const source = EXTRA_SOURCES[entry.source];
+  if (!source || !source.catalogUrl) { return null; }      // (only a catalogue kept on a server)
+  let entries;
+  try { entries = await refreshCatalog(entry.source); } catch (e) { return null; }
+  const now = (entries || []).find(e => e.title === title);
+  if (!now || (now.file === entry.file && now.md5 === entry.md5 && now.hash === entry.hash)) { return null; }
+  await reloadToc();                   // (the library's entry of the book, and its size, as the catalogue now has them)
+  return books[title] || now;
+}
+
 async function fetchAndInstall(title, job) {
   await loadExtras();
-  const entry = books[title];
+  let entry = books[title];
   if (!entry) { throw new Error(`not an extra book: ${title}`); }
   const source = EXTRA_SOURCES[entry.source];
   // room for the download and the book made of it (storage.js: never fill the phone)
@@ -466,7 +490,19 @@ async function fetchAndInstall(title, job) {
   await ensureRoom(known ? known * ROOM_FACTOR : ROOM_UNKNOWN, ROOM_MARGIN);
   let text;
   if (source.fetchBook) {              // (a book that is more than one text file: Dicta's zip of pages)
-    text = await source.fetchBook(entry, job);
+    try {
+      text = await source.fetchBook(entry, job);
+    } catch (e) {
+      if (job.cancelled || e instanceof DownloadCancelledError) { throw e; }
+      // (the phone's catalogue may name a file of an earlier build of the release: once more with
+      //  the catalogue as it is now)
+      const fresh = await freshEntryOf(title, entry);
+      if (!fresh) { throw e; }
+      console.log('extras:', title, 'is downloaded again by the catalogue as it is now:', String((e && e.message) || e));
+      entry = fresh;
+      job.check();
+      text = await source.fetchBook(entry, job);
+    }
   } else {
     const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
     if (controller) { job.onCancel(() => controller.abort()); }
@@ -517,9 +553,19 @@ async function collectLinks(title, entry, source, text, tree, at) {
   // (a source with no links of its own - Wikisource - still keeps what its sections say of their
   //  place: its obvious connections, extras/inferred.js)
   const stillThere = () => !!state.installed[title] && state.installed[title].at === at;
-  // (a book that comes ready made - the Sofer Library's - has no tree to place connections on:
-  //  QA round 14, "Cannot read property 'paras' of undefined")
-  if (!tree) { return; }
+  // (a book that comes ready made - the Sofer Library's - has no tree to place connections on
+  //  (QA round 14, "Cannot read property 'paras' of undefined"), but its files' own links are
+  //  still kept: links.collect without a tree. Leaving them out kept Chashukei Chemed off the
+  //  Gemara's panel - QA round 16)
+  if (!tree) {
+    try {
+      const where = (source.linksOf && source.linksOf(entry, text)) || {};
+      await links.collect({title, heTitle: entry.heTitle, tree: null, where});
+    } catch (e) {
+      console.log('extras: the links of', title, e);
+    }
+    return;
+  }
   try {
     const where = (source.linksOf && source.linksOf(entry, text)) || {};
     const {later} = await links.collect({
@@ -547,6 +593,12 @@ export function refreshInferred(changed = null) {
 
 async function inferNow(changed) {
   await loadExtras();
+  // (after what the reader is doing - opening the book just downloaded - not in its way)
+  //  (at most a few seconds: an interaction never ended must not hold it back for good)
+  await new Promise(resolve => {
+    const timer = setTimeout(resolve, 3000);
+    InteractionManager.runAfterInteractions(() => { clearTimeout(timer); resolve(); });
+  });
   const titles = installedTitles().filter(t => !state.installed[t].companionOf);
   const files = {};
   for (const t of titles) {
@@ -557,11 +609,27 @@ async function inferNow(changed) {
   const loadSection = async ref => {
     const {loadText} = require('../offlineOnline');      // (lazily, when a text is needed: it imports this module)
     const {result} = await loadText(ref, false, null, true, true);
-    return result && result.he;
+    const he = result && result.he;
+    // (read online, the text API joins a section's lines into one string: the inference needs them
+    //  line by line - the Gemara's amud, Rashi's lines - so they are asked for as the API keeps
+    //  them. Before, a masechta read online gave nothing, after reading it all - QA round 17)
+    if (typeof he === 'string' && !isExtraTitle(Sefaria.textTitleForRef(ref)) && Sefaria.api && Sefaria.api._request) {
+      try {
+        const data = await Sefaria.api._request(ref, 'text', true, {context: 0, stripItags: 1}, true);
+        if (data && (Array.isArray(data.he) || typeof data.he === 'string')) { return data.he; }
+      } catch (e) { /* as it came */ }
+    }
+    return he;
   };
   // (a Sefaria book's index, for the Gemara's length and perakim: the downloaded one)
+  // (the downloaded one, else Sefaria's: without it the masechta's length was not known, and it was
+  //  read on past its end - QA round 17)
   const loadIndex = async title => {
-    try { return await require('../offline').loadTextIndexOffline(title); } catch (e) { return null; }
+    try {
+      const offline = await require('../offline').loadTextIndexOffline(title);
+      if (offline) { return offline; }
+    } catch (e) { /* not downloaded */ }
+    try { return await require('../offlineOnline').textToc(title); } catch (e) { return null; }
   };
   const done = await links.inferAll({files, books: inferenceBooks(), changed, loadSection, loadIndex});
   for (const t of done) {
@@ -597,12 +665,48 @@ export async function withExtraLinks(sectionRef, response) {
   return links.withExtraLinks(response, extra);
 }
 
+/**
+ * The Sofer Library's books downloaded before their own links were kept (QA round 16: Chashukei
+ * Chemed missing on the Gemara's side): their links file made once from the book's zip on the
+ * phone (its sections' metadata), so they need not be downloaded again. Once a session; never throws.
+ */
+let repaired = null;
+export function repairReadyMadeLinks(titles) {
+  if (!repaired) {
+    repaired = (async () => {
+      for (const title of titles) {
+        const entry = books[title];
+        const rec = state.installed[title];
+        if (!entry || !rec || rec.source !== soferLibrary.id) { continue; }
+        if (await links.readLinks(title)) { continue; }
+        const dir = `${TMP_DIR}links-${md5(title)}/`;
+        try {
+          await FileSystem.makeDirectoryAsync(dir, {intermediates: true}).catch(() => {});
+          await safeUnzip(`${LIBRARY_DIR}${title}.zip`, dir);
+          const files = {};
+          for (const name of (await FileSystem.readDirectoryAsync(dir)).filter(n => n.endsWith('.metadata.json'))) {
+            files[name] = JSON.parse(await FileSystem.readAsStringAsync(`${dir}${name}`));
+          }
+          const where = soferLibrary.linksOf(entry, {book: {files}}) || {};
+          await links.collect({title, heTitle: entry.heTitle, tree: null, where});
+        } catch (e) {
+          console.log('extras: the links of', title, 'could not be read from its zip', e);
+        } finally {
+          await FileSystem.deleteAsync(dir, {idempotent: true}).catch(() => {});
+        }
+      }
+    })().catch(e => console.log('extras: links repair', e));
+  }
+  return repaired;
+}
+
 /** The downloaded extra books' links of a section (both ends: theirs and the passages they explain) */
 export async function extraLinksFor(sectionRef) {
   try {
     await loadExtras();
     const titles = installedTitles().filter(t => !state.installed[t].companionOf);
     if (!titles.length) { return []; }
+    await repairReadyMadeLinks(titles);
     return links.relatedFromIndex(await links.ready(titles), sectionRef);
   } catch (e) {
     console.log('extras: links of', sectionRef, e);
@@ -645,5 +749,6 @@ export function _reset(next = {}) {
   replaced = next.replaced || {};
   Object.keys(downloads).forEach(t => { delete downloads[t]; });
   links._reset();
+  repaired = null;
   loaded = next.loaded === false ? null : Promise.resolve();
 }

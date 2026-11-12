@@ -1,6 +1,6 @@
 'use strict';
 import PropTypes from 'prop-types';
-import React, { useContext, useCallback } from 'react';
+import React, { useContext, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -41,14 +41,18 @@ const TextRange = React.memo(({
     setRowRef(segmentRef, ref);
   };
 
-  let enText = rowData.content.text || "";
   // nikud by computer (Dicta) for a text without nikud, when switched on (reader/nakdanPrefs.js)
   const dictaHe = useNakdan(rowData.content.he, !!nakdan && !isSheet);
-  let heText = Sefaria.util.applyVocalizationSettings(dictaHe || rowData.content.he, vocalization, vowelToggleAvailable) || "";
-  enText = Sefaria.util.getDisplayableHTML(enText, 'english', isSheet, false);
-  // a commentary: its dibbur hamaschil in bold, as SoferBooks prints it (reader/dibbur.js; at display, not stored)
-  if (boldDibbur && !isSheet) { heText = withBoldDibbur(heText); }
-  heText = Sefaria.util.getDisplayableHTML(heText, 'hebrew', isSheet, true);
+  // (worked out once per text, not at every redraw of the row: the Hebrew is parsed and each word
+  //  wrapped for the dictionary - QA round 16 saw redraws of a Hebrew-only Gemara page stall)
+  const enText = useMemo(() => Sefaria.util.getDisplayableHTML(rowData.content.text || "", 'english', isSheet, false),
+    [rowData.content.text, isSheet]);
+  const heText = useMemo(() => {
+    let he = Sefaria.util.applyVocalizationSettings(dictaHe || rowData.content.he, vocalization, vowelToggleAvailable) || "";
+    // a commentary: its dibbur hamaschil in bold, as SoferBooks prints it (reader/dibbur.js; at display, not stored)
+    if (boldDibbur && !isSheet) { he = withBoldDibbur(he); }
+    return Sefaria.util.getDisplayableHTML(he, 'hebrew', isSheet, true);
+  }, [dictaHe, rowData.content.he, vocalization, vowelToggleAvailable, boldDibbur, isSheet]);
   let numLinks = rowData.related?.links?.length || 0;
 
   const textLanguageWithContent = Sefaria.util.getTextLanguageWithContent(textLanguage, enText, heText);

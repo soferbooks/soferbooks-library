@@ -31,6 +31,9 @@ import * as shomer from './shomer';
 import * as extras from './extras';
 import {withExtraSchedules} from './learningSchedules/extraSchedules';
 
+// HTML's elements that have no end tag (wrapWordsWithClickableHTML)
+const VOID_HTML_ELEMENTS = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'source', 'track', 'wbr']);
+
 
 global.Sefaria = {
   _auth: {},
@@ -1300,17 +1303,21 @@ Sefaria.util = {
       
     };
     const _wrapElement = (node, index) => {
-      const attributes = Object.entries(node.attribs).reduce((prev, [key, val]) => `${prev} ${key}=${val}`, '');
+      // (values quoted: an unquoted one with a space - a Hebrew name - was cut at it)
+      const attributes = Object.entries(node.attribs)
+        .reduce((prev, [key, val]) => `${prev} ${key}="${String(val).replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"`, '');
       if (node.children.length === 0) {
-        // self-closing case
-        return `<${node.name} ${attributes}>`;
+        // a void element (<br>) has no end tag; any other empty one is closed: an editor's note
+        // anchor <i data-commentator ...></i> left open made the rest of the passage italic, drawn
+        // larger and cut off at the line's edge (QA round 16, the Rokeach on Shir HaShirim)
+        return VOID_HTML_ELEMENTS.has(node.name) ? `<${node.name}${attributes}>` : `<${node.name}${attributes}></${node.name}>`;
       }
       const shouldWrapChildren = node.name !== "a";  // dont wrap contents in a tags.
       const nodeContents = node.children.map(
         (c, i) => _wrap(c, i, shouldWrapChildren)
       ).join('');
       return (
-        `<${node.name} ${attributes}>${nodeContents}</${node.name}>`
+        `<${node.name}${attributes}>${nodeContents}</${node.name}>`
       );
     };
     const _wrap = (node, index, shouldWrapChildren) => {

@@ -7,7 +7,7 @@ import {ERRORS} from "./errors";
 import {loadJSONFile} from "./DownloadControl";
 import {fileExists} from './DownloadControl';
 import * as shomer from './shomer';
-import {isEnglishTranslation} from './translationLanguage';
+import {isEnglishTranslation, preferredEnglishVersion} from './translationLanguage';
 import {applyCorrections} from './corrections';
 import {defaultAlias, withoutDefault, orderStems, sectionsOfFile} from './reader/sectionOrder';
 
@@ -249,12 +249,15 @@ const getSectionFromJsonData = function(ref, data) {
     return data;
 };
 
-const populateMissingVersions = function(currVersions, allVersions) {
+const populateMissingVersions = function(currVersions, allVersions, categories = null) {
     // given currVersions and a list of versions sorted by priority,
     // make sure both "en" and "he" versions are populated, falling back on default
+    // (categories: the book's, for the owner's order of English translations - translationLanguage.js)
     for (let lang of ["en", "he"]) {
         if (currVersions[lang]) { continue; }
-        const defaultVersion = getDefaultVersionForLang(allVersions, lang);
+        const defaultVersion = lang === 'en' && categories
+            ? preferredEnglishVersion(allVersions, {categories, isHidden: v => shomer.isVersionHidden(v)})
+            : getDefaultVersionForLang(allVersions, lang);
         if (!defaultVersion) { continue; }
         currVersions[lang] = defaultVersion.versionTitle;
     }
@@ -433,7 +436,11 @@ const loadOfflineSectionByVersions = async function(selectedVersions, allVersion
     // content filter: a hidden version asked for (e.g. from history) falls back on the default
     selectedVersions = Object.fromEntries(Object.entries(selectedVersions).filter(([lang, vtitle]) =>
         !shomer.isVersionHidden((allVersions || []).find(v => v.versionTitle === vtitle && v.language === lang) || {versionTitle: vtitle})));
-    selectedVersions = populateMissingVersions(selectedVersions, allVersions);
+    // (the English picked by itself: the owner's order; Sefaria's first is the fallback below when
+    //  that one's file is not on the phone)
+    let categories = null;
+    try { categories = Sefaria.categoriesForTitle(Sefaria.textTitleForRef(ref)); } catch (e) { categories = null; }
+    selectedVersions = populateMissingVersions(selectedVersions, allVersions, categories);
     if (fallbackOnDefaultVersions) {
         defaultVersions = populateMissingVersions({}, allVersions);
     }

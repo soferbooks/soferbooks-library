@@ -2180,6 +2180,25 @@ describe('Counts of one', () => {
   });
 });
 
+describe('QA round 17: pinned tabs and offline Dicta', () => {
+  test('the notice that a pinned tab kept its place, with its action', () => {
+    const ActionToast = require('../tabs/ActionToast').default;
+    expectScreenLocalizes(() => (
+      <ActionToast text={strings.tabs.opened_new_tab_pinned} actionLabel={strings.tabs.go_to_pinned} onHide={noop} />
+    ), ['tabs.opened_new_tab_pinned', 'tabs.go_to_pinned']);
+  });
+
+  test('offline, Dicta says its books need a connection to download', async () => {
+    const { ExtraSourceRow } = require('../shomer/ContentFilterSettings');
+    const source = { id: 'dicta', name: 'Dicta', heName: 'דיקטה', extra: true };
+    await withNetworkState({ type: 'none', isConnected: false, isInternetReachable: false }, () =>
+      expectSettledScreenLocalizes(() => (
+        <TestContextWrapper child={ExtraSourceRow}
+          childProps={{ source, langStyle: {}, theme: {}, interfaceLanguage: 'english' }} />
+      ), ['extras.needs_connection']));
+  });
+});
+
 describe('coverage of the whole string table', () => {
   const allIds = Object.keys(en);
 

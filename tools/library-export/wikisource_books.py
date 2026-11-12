@@ -19,6 +19,7 @@ wikitext_not_on_phone), so the phone has them exactly as Sofer converts them.
 """
 from __future__ import annotations
 
+import re
 import datetime as dt
 import json
 import sys
@@ -54,6 +55,11 @@ def main() -> int:
              "names": wiki_keys(title), "pages": len(d["pages"])}
         if title in ws.PREFERRED:
             b.update(preferred=True, replaces=list(ws.PREFERRED[title]))
+            # its English names (the copies it replaces that are named in English): the phone shows
+            # the first as its English title and finds the book by all of them
+            english = [n for n in ws.PREFERRED[title] if re.search(r"[A-Za-z]", n) and not re.search(r"[֐-׿]", n)]
+            if english:
+                b.update(enTitle=english[0], titleVariants=english)
         books.append(b)
     out = {"made": dt.date.today().isoformat(),
            "from": "Sofer src/sofer/wikisource.py and data/wikisource (tools/library-export/wikisource_books.py)",
