@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getCrashlytics, recordError } from '@react-native-firebase/crashlytics';
 import VersionNumber from 'react-native-version-number';
 import { Search } from '@sefaria/search';
-import { executeOfflineQuery } from './offlineSearch';
+import { executeSearchQuery } from './offlineSearch';
 import { watchContentFilter } from './localSearch';
 import sanitizeHtml from 'sanitize-html';
 import { decodeHTML } from 'entities';
@@ -1977,13 +1977,14 @@ Sefaria.palette.categoryColor = function(cat) {
 };
 Sefaria.palette.refColor = ref => Sefaria.palette.categoryColor(Sefaria.categoryForRef(ref));
 Sefaria.search = new Search('https://www.sefaria.org', 'text', 'sheet', { 'User-Agent': USER_AGENT });
-// Text search runs on the downloaded library; sheet search (and anything the
-// local library cannot answer) still goes to the API.
+// Text search runs on the downloaded library when its whole search pack is there, else on
+// Sefaria's API plus the reader's own books the API does not know (offlineSearch.js:
+// executeSearchQuery); without internet, on whatever the phone has.
 Sefaria.search._onlineExecuteQuery = Sefaria.search.execute_query.bind(Sefaria.search);
 Sefaria.search.execute_query = function(args) {
-  return executeOfflineQuery(args).then(result => {
-    if (result) { return result; }
-    return Sefaria.search._onlineExecuteQuery(args);
+  return executeSearchQuery(args, {
+    online: a => Sefaria.search._onlineExecuteQuery(a),
+    isLocalOnly: title => extras.isExtraTitle(title) || extras.isDownloaded(title),
   }).then(result => shomer.filterSearchResponse(args.type, result));  // content filter
 };
 Sefaria.shomer = shomer;

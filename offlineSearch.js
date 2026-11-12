@@ -562,6 +562,7 @@ function cachedResult(entry, start, size) {
       },
     },
     offline: true,
+    phraseHits: entry.phraseHits,   // the first hits that have the words as one phrase
   };
 }
 
@@ -576,12 +577,14 @@ function rememberScan(key, entry) {
  * Run a text query against the downloaded books.
  * Returns null when there is nothing to search (the caller then uses the API).
  * args.exact (or args.field === 'exact'): "Exact matches only".
+ * onlyTitle: search only the books it accepts (`scope` names that set in the cache key).
  */
-export async function executeOfflineQuery(args) {
+export async function executeOfflineQuery(args, {onlyTitle = null, scope = 'all'} = {}) {
   if (args.type && args.type !== 'text') { return null; }
   const terms = parseTerms(args.query);
   if (!terms.length) { return null; }
-  const files = await searchFiles();
+  let files = await searchFiles();
+  if (onlyTitle) { files = files.filter(([title]) => onlyTitle(title)); }
   if (!files.length) { return null; }
 
   const start = args.start || 0;
@@ -591,7 +594,7 @@ export async function executeOfflineQuery(args) {
   const filter = contentFilter();
   const indexes = await loadIndexes();
   const indexTag = indexes.map(index => index.cacheKey).join(',');
-  const key = `${cacheKey(terms, filters)}|${exact ? 'exact' : 'broad'}|${filter.key}|${files.length}|${indexTag}`;
+  const key = `${cacheKey(terms, filters)}|${exact ? 'exact' : 'broad'}|${filter.key}|${scope}|${files.length}|${indexTag}`;
 
   const cached = scanCache.get(key);
   if (cached) {
@@ -642,6 +645,7 @@ export async function executeOfflineQuery(args) {
 
   const entry = {
     hits: found.sort(compareHits).map(f => f.hit),
+    phraseHits: found.filter(f => f.tier === 0).length,
     buckets,
     total,
     complete: !stoppedAtCap,
@@ -653,4 +657,107 @@ export async function executeOfflineQuery(args) {
 /** Books that exist offline and can be searched. */
 export async function offlineSearchBookCount() {
   return new Set((await searchFiles()).map(([title]) => title)).size;
+}
+
+// ------------------------------------------------------------- offline or online
+
+/** The search index of the whole Sefaria library (packs.js: the COMPLETE LIBRARY package). */
+export const COMPLETE_INDEX_FILE = 'COMPLETE LIBRARY_search.idx';
+
+/** Whether the downloaded search packs cover the whole Sefaria library. */
+export async function hasCompleteOfflineIndex() {
+  try {
+    return (await FileSystem.readDirectoryAsync(folderUri(LIBRARY_DIR))).includes(COMPLETE_INDEX_FILE);
+  } catch (e) {
+    return false;
+  }
+}
+
+const totalOf = total => (typeof total === 'number' ? total
+  : (total && typeof total.value === 'number') ? total.value : 0);
+
+function mergeBuckets(a, b) {
+  const counts = new Map();
+  for (const bucket of [...(a || []), ...(b || [])]) {
+    counts.set(bucket.key, (counts.get(bucket.key) || 0) + bucket.doc_count);
+  }
+  return Array.from(counts, ([key, doc_count]) => ({key, doc_count}));
+}
+
+/**
+ * A page of one list: the hits in the reader's books Sefaria's search does not know that
+ * have the query as a phrase, then Sefaria's results, then the rest of those books' hits.
+ * `local` is their whole offline result (cached by executeOfflineQuery, best first).
+ */
+async function withLocalBooks(args, local, online) {
+  const start = args.start || 0;
+  const size = args.size || 20;
+  const all = local.hits.hits;
+  const strong = Math.min(local.phraseHits || 0, all.length);
+  const localTotal = Math.max(totalOf(local.hits.total), all.length);
+  const first = all.slice(Math.min(start, strong), Math.min(start + size, strong));
+  const rest = size - first.length;
+  const onlineStart = Math.max(0, start - strong);
+  const remote = await online({...args, start: onlineStart, size: Math.max(rest, 1)});
+  const remoteHits = rest > 0 ? ((remote && remote.hits && remote.hits.hits) || []).slice(0, rest) : [];
+  const remoteTotal = totalOf(remote && remote.hits && remote.hits.total);
+  const left = rest - remoteHits.length;
+  const weakStart = strong + Math.max(0, onlineStart + remoteHits.length - remoteTotal);
+  const last = left > 0 && onlineStart + remoteHits.length >= remoteTotal
+    ? all.slice(weakStart, weakStart + left) : [];
+  const out = {
+    ...remote,
+    hits: {
+      ...(remote && remote.hits),
+      hits: [...first, ...remoteHits, ...last],
+      total: localTotal + remoteTotal,
+    },
+  };
+  const localBuckets = local.aggregations && local.aggregations.path && local.aggregations.path.buckets;
+  if (remote && remote.aggregations && remote.aggregations.path) {
+    out.aggregations = {
+      ...remote.aggregations,
+      path: {...remote.aggregations.path, buckets: mergeBuckets(remote.aggregations.path.buckets, localBuckets)},
+    };
+  } else if (localBuckets && args.aggregationsToUpdate && args.aggregationsToUpdate.length) {
+    out.aggregations = {path: {buckets: localBuckets}};
+  }
+  return out;
+}
+
+/**
+ * Text search, offline or online.
+ *
+ * - The whole Sefaria library's search pack is on the phone: the downloaded books answer.
+ * - Otherwise Sefaria's search API answers (online), and the reader's own books it does not
+ *   know (Otzaria, Dicta, Wikisource...: `isLocalOnly`) are searched on the phone: their
+ *   phrase matches come first, their looser matches after Sefaria's. A few downloaded books must not hide the rest of the library (the bug where
+ *   one Wikisource book made every search "Sources (0)").
+ * - The API cannot be reached (no internet): whatever the phone has answers.
+ *
+ * online(args): the API query (@sefaria/search's execute_query).
+ */
+export async function executeSearchQuery(args, {online, isLocalOnly = () => false}) {
+  const textSearch = !args.type || args.type === 'text';
+  if (textSearch && await hasCompleteOfflineIndex()) {
+    const offline = await executeOfflineQuery(args);
+    if (offline) { return offline; }
+  }
+  let local = null;
+  if (textSearch) {
+    try {
+      local = await executeOfflineQuery({...args, start: 0, size: MAX_RESULTS},
+          {onlyTitle: title => { try { return !!isLocalOnly(title); } catch (e) { return false; } }, scope: 'local'});
+    } catch (e) {
+      local = null;
+    }
+  }
+  try {
+    if (local && totalOf(local.hits.total) > 0) { return await withLocalBooks(args, local, online); }
+    return await online(args);
+  } catch (error) {
+    const offline = textSearch ? await executeOfflineQuery(args) : null;
+    if (offline) { return offline; }
+    throw error;
+  }
 }

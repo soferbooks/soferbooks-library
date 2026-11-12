@@ -11,3 +11,12 @@
 
 # react-native-config finds BuildConfig by reflection (see build_config_package in build.gradle)
 -keep class org.sefaria.sefaria.BuildConfig { *; }
+
+# react-native-inappbrowser-reborn finds its @Subscribe onEvent through EventBus by reflection;
+# without these rules R8 drops it, EventBus.register() throws and links open in the full browser
+# instead of the in-app Custom Tab (EventBus's own documented rules)
+-keepattributes *Annotation*
+-keepclassmembers class * {
+    @org.greenrobot.eventbus.Subscribe <methods>;
+}
+-keep enum org.greenrobot.eventbus.ThreadMode { *; }

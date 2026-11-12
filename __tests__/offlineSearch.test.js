@@ -9,7 +9,7 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import {
   executeOfflineQuery, parseQuery, normalizeQueryWord, wordRegExp, termTrigrams,
-  clearOfflineSearchCache, stripPointsChunked,
+  clearOfflineSearchCache, stripPointsChunked, executeSearchQuery, COMPLETE_INDEX_FILE,
 } from '../offlineSearch';
 
 global.Sefaria = {
@@ -296,5 +296,104 @@ describe('a whole book of pointed Hebrew (QA round 5: "Out of memory for regexp 
     for (const chunk of [1, 7, 64, 1 << 16]) {
       expect(stripPointsChunked(text, chunk)).toBe(once);
     }
+  });
+});
+
+describe('offline or online (bug: one downloaded book made every search "Sources (0)")', () => {
+  const EXTRA = LINE('Shaar Yisrael 1:1', 'שאר ישראל א:א', 'he', 'Wikisource', 'אהבה רבה אהבתנו');
+  const api = (hits, total = hits.length) => jest.fn(async args => ({
+    hits: {total, hits: hits.slice(args.start, args.start + args.size)},
+    aggregations: {path: {buckets: [{key: 'Tanakh', doc_count: total}]}},
+  }));
+  const apiHit = ref => ({_id: `${ref} (Version [en])`, _source: {ref, heRef: ref, version: 'Version'},
+    highlight: {naive_lemmatizer: ['x']}});
+  const isLocalOnly = title => title === 'Shaar Yisrael';
+  const args = extra => ({query: 'אהבה', type: 'text', start: 0, size: 20, field: 'naive_lemmatizer',
+    aggregationsToUpdate: ['path'], ...extra});
+
+  test('a downloaded book that does not contain the words still lets the API answer', async () => {
+    FileSystem.clear();
+    await write('Shaar Yisrael_search.txt', EXTRA);
+    const online = api([apiHit('Genesis 29:20')], 750);
+    const result = await executeSearchQuery(args({query: 'light of the world'}), {online, isLocalOnly});
+    expect(online).toHaveBeenCalledTimes(1);
+    expect(result.hits.total).toBe(750);
+    expect(result.hits.hits[0]._source.ref).toBe('Genesis 29:20');
+  });
+
+  test('nothing downloaded: the API answers', async () => {
+    FileSystem.clear();
+    const online = api([apiHit('Genesis 1:1')]);
+    const result = await executeSearchQuery(args({query: 'בראשית ברא'}), {online, isLocalOnly});
+    expect(result.hits.hits.map(h => h._source.ref)).toEqual(['Genesis 1:1']);
+  });
+
+  test('Sefaria books on the phone (a partial pack) do not stop the API answering', async () => {
+    const online = api([apiHit('Genesis 1:1'), apiHit('Berakhot 2a')], 2);
+    const result = await executeSearchQuery(args({query: 'בראשית'}), {online, isLocalOnly});
+    expect(online).toHaveBeenCalledTimes(1);
+    expect(result.hits.total).toBe(2);   // the API's, not the downloaded Genesis's 1
+  });
+
+  test("the reader's own books the API does not know come first, then the API's", async () => {
+    await write('Shaar Yisrael_search.txt', EXTRA);
+    const online = api([apiHit('Deuteronomy 6:5'), apiHit('Song of Songs 8:7')], 2);
+    const result = await executeSearchQuery(args(), {online, isLocalOnly});
+    expect(result.hits.total).toBe(3);
+    expect(result.hits.hits.map(h => h._source.ref))
+        .toEqual(['Shaar Yisrael 1:1', 'Deuteronomy 6:5', 'Song of Songs 8:7']);
+    expect(online.mock.calls[0][0]).toMatchObject({start: 0, size: 19});
+    const keys = result.aggregations.path.buckets.map(b => b.key);
+    expect(keys).toContain('Tanakh');
+    expect(keys).toContain('Temple');   // the test TOC's path for the local book
+  });
+
+  test("looser matches in those books come after all of the API's", async () => {
+    await write('Shaar Yisrael_search.txt', `${EXTRA}
+${LINE('Shaar Yisrael 2:1', 'שאר ישראל ב:א', 'he', 'Wikisource', 'והאהבה גדולה')}`);
+    const online = api([apiHit('Deuteronomy 6:5'), apiHit('Song of Songs 8:7')], 2);
+    const result = await executeSearchQuery(args(), {online, isLocalOnly});
+    expect(result.hits.total).toBe(4);
+    expect(result.hits.hits.map(h => h._source.ref))
+        .toEqual(['Shaar Yisrael 1:1', 'Deuteronomy 6:5', 'Song of Songs 8:7', 'Shaar Yisrael 2:1']);
+    // a page past the API's results holds only the rest of the local hits
+    const page2 = await executeSearchQuery(args({start: 3, size: 20}), {online, isLocalOnly});
+    expect(page2.hits.hits.map(h => h._source.ref)).toEqual(['Shaar Yisrael 2:1']);
+  });
+
+  test('later pages ask the API for the right offset', async () => {
+    await write('Shaar Yisrael_search.txt', EXTRA);
+    const online = api([apiHit('Deuteronomy 6:5')], 40);
+    await executeSearchQuery(args({start: 20, size: 20}), {online, isLocalOnly});
+    expect(online.mock.calls[0][0]).toMatchObject({start: 19, size: 20});
+  });
+
+  test('without internet the books on the phone answer', async () => {
+    const online = jest.fn(async () => { throw new TypeError('Network request failed'); });
+    const result = await executeSearchQuery(args({query: 'בראשית'}), {online, isLocalOnly});
+    expect(result.offline).toBe(true);
+    expect(result.hits.hits[0]._source.ref).toBe('Genesis 1:1');
+  });
+
+  test('without internet and nothing on the phone the error reaches the page', async () => {
+    FileSystem.clear();
+    const online = jest.fn(async () => { throw new TypeError('Network request failed'); });
+    await expect(executeSearchQuery(args(), {online, isLocalOnly})).rejects.toThrow('Network request failed');
+  });
+
+  test("with the whole library's search pack the phone answers, not the API", async () => {
+    await installIndex(['Genesis', 'Siddur Ashkenaz'], postingsFor('בראשית', [0]), COMPLETE_INDEX_FILE);
+    const online = api([apiHit('Genesis 1:1')]);
+    const result = await executeSearchQuery(args({query: 'בראשית'}), {online, isLocalOnly});
+    expect(online).not.toHaveBeenCalled();
+    expect(result.offline).toBe(true);
+    expect(result.hits.total).toBe(1);
+  });
+
+  test('sheet search always goes to the API', async () => {
+    await installIndex(['Genesis'], postingsFor('בראשית', [0]), COMPLETE_INDEX_FILE);
+    const online = api([]);
+    await executeSearchQuery(args({type: 'sheet'}), {online, isLocalOnly});
+    expect(online).toHaveBeenCalledTimes(1);
   });
 });
