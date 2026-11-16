@@ -5,7 +5,7 @@
  * site marks complete (category "ספרים מושלמים"), sefarim only, plus the ones the owner chose
  * (CHOSEN, PREFERRED), less the books the library has from Sefaria (IN_LIBRARY). The phone cannot
  * tell "complete" or "a sefer" itself, so the list is data: extras/wikisourceBooks.json, made by
- * tools/library-export/wikisource_books.py from Sofer's own code. One copy of each sefer
+ * Sofer's scripts/library_app/wikisource_books.py from Sofer's own code. One copy of each sefer
  * (extras/catalog.js): Sefaria, Dicta and Otzaria come first, except the PREFERRED books, which
  * are used instead of the copies they name ("רוקח על שיר השירים" for Dicta's).
  *

@@ -2,7 +2,7 @@
  * Sofer's text corrections, applied to Sefaria's books as they are read.
  *
  * Sefaria's book zips stay exactly as Sefaria serves them. The SoferBooks release brings
- * `library/_corrections/<Title>.json` (built by tools/library-export/sofer_corrections.py
+ * `library/_corrections/<Title>.json` (built by Sofer's scripts/library_app/sofer_corrections.py
  * from Sefaria's own mobile export, downloaded by packs.js):
  *
  *     {"title": ..., "sefaria_last_updated": ..., "files": {

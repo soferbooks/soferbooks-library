@@ -12,7 +12,7 @@
  * Sefaria's "מגילת אנטיוכוס"), and Chashukei Chemed on each masechta, by amud ("... 2a").
  *
  * Where it comes from: one GitHub Release of github.com/soferbooks/soferbooks-library-data,
- * made by tools/library-export/build_sofer_library.py:
+ * made by Sofer's scripts/library_app/build_sofer_library.py:
  *   catalogue  <release>/sofer-library-catalog.json   each book: title, heTitle, kind, its shelf
  *              (Sofer's catalog.shelf_of), licences, file, size, sha256, md5, firstSection, and
  *              the editors' notes book that comes with it (companions)

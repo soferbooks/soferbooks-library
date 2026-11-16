@@ -17,7 +17,7 @@
  * up to date with the library's README of 2026-11 (see COLLECTIONS): collections whose texts the
  * README says may not be taken (special permission, all rights reserved, personal use only) are
  * not offered. Each book's own notice is checked as Sofer does (tree.restricted), from the
- * bundled list made by tools/library-export/otzaria_rules.py and again on download.
+ * bundled list made by Sofer's scripts/library_app/otzaria_rules.py and again on download.
  * Otzaria's copies of Dicta's books (DictaToOtzaria) belong to the Dicta source (one copy of
  * each sefer: Dicta's, laid out by Otzaria - credited to Dicta); bookUrlForPath lets it fetch them.
  */

@@ -6,7 +6,7 @@
 // The sizes: Sefaria's from its COMPLETE LIBRARY package (packages.json). The extra sources'
 // catalogues list no sizes (the Sofer Library's does), so fullLibrarySizes.json has each book's
 // download (from the files Sofer downloaded from the same servers) and each source's measured
-// conversion ratio (tools/library-export/full_library_sizes.py / .js). A source whose catalogue
+// conversion ratio (Sofer's scripts/library_app/full_library_sizes.py / .js). A source whose catalogue
 // is on the phone is counted from it: the books the library keeps (one copy of each sefer,
 // Sefaria's first) and the content filter shows. Otherwise the table's totals (made the same
 // way, with the default filter) are used.

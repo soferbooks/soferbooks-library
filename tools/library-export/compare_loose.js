@@ -3,7 +3,7 @@
  * on the same inputs: the files loose_fixtures.py writes (the Gemara as Sofer reads it, the
  * commentary's comments, Rashi's and Tosafos' dibburim, the perakim, and Sofer's places).
  *
- *   C:\Users\morde\Sofer\.venv\Scripts\python.exe tools\library-export\loose_fixtures.py C:\tmp\loose
+ *   (Sofer's side, C:\Users\morde\Sofer) .venv\Scripts\python.exe scripts\library_app\loose_fixtures.py C:\tmp\loose
  *   node -r @babel/register tools\library-export\compare_loose.js C:\tmp\loose [--quiet]
  *
  * For each book: how many comments got the same place (and the same kind: by quote, by Rashi's /

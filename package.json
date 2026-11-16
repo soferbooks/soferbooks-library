@@ -5,6 +5,7 @@
   "scripts": {
     "start": "react-native start",
     "postinstall": "patch-package",
+    "sync-shared": "node scripts/sync-shared.js",
     "test": "jest --watchAll --notify",
     "test-ci": "jest"
   },

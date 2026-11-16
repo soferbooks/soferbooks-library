@@ -12,7 +12,7 @@ const {match, bookText} = require('../../shomer/matcher');
 const {GROUPS} = require('../../shomer/presets');
 
 const ROOT = path.resolve(__dirname, '../..');
-const EXPORT = process.argv[2] || 'C:/Users/morde/Sofer/data/sefaria-export';
+const EXPORT = process.argv[2] || 'C:/Users/morde/SoferShared/library/sefaria-export';
 const MAX_EXAMPLES = 6;
 
 const found = {};   // group -> Map(name -> count of hits)

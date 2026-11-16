@@ -1,7 +1,7 @@
 /**
  * Fidelity check of the phone's Wikisource converter (extras/wikisourceParse.js) against Sofer's.
  *
- * For every book Sofer imported from Wikitext (C:\Users\morde\Sofer\data, read only): the pages
+ * For every book Sofer imported from Wikitext (C:\Users\morde\SoferShared\library, read only): the pages
  * Sofer downloaded (data/wikisource/books/<book>.json, the site's rendered pages) are converted
  * with the phone's code and compared with Sofer's converted edition
  * (data/sefaria-export/json/<category>/Wikitext/<book>/Hebrew/Wikitext.json) and its editors'
@@ -24,7 +24,8 @@ const {wikiTree, wikiAuthor} = require('../../extras/wikisourceParse');
 const {exportOf} = require('../../extras/wikisource');
 const {safe} = require('../../extras/tree');
 
-const SOFER = 'C:\\Users\\morde\\Sofer\\data';
+// (the shared library, read only - C:\Users\morde\SoferShared, see SHARED.md)
+const SOFER = process.env.SOFER_LIBRARY || 'C:\\Users\\morde\\SoferShared\\library';
 const BOOKS = path.join(SOFER, 'wikisource', 'books');
 const EXPORT = path.join(SOFER, 'sefaria-export', 'json');
 const NOTES_PREFIX = 'הערות המהדיר על ';

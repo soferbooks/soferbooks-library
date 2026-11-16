@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 const DEVICE = 'C:\\Users\\morde\\Soferia\\_device_files.txt';
-const SEARCH = 'C:\\Users\\morde\\Soferia\\export-v7\\_search';
+const SEARCH = 'C:\\Users\\morde\\SoferShared\\library-app\\export-v7\\_search';
 
 const names = fs.readFileSync(DEVICE, 'utf8').split(/\r?\n/)
     .filter(n => n.endsWith('_search.txt'))

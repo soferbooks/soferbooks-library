@@ -43,7 +43,7 @@ import md5 from 'md5';
 import {Node, normTitle, safe, splitLines, inlineSections, restricted, permission} from './tree';
 import {otzariaTree, bookUrlForPath, linksPathFor, COLLECTIONS, CATEGORY_HE, CREDIT_HE, HOME_URL as OTZARIA_HOME} from './otzaria';
 import RULES from './otzariaRules.json';
-// (Dicta's books that are Sefaria's already, under another of their Hebrew names: tools/library-export/dicta_rules.py)
+// (Dicta's books that are Sefaria's already, under another of their Hebrew names: Sofer's scripts/library_app/dicta_rules.py)
 import DICTA_RULES from './dictaRules.json';
 
 export const ID = 'dicta';
