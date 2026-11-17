@@ -388,6 +388,15 @@ const SchemaNode = ({ schema, refPath, openRef, categories }) => {
         );
       }
     });
+    const allNamedLeafs = schema.nodes.length > 1 && schema.nodes.every(n => n.depth == 1 && !n.default && !('nodes' in n) && n.nodeType !== 'ArrayMapNode' && n.nodeType !== 'DictionaryNode');
+    const isTablet = iPad || Dimensions.get('window').width >= 600;
+    if (allNamedLeafs && isTablet) {
+      return (
+        <TwoBox language={menuLanguage}>
+          {content}
+        </TwoBox>
+      );
+    }
     return (
       <View style={{flex: 1}}>{content}</View>
     );
@@ -417,14 +426,13 @@ const JaggedArrayNode = ({ schema, refPath, openRef }) => {
 const contentCountIsEmpty = count => {
   // Returns true if count is zero or is an an array (of arrays) of zeros.
   if (typeof count == "number") { return count == 0; }
-  var innerCounts = count.map(contentCountIsEmpty);
-  return innerCounts.every((empty) => {empty});
+  return Array.isArray(count) ? count.map(contentCountIsEmpty).every(Boolean) : !count;
 };
 
 const reduceIndexOffsetsByDepth = indexOffsetsByDepth => {
   return Object.fromEntries(Object.entries(indexOffsetsByDepth)
       .filter(([k]) => k !== '1')
-      .map(([k, v]) => [(k-1), v[i]]));
+      .map(([k, v]) => [(k-1), Array.isArray(v) ? v[0] : v]));
 }
 
 const refPathTerminal = count => {
@@ -447,9 +455,10 @@ const JaggedArrayNodeSection = ({ depth, sectionNames, addressTypes, contentCoun
   const { menuLanguage, theme } = useGlobalState();
   const showHebrew = menuLanguage == "hebrew";
   if (depth > 2) {
+    const list = Array.isArray(contentCounts) ? contentCounts : [];
     const content = [];
-    for (let i = 0; i < contentCounts.length; i++) {
-      if (contentCountIsEmpty(contentCounts[i])) { continue; }
+    for (let i = 0; i < list.length; i++) {
+      if (contentCountIsEmpty(list[i])) { continue; }
       let enSection = i+1+offset;
       let heSection = Sefaria.hebrew.encodeHebrewNumeral(i+1+offset);
       if (["Talmud", "Folio"].includes(addressTypes[0])) {
@@ -464,7 +473,7 @@ const JaggedArrayNodeSection = ({ depth, sectionNames, addressTypes, contentCoun
             depth={depth - 1}
             sectionNames={sectionNames.slice(1)}
             addressTypes={addressTypes.slice(1)}
-            contentCounts={contentCounts[i]}
+            contentCounts={list[i]}
             refPath={`${refPath}:${enSection}`}
             openRef={openRef}
             indexOffsetsByDepth={reduceIndexOffsetsByDepth(indexOffsetsByDepth)}
@@ -474,7 +483,9 @@ const JaggedArrayNodeSection = ({ depth, sectionNames, addressTypes, contentCoun
     return ( <View>{content}</View> );
   }
 
-  contentCounts = depth == 1 ? new Array(contentCounts).fill(1) : contentCounts;
+  contentCounts = (depth == 1 || typeof contentCounts === "number")
+    ? new Array(contentCounts || 0).fill(1)
+    : (Array.isArray(contentCounts) ? contentCounts : []);
   const sectionLinks = contentCounts.map((contentCount, i) => {
     if (contentCountIsEmpty(contentCounts[i])) { return null; }
     let section = i+1+offset;

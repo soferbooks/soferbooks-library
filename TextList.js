@@ -16,7 +16,7 @@ import {
   SYSTEM_FONTS,
 } from './Misc.js';
 import { GlobalStateContext, getTheme, commentaryFontSize } from './StateManager';
-import { boldDibbur, isCommentaryBook, isCommentaryCategory } from './reader/dibbur';
+import { boldDibbur, stripLeadingVerseMarker, isCommentaryBook, isCommentaryCategory } from './reader/dibbur';
 import { commentaryTitles } from './extras/links';
 import { RenderHTML } from 'react-native-render-html';
 import strings from './LocalizedStrings';
@@ -134,6 +134,7 @@ class TextList extends React.Component {
       return [];
     }
     const displayRef = filter.displayRef();
+    const hasExplicitBold = (props.listContents || []).filter(c => c && typeof c.he === 'string' && /<(?:b|strong)\b[^>]*>[^<\s]/i.test(c.he)).length >= 2;
     return filter.refList.map((ref, index) => {
       const key = filter.listKey(index);
       const loading = props.listContents[index] === null;
@@ -146,6 +147,7 @@ class TextList extends React.Component {
         versionLanguage: filter.versionLanguage,
         pos: index,
         displayRef,
+        noAutoDibbur: hasExplicitBold,
         category: filter.category,
         content: props.listContents[index],
       };
@@ -177,6 +179,7 @@ class TextList extends React.Component {
         linkContentObj={linkContentObj}
         loading={loading}
         displayRef={item.displayRef}
+        noAutoDibbur={item.noAutoDibbur}
       />
     );
   };
@@ -281,6 +284,7 @@ const ListItem = ({
   linkContentObj,
   loading,
   displayRef,
+  noAutoDibbur,
 }) => {
   const { themeStr, fontSize: readerFontSize, commentaryFontScale, interfaceLanguage, textLanguage } = useContext(GlobalStateContext);
   // (the commentary's own text size: the Aa menu's "Commentary Size")
@@ -307,7 +311,11 @@ const ListItem = ({
   const onLongPress = asLink && openRefInNewTab ? () => openRefInNewTab(refStr) : undefined;
   let textViews = [];
   // a commentary's comment: its dibbur hamaschil in bold, as SoferBooks prints it (reader/dibbur.js)
-  const heHtml = !loading && isCommentaryItem(category, refStr) ? boldDibbur(lco.he) : lco.he;
+  let heHtml = lco.he;
+  if (!loading && isCommentaryItem(category, refStr)) {
+    const cleaned = stripLeadingVerseMarker(lco.he);
+    heHtml = noAutoDibbur ? cleaned : boldDibbur(cleaned);
+  }
   const he = Sefaria.util.getDisplayableHTML(heHtml, "hebrew");
   const en = Sefaria.util.getDisplayableHTML(lco.en, "english");
   const lineHeightMultiplierHe = Platform.OS === 'android' ? 1.3 : 1.2;

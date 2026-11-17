@@ -1,5 +1,5 @@
 import React from "react";
-import {SectionList, View} from "react-native";
+import {SectionList, View, useWindowDimensions} from "react-native";
 import {useGlobalState} from "./Hooks";
 import {
     BackButtonRow,
@@ -319,9 +319,23 @@ const TextCategorySeparator = () => {
     return <View style={[{height: 1}, theme.lighterGreyBackground]} />;
 };
 
+const pairSectionsForTablet = sections => sections.map(sec => {
+    const pairs = [];
+    for (let i = 0; i < sec.data.length; i += 2) {
+        const pair = [sec.data[i]];
+        if (i + 1 < sec.data.length) { pair.push(sec.data[i + 1]); }
+        pairs.push({ isPair: true, key: `${sec.item?.title?.en || 's'}-${i}`, items: pair });
+    }
+    return { ...sec, data: pairs };
+});
+
 export const TextCategoryPage = ({categories, setCategories, openRef, onBack}) => {
-    const { theme } = useGlobalState();
+    const { theme, menuLanguage } = useGlobalState();
+    const { width } = useWindowDimensions();
+    const isTablet = width >= 600;
+    const isHeb = menuLanguage === 'hebrew';
     const { sections, displayCategories } = useSectionsAndDisplayCategories(categories);
+    const listSections = isTablet ? pairSectionsForTablet(sections) : sections;
     const categoryTitle = getCategoryTitle(displayCategories);
     const categoryDescription = getCategoryDescription(categories);
 
@@ -329,7 +343,7 @@ export const TextCategoryPage = ({categories, setCategories, openRef, onBack}) =
         <FlexFrame dir={"column"} flex={1} alignSelf={"stretch"} key={categories}>
             <CategoryColorLine category={displayCategories[0]} thickness={4} />
             <SectionList
-                sections={sections}
+                sections={listSections}
                 stickySectionHeadersEnabled={false}
                 contentContainerStyle={[{paddingHorizontal: 15}, theme.mainTextPanel]}
                 ItemSeparatorComponent={TextCategorySeparator}
@@ -345,11 +359,30 @@ export const TextCategoryPage = ({categories, setCategories, openRef, onBack}) =
                     />
                 )}
                 renderSectionHeader={({section: { item }}) => <SectionHeader displayTocItem={item} /> }
-                renderItem={({ item: displayTocItem }) => (
+                renderItem={({ item }) => item.isPair ? (
+                    <View style={{ flexDirection: isHeb ? 'row-reverse' : 'row', justifyContent: 'space-between' }}>
+                        <View style={{ width: '48.5%' }}>
+                            <CategoryButton
+                                title={item.items[0].title}
+                                description={item.items[0].description}
+                                onPress={getTocItemOnPress(item.items[0], setCategories, openRef)}
+                            />
+                        </View>
+                        <View style={{ width: '48.5%' }}>
+                            {item.items[1] ? (
+                                <CategoryButton
+                                    title={item.items[1].title}
+                                    description={item.items[1].description}
+                                    onPress={getTocItemOnPress(item.items[1], setCategories, openRef)}
+                                />
+                            ) : null}
+                        </View>
+                    </View>
+                ) : (
                     <CategoryButton
-                        title={displayTocItem.title}
-                        description={displayTocItem.description}
-                        onPress={getTocItemOnPress(displayTocItem, setCategories, openRef)}
+                        title={item.title}
+                        description={item.description}
+                        onPress={getTocItemOnPress(item, setCategories, openRef)}
                     />
                 )}
             />

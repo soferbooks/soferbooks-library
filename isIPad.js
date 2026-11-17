@@ -4,8 +4,8 @@ import {
 } from 'react-native';
 
 
-const iPadMinSize = 768*1024;
+const iPadMinSize = 768 * 1024;
 const {height, width} = Dimensions.get('window');
-const iPad = height * width >= iPadMinSize;
+const iPad = Math.min(height, width) >= 600 || height * width >= iPadMinSize;
 
 export default iPad;

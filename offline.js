@@ -109,6 +109,7 @@ export const loadOfflineSectionMetadataCompat = async function(ref) {
             const compatData = await loadOfflineSectionV6(ref);
             return {links: compatData.content.map(segment => segment.links)};
         }
+        throw error;
     }
 };
 
@@ -121,9 +122,10 @@ export const loadLinksOffline = async function(ref) {
             const index_title = Sefaria.textTitleForRef(link.sourceRef);
             const collectiveTitle = Sefaria.collectiveTitlesDict[index_title];
             const category = link.category ? link.category : Sefaria.primaryCategoryForTitle(index_title);
+            const sourceHeRef = link.sourceHeRef || (Sefaria.toHeSegmentRef && Sefaria.toHeSegmentRef(null, link.sourceRef)) || link.sourceRef;
             return {
                 sourceRef: link.sourceRef,
-                sourceHeRef: link.sourceHeRef,
+                sourceHeRef,
                 index_title,
                 collectiveTitle: category === "Commentary" ? collectiveTitle : undefined,
                 category,
@@ -359,10 +361,13 @@ const loadOfflineSection = async function(ref, versions, fallbackOnDefaultVersio
         throw ERRORS.MISSING_OFFLINE_DATA;
     }
     const offlineSectionKey = getOfflineSectionKey(ref, versions);
-    const cached = Sefaria._jsonSectionData[offlineSectionKey];
+    const sectionKey = ref.includes(':') && Sefaria.refUpOne ? getOfflineSectionKey(Sefaria.refUpOne(ref), versions) : null;
+    const cached = Sefaria._jsonSectionData[offlineSectionKey] || (sectionKey && Sefaria._jsonSectionData[sectionKey]);
     if (cached) {
-        console.log(`Data is cached and returned in loadOfflineSection`);
-        return cached;
+        return {
+            ...cached,
+            content: Array.isArray(cached.content) ? cached.content.map(seg => ({...seg})) : [],
+        };
     }
     const [metadata, fileNameStem] = await loadOfflineSectionMetadataWithCache(ref);
     if (!metadata || !metadata.sectionRef) {
@@ -371,7 +376,7 @@ const loadOfflineSection = async function(ref, versions, fallbackOnDefaultVersio
     }
     const textByLang = await loadOfflineSectionByVersions(versions, metadata.versions, metadata.sectionRef, fileNameStem,
         fallbackOnDefaultVersions, metadata._fileSectionRef || metadata.sectionRef);
-    const full = createFullSectionObject(metadata, textByLang, Object.keys(versions));
+    const full = createFullSectionObject(metadata, textByLang, Object.keys(versions), offlineSectionKey);
     delete full._fileSectionRef;
     if (!full.next || !full.prev) {
         try {
@@ -380,7 +385,13 @@ const loadOfflineSection = async function(ref, versions, fallbackOnDefaultVersio
             console.log('offline: the sections around', ref, e);
         }
     }
-    return full;
+    if (full.sectionRef) {
+        Sefaria._jsonSectionData[getOfflineSectionKey(full.sectionRef, versions)] = full;
+    }
+    return {
+        ...full,
+        content: Array.isArray(full.content) ? full.content.map(seg => ({...seg})) : [],
+    };
 };
 
 /**
@@ -489,7 +500,9 @@ const createFullSectionObject = (metadata, textByLang, requestedLangs, cacheKey)
             (fullSection.missingLangs ||= []).push(lang);
         }
     });
-    Sefaria._jsonSectionData[cacheKey] = fullSection;
+    if (cacheKey) {
+        Sefaria._jsonSectionData[cacheKey] = fullSection;
+    }
     return fullSection;
 };
 
@@ -544,7 +557,8 @@ const _titleForStem = function(fileNameStem) {
 
 const loadOfflineSectionMetadataWithCache = async function(ref) {
     const key = `${ref}|metadata`;
-    const cached = Sefaria._jsonSectionData[key];
+    const upOneKey = ref.includes(':') && Sefaria.refUpOne ? `${Sefaria.refUpOne(ref)}|metadata` : null;
+    const cached = Sefaria._jsonSectionData[key] || (upOneKey && Sefaria._jsonSectionData[upOneKey]);
     if (cached) { return cached; }
     let metadata;
     try {
@@ -553,6 +567,9 @@ const loadOfflineSectionMetadataWithCache = async function(ref) {
         throw ERRORS.OFFLINE_LIBRARY_NOT_COMPATIBLE_WITH_V7;
     }
     Sefaria._jsonSectionData[key] = metadata;
+    if (metadata && metadata[0] && metadata[0].sectionRef) {
+        Sefaria._jsonSectionData[`${metadata[0].sectionRef}|metadata`] = metadata;
+    }
     return metadata;
 };
 
@@ -677,6 +694,9 @@ const processFileData = function(ref, textContent) {
             link.textTitle = Sefaria.textTitleForRef(link.sourceRef);
             if (!("category" in link)) {
                 link.category = Sefaria.primaryCategoryForTitle(link.textTitle);
+            }
+            if (!link.sourceHeRef) {
+                link.sourceHeRef = (Sefaria.toHeSegmentRef && Sefaria.toHeSegmentRef(null, link.sourceRef)) || link.sourceRef;
             }
             return link;
         }));

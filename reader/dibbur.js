@@ -107,6 +107,15 @@ export function tokenize(html) {
 const textOf = tok => tok.units.map(u => u[1]).join('');
 const rawOf = tok => tok.kind === 'text' ? tok.units.map(u => u[0]).join('') : tok.raw;
 
+const EXPLANATORY_MARKER = /(?:^|[\s"״'׳(])(?:ב?גי['׳]|ב?גימטריא|גימט['׳]|עולה\s+ב?גי|כד"א|כדאיתא|שנא['׳]|שנאמר|דכתיב|כמ"ש|ר"ל|פי['׳]|פירוש|דהיינו|כלומר)(?:$|[\s"״'׳.,:;)])/;
+const LEADING_VERSE_MARKER = /^\s*(?:<(?:b|strong)>\s*)?(?:(?:פסוק|פס['׳])\s+[א-ת]{1,3}\s*[-–—:.]?|(?:\([א-ת]{1,3}\)|\[[א-ת]{1,3}\]))\s*(?:<\/(?:b|strong)>\s*)?[-–—:]?\s*/;
+
+/** Strip an inconsistent leading verse marker ("(ב) ", "[ב] ", "פסוק ב: ") from a comment. */
+export function stripLeadingVerseMarker(html) {
+  if (typeof html !== 'string' || !html) { return html; }
+  return html.replace(LEADING_VERSE_MARKER, '');
+}
+
 /**
  * Where the dibbur is, as Sofer finds it: [start, end] in the comment's letters, or null
  * (it opens in bold already, or has no clear end).
@@ -123,7 +132,9 @@ function dibburSpan(toks) {
   const endM = DIBBUR_END.exec(text);
   if (!endM) { return null; }
   const end = endM[0] === '.' ? endM.index + 1 : endM.index;
-  const words = text.slice(start, end).trim().split(/\s+/).filter(Boolean);
+  const spanText = text.slice(start, end).trim();
+  if (EXPLANATORY_MARKER.test(spanText)) { return null; }
+  const words = spanText.split(/\s+/).filter(Boolean);
   if (!words.length || words.length > DIBBUR_MAX_WORDS) { return null; }
   return [start, end];
 }

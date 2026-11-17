@@ -17,7 +17,7 @@
 
 export const ANCHOR_TOP_INSET = 100;   // same position the initial jump uses
 export const ANCHOR_TOLERANCE = 3;     // px; ignore sub-pixel differences
-export const ANCHOR_MAX_MS = 30000;    // give up eventually, even if the user never touches the screen
+export const ANCHOR_MAX_MS = 4000;     // give up quickly if no touch cancels the anchor
 export const ANCHOR_MAX_SEEKS = 40;    // max blind scrolls while looking for an unrendered target
 const SEEK_FRACTION = 0.8;
 

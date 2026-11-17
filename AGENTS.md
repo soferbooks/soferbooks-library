@@ -1,14 +1,12 @@
 # Rules for working in this repository (read SHARED.md too)
 
-**Stay inside this repository.** The only outside folder this app uses is `C:\Users\morde\SoferShared`, and only to read. Never write, move or delete anything outside this repository.
+**Treat the other Sofer project folders as read-only.** Both `C:\Users\morde\Sofer` (the website repository, which a different team works on) and `C:\Users\morde\SoferShared` are strictly **read-only** from here: you may read from them when needed, but never write, move, or delete anything in either folder. Standard developer tools, SDKs, emulators, and build/test caches on the machine (such as Android SDK, `adb`, `emulator`, Java/JDK, `~/.gradle`, and temp/scratch directories) may be used freely.
 
 # What this app shares with the other Sofer projects
 
-This repository is the library app's own code. Everything it needs from outside comes from one
-place, `C:\Users\morde\SoferShared`, which other projects maintain. **Treat that folder as read-only
-from here:** never write, move or delete anything in it, and never touch any other folder outside
-this repository (in particular not `C:\Users\morde\Sofer`, the website, which a different team works
-on).
+This repository is the library app's own code. Everything it needs from the other Sofer projects comes from one
+place, `C:\Users\morde\SoferShared`, which other projects maintain. **Treat both `C:\Users\morde\SoferShared` and
+`C:\Users\morde\Sofer` as read-only from here:** never write, move, or delete anything in them.
 
 | Shared folder | What it is | Who changes it |
 |---|---|---|

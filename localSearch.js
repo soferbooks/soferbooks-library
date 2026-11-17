@@ -116,12 +116,13 @@ const pause = () => new Promise(resolve => setTimeout(resolve, 0));
  * "lang|versionTitle" of the book.
  */
 export async function bookLines(names, read, {isVersionHidden = null, seen = null} = {}) {
+  const parseIfString = v => (typeof v === 'string' ? JSON.parse(v) : v);
   const nameSet = new Set(names);
   const indexName = names.find(n => n.endsWith('_index.json'));
   const licenses = new Map();
   if (indexName) {
     try {
-      for (const v of JSON.parse(await read(indexName)).versions || []) {
+      for (const v of parseIfString(await read(indexName)).versions || []) {
         licenses.set(`${v.language}|${v.versionTitle}`, v.license);
       }
     } catch (e) {
@@ -131,10 +132,16 @@ export async function bookLines(names, read, {isVersionHidden = null, seen = nul
   const lines = [];
   const metaNames = names.filter(n => n.endsWith('.metadata.json')).sort();
   for (let m = 0; m < metaNames.length; m++) {
-    if (m % BATCH === BATCH - 1) { await pause(); }
     const stem = metaNames[m].slice(0, -'.metadata.json'.length);
     let metadata;
-    try { metadata = JSON.parse(await read(metaNames[m])); } catch (e) { continue; }
+    let fromObject = false;
+    try {
+      const rawMeta = await read(metaNames[m]);
+      fromObject = typeof rawMeta !== 'string';
+      metadata = parseIfString(rawMeta);
+    } catch (e) { continue; }
+    const yieldEvery = fromObject ? 200 : BATCH;
+    if (m % yieldEvery === yieldEvery - 1) { await pause(); }
     for (const [ref, heRef, versions] of sectionEntries(metadata)) {
       if (seen) {
         versions.forEach(v => { if (v && v.language && v.versionTitle) { seen.add(`${v.language}|${v.versionTitle}`); } });
@@ -145,7 +152,7 @@ export async function bookLines(names, read, {isVersionHidden = null, seen = nul
         const name = `${stem}.${md5(vtitle).substring(0, 8)}.${lang}.json`;
         if (!nameSet.has(name)) { continue; }
         let payload;
-        try { payload = JSON.parse(await read(name)); } catch (e) { continue; }
+        try { payload = parseIfString(await read(name)); } catch (e) { continue; }
         if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
           const sections = payload.sections || {};
           payload = ref in sections ? sections[ref] : payload.text;

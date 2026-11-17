@@ -98,7 +98,7 @@ describe('connections panel summary (QA round 5)', () => {
     expect(Sefaria.links.linkSummary('X 1', [link('Hidden', 'Hidden 1:1')], 'english')).toEqual([]);
   });
 
-  test('a downloaded extra commentary comes first under Commentary, not lost among the others', () => {
+  test('a downloaded extra commentary sorts alphabetically under Commentary like everything else', () => {
     const extras = require('../extras');
     jest.spyOn(extras, 'isDownloaded').mockImplementation(t => t === 'תמר שלמה');
     Sefaria._index = {
@@ -112,8 +112,8 @@ describe('connections panel summary (QA round 5)', () => {
       link('Maggid Mishneh on Mishneh Torah, Substitution', 'Maggid Mishneh on Mishneh Torah, Substitution 1:1:1'),
     ], 'english');
     const commentary = summary.find(c => c.category === 'Commentary');
-    expect(commentary.books.map(b => b.title)).toEqual(['תמר שלמה',
-      'Kesef Mishneh on Mishneh Torah, Substitution', 'Maggid Mishneh on Mishneh Torah, Substitution']);
+    expect(commentary.books.map(b => b.title)).toEqual([
+      'Kesef Mishneh on Mishneh Torah, Substitution', 'Maggid Mishneh on Mishneh Torah, Substitution', 'תמר שלמה']);
     expect(commentary.count).toBe(3);
   });
 });

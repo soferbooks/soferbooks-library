@@ -315,4 +315,18 @@ describe('space and speed', () => {
     expect(extras.downloads.sort()).toEqual(['Dicta A', 'Otz A', 'Otz B', 'Sofer A']);
     expect(queue.getState().status).toBe('done');
   });
+
+  test('turning off a source and turning it back on via restoreSource resumes downloading its books', async () => {
+    await queue.start(['sofer_library', 'otzaria']);
+    await queue.removeSources(['otzaria']);
+    await run();
+    expect(extras.installed['Sofer A']).toBe('sofer_library');
+    expect(extras.installed['Otz A']).toBeUndefined();
+
+    expect(await queue.restoreSource('otzaria')).toBe(true);
+    await run();
+    expect(extras.installed['Otz A']).toBe('otzaria');
+    expect(extras.installed['Otz B']).toBe('otzaria');
+    expect(queue.getState().status).toBe('done');
+  });
 });

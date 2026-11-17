@@ -389,6 +389,22 @@ global.Sefaria = {
         Sefaria.booksDict[toc[i].title] = 1;
         if (toc[i].collectiveTitle) {
           Sefaria.collectiveTitlesDict[toc[i].title] = {en: toc[i].collectiveTitle, he: toc[i].heCollectiveTitle};
+        } else {
+          const isComm = toc[i].dependence === 'Commentary' || (Array.isArray(toc[i].categories) && toc[i].categories.includes('Commentary'));
+          const hasHeOn = typeof toc[i].heTitle === 'string' && toc[i].heTitle.includes(' על ');
+          const enSource = toc[i].enTitle || toc[i].title || '';
+          const hasEnOn = typeof enSource === 'string' && enSource.includes(' on ');
+          if (isComm || (hasHeOn && hasEnOn)) {
+            let en = hasEnOn ? enSource.split(' on ')[0].trim() : enSource;
+            if (/^Commentary of the /i.test(en)) { en = en.replace(/^Commentary of the /i, ''); }
+            else if (/^Commentary of /i.test(en)) { en = en.replace(/^Commentary of /i, ''); }
+            let he = hasHeOn ? toc[i].heTitle.split(' על ')[0].replace(/\s+חלק\s+[א-ת0-9]+$/, '').trim() : toc[i].heTitle;
+            if (/^פירוש\s+ה/.test(he)) { he = he.replace(/^פירוש\s+ה/, ''); }
+            else if (/^פירוש\s+/.test(he)) { he = he.replace(/^פירוש\s+/, ''); }
+            if (hasEnOn || hasHeOn) {
+              Sefaria.collectiveTitlesDict[toc[i].title] = { en, he: he || toc[i].heTitle };
+            }
+          }
         }
       }
     }
@@ -490,39 +506,26 @@ global.Sefaria = {
     // Returns the list of commentaries for 'title' which are found in Sefaria.toc
     var index = this.index(title);
     if (!index) { return []; }
-    var cats = [index.categories[0], "Commentary"]; //NOTE backwards compatibility
-    var isCommentaryRefactor = this.isTOCCommentaryRefactor();
-    if (isCommentaryRefactor) {
-      cats = [index.categories[0]];
-    }
-    var branch = this.tocItemsByCategories(cats);
-
-
-    var commentariesInBranch = function(title, branch) {
+    var commentariesInBranch = function(title, branch, seen = new Set()) {
       // Recursively walk a branch of TOC, return a list of all commentaries found on `title`.
       var results = [];
-      for (var i=0; i < branch.length; i++) {
-        if (branch[i].title) {
-          if (isCommentaryRefactor) {
-            if (branch[i].dependence === "Commentary" && !!branch[i].base_text_titles && branch[i].base_text_titles.includes(title)) {
-              results.push(branch[i]);
-            }
-          } else {
-            var split = branch[i].title.split(" on ");
-            if (split.length == 2 && split[1] === title) {
-              results.push(branch[i]);
-            }
+      for (var i = 0; i < (branch || []).length; i++) {
+        const node = branch[i];
+        if (!node) { continue; }
+        if (node.title) {
+          const isComm = (node.dependence === "Commentary" && Array.isArray(node.base_text_titles) && node.base_text_titles.includes(title)) ||
+            (typeof node.title === 'string' && node.title.endsWith(" on " + title));
+          if (isComm && !seen.has(node.title)) {
+            seen.add(node.title);
+            results.push(node);
           }
-
-        } else {
-          results = results.concat(commentariesInBranch(title, branch[i].contents));
+        } else if (Array.isArray(node.contents)) {
+          results = results.concat(commentariesInBranch(title, node.contents, seen));
         }
       }
       return results;
     };
-    let comms = commentariesInBranch(title, branch);
-    //console.log("isComms", isCommentaryRefactor, "comms",comms);
-    return comms;
+    return commentariesInBranch(title, Sefaria.toc);
   },
   isTOCCommentaryRefactor: function() {
     var list = Sefaria.toc;
@@ -770,8 +773,8 @@ global.Sefaria = {
                 "sourceHeRef": value.sourceHeRef,
                 "textTitle": value.index_title,
                 "sourceHasEn": value.sourceHasEn,
-                "collectiveTitle": value.collectiveTitle ? value.collectiveTitle.en: null,
-                "heCollectiveTitle": value.collectiveTitle ? value.collectiveTitle.he : null,
+                "collectiveTitle": typeof value.collectiveTitle === 'string' ? value.collectiveTitle : (value.collectiveTitle ? value.collectiveTitle.en : null),
+                "heCollectiveTitle": value.heCollectiveTitle || (value.collectiveTitle && typeof value.collectiveTitle === 'object' ? value.collectiveTitle.he : null),
               };
             }
             output[key][refIndex].push(outputValue);
@@ -899,11 +902,15 @@ global.Sefaria = {
           for (const [title, book] of Object.entries(summary[c].books)) {
             const have = merged.books[title];
             if (!have) {
-              merged.books[title] = {...book, category: keep, refSet: new Set(book.refSet), heRefSet: new Set(book.heRefSet)};
+              merged.books[title] = {...book, category: keep, refSet: new Set(book.refSet), heRefSet: new Set(book.heRefSet), refMap: book.refMap ? new Map(book.refMap) : undefined};
               continue;
             }
             book.refSet.forEach(r => have.refSet.add(r));
             book.heRefSet.forEach(r => have.heRefSet.add(r));
+            if (book.refMap) {
+              if (!have.refMap) { have.refMap = new Map(); }
+              book.refMap.forEach((h, r) => have.refMap.set(r, h));
+            }
             have.hasEn = have.hasEn || book.hasEn;
             have.extra = have.extra || book.extra;
           }
@@ -936,9 +943,13 @@ global.Sefaria = {
         var category = summary[link.category];
         // Count Book
         const title = link.collectiveTitle || link.textTitle;
+        const resolvedHeRef = link.sourceHeRef || (Sefaria.toHeSegmentRef && Sefaria.toHeSegmentRef(null, link.sourceRef)) || link.sourceRef;
         if (!!category.books[title]) {
           category.books[title].refSet.add(link.sourceRef);
-          category.books[title].heRefSet.add(link.sourceHeRef);
+          category.books[title].heRefSet.add(resolvedHeRef);
+          if (category.books[title].refMap && !category.books[title].refMap.has(link.sourceRef)) {
+            category.books[title].refMap.set(link.sourceRef, resolvedHeRef);
+          }
           category.books[title].hasEn = category.books[title].hasEn || link.sourceHasEn;
         } else {
           category.books[title] =
@@ -950,9 +961,9 @@ global.Sefaria = {
               heCollectiveTitle: link.heCollectiveTitle,
               category:          link.category,
               refSet:            new Set([link.sourceRef]), // make sure refs are unique here
-              heRefSet:          new Set([link.sourceHeRef]),
+              heRefSet:          new Set([resolvedHeRef]),
+              refMap:            new Map([[link.sourceRef, resolvedHeRef]]),
               hasEn:             link.sourceHasEn,
-              // a book the reader downloaded from another source (extras/): listed first
               extra:             extras.isDownloaded(link.textTitle),
           };
         }
@@ -995,9 +1006,6 @@ global.Sefaria = {
         categoryData.heRefList = [];
         // Sort the books in the category
         categoryData.books = Object.values(categoryData.books).sort((a, b) => {
-          // The books downloaded from the other sources first: among Sefaria's dozens of
-          // commentaries a downloaded Otzaria commentary was lost in the middle (QA round 5)
-          if (!!a.extra !== !!b.extra) { return a.extra ? -1 : 1; }
           // First sort by predefined "top"
           let top = topByCategory[categoryData.category] || [];
           let aTop = top.indexOf(a.title);
@@ -1025,9 +1033,14 @@ global.Sefaria = {
       let commentaryCat;
       for (let cat of summaryList) {
         for (let book of cat.books) {
-          const [bookRefList, bookHeRefList] = Sefaria.links.sortRefsBySections(Array.from(book.refSet), Array.from(book.heRefSet), book.title);
+          const rawRefs = Array.from(book.refSet);
+          const rawHeRefs = book.refMap
+            ? rawRefs.map(r => book.refMap.get(r) || r)
+            : Array.from(book.heRefSet);
+          const [bookRefList, bookHeRefList] = Sefaria.links.sortRefsBySections(rawRefs, rawHeRefs, book.title);
           delete book.refSet;
           delete book.heRefSet;
+          delete book.refMap;
           book.refList = bookRefList;
           book.heRefList = bookHeRefList;
           if (book.refList.length !== book.heRefList.length) { console.log("MAJOR ISSUES!!", book.refList)}
@@ -1135,13 +1148,14 @@ Sefaria.util = {
     // _index.json / metadata just unpacked (QA: "Translations (0)" and no related texts).
     return new Promise((resolve, reject) => {
       FileSystem.readDirectoryAsync(FileSystem.documentDirectory).then(fileList => {
-        const deletes = [];
-        for (let f of fileList) {
-          if (f.endsWith(".json")) {
-            deletes.push(simpleDelete(`${FileSystem.documentDirectory}/${f}`).catch(() => {}));
+        const jsonFiles = fileList.filter(f => f.endsWith(".json"));
+        Sefaria.util.unzippedCleanup = (async () => {
+          const BATCH = 128;
+          for (let i = 0; i < jsonFiles.length; i += BATCH) {
+            await Promise.all(jsonFiles.slice(i, i + BATCH).map(f =>
+              simpleDelete(`${FileSystem.documentDirectory}/${f}`).catch(() => {})));
           }
-        }
-        Sefaria.util.unzippedCleanup = Promise.all(deletes).then(() => {});
+        })();
         resolve();
       }).catch(() => resolve());
     });
@@ -1968,7 +1982,9 @@ Sefaria.search = new Search('https://www.sefaria.org', 'text', 'sheet', { 'User-
 // Text search runs on the downloaded library when its whole search pack is there, else on
 // Sefaria's API plus the reader's own books the API does not know (offlineSearch.js:
 // executeSearchQuery); without internet, on whatever the phone has.
-Sefaria.search._onlineExecuteQuery = Sefaria.search.execute_query.bind(Sefaria.search);
+Sefaria.search._onlineExecuteQuery = Sefaria.search.execute_query
+  ? Sefaria.search.execute_query.bind(Sefaria.search)
+  : () => Promise.resolve({});
 Sefaria.search.execute_query = function(args) {
   return executeSearchQuery(args, {
     online: a => Sefaria.search._onlineExecuteQuery(a),

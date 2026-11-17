@@ -455,7 +455,7 @@ describe('Settings screen', () => {
         'library_sources.header', 'library_sources.description',
         'library_sources.always_on', 'extras.source_detail',
         'settings.nakdan_header', 'settings.nakdan_always', 'settings.nakdan_always_detail',
-        'settings.nakdan_ask', 'settings.nakdan_credit',
+        'settings.nakdan_credit',
       ]
     );
   });
@@ -1229,7 +1229,7 @@ describe('Strings with placeholders', () => {
     'extras.downloaded_count': { count: 12 },
     'extras.downloading': { title: 'זמרת הארץ' },
     'extras.license_line': { license: 'Public Domain' },
-    'extras.not_downloaded_message': { title: 'זמרת הארץ', source: 'Otzaria' },
+    'extras.not_downloaded_message': { title: 'זמרת הארץ' },
     'extras.progress_pages': { done: 12, total: 340 },
     'extras.progress_percent': { percent: 42 },
     'extras.turn_off_message': { count: 5 },
@@ -2207,6 +2207,12 @@ describe('QA round 17: pinned tabs and offline Dicta', () => {
         <TestContextWrapper child={ExtraSourceRow}
           childProps={{ source, langStyle: {}, theme: {}, interfaceLanguage: 'english' }} />
       ), ['extras.needs_connection']));
+  });
+
+  test('turning off a source with downloaded books localizes Keep / Delete options', () => {
+    expectScreenLocalizes(() => (
+      <Text>{`${strings.extras.keep_books} ${strings.extras.delete_books}`}</Text>
+    ), ['extras.keep_books', 'extras.delete_books']);
   });
 });
 

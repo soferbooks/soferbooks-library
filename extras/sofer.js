@@ -45,9 +45,17 @@ export const HOME_URL = `https://github.com/${REPO}`;
 //  only when what the phone does with the files changes)
 export const CONVERTER_VERSION = 1;
 
+const SEPARATED_TUR = /^(?:Tur|Beit Yosef|Bach|Darkhei Moshe|Drisha|Prisha), (?:Orach Chayim|Yoreh De'ah|Even HaEzer|Choshen Mishpat)$/i;
+
 /** One book of the catalogue as a catalogue entry (null: not usable) */
 export function entryFor(b) {
   if (!b || !b.title || !b.heTitle || !b.file || !Array.isArray(b.categories) || !b.categories.length) { return null; }
+  if (b.kind === 'combined' || /\(Combined editions\)$/i.test(b.title) || /\(מהדורות משולבות\)$/.test(b.heTitle)) {
+    return null;
+  }
+  if (SEPARATED_TUR.test(b.title)) {
+    return null;
+  }
   // (the book's files name it by its title: a title the library would change cannot be used)
   if (safe(b.title) !== b.title) { return null; }
   const entry = {
@@ -202,16 +210,56 @@ export function convert(entry, doc) {
 export function ownLinks(entry, files) {
   const bases = (entry.base_text_titles || []).map(b => (typeof b === 'string' ? b : b && b.en)).filter(Boolean);
   const out = [];
-  for (const [name, meta] of Object.entries(files || {})) {
-    if (!name.endsWith('.metadata.json') || !meta || !meta.ref || !Array.isArray(meta.links)) { continue; }
-    meta.links.forEach((seg, j) => {
-      for (const l of seg || []) {
-        if (!l || !l.sourceRef) { continue; }
-        const t = String(l.sourceRef);
-        out.push({a: `${meta.ref}:${j + 1}`, ah: `${meta.heRef || meta.ref} ${j + 1}`, t, th: l.sourceHeRef || t,
-          r: bases.some(b => t.startsWith(`${b} `) || t.startsWith(`${b},`)) ? 'base' : 'cite'});
+  const metaSections = [];
+  for (const [name, doc] of Object.entries(files || {})) {
+    if (!name.endsWith('.metadata.json') || !doc) { continue; }
+    const list = doc.sections ? Object.values(doc.sections) : [doc];
+    for (const meta of list) {
+      if (!meta || !meta.ref) { continue; }
+      metaSections.push(meta);
+      if (!Array.isArray(meta.links)) { continue; }
+      meta.links.forEach((seg, j) => {
+        for (const l of seg || []) {
+          if (!l || !l.sourceRef) { continue; }
+          const t = String(l.sourceRef);
+          out.push({a: `${meta.ref}:${j + 1}`, ah: `${meta.heRef || meta.ref} ${j + 1}`, t, th: l.sourceHeRef || t,
+            r: bases.some(b => t.startsWith(`${b} `) || t.startsWith(`${b},`)) ? 'base' : 'cite'});
+        }
+      });
+    }
+  }
+  // Some Sofer Library commentaries (e.g. Rabbi Eliezer Ben-David's sefarim on Shir HaShirim & Mishlei)
+  // were exported with empty links_index ({}): derive their base-verse links from their section structure.
+  if (!out.length && (entry.dependence === 'Commentary' || entry.dependence === 'Targum') && bases.length) {
+    const base = bases[0];
+    const prefix = `${entry.title} `;
+    const metaByRef = new Map(metaSections.map(m => [m.ref, m]));
+    const segsByRef = new Map();
+    for (const [name, doc] of Object.entries(files || {})) {
+      if (!name.endsWith('.json') || name.endsWith('.metadata.json') || name.endsWith('_index.json') || !doc) { continue; }
+      if (doc.sections && typeof doc.sections === 'object') {
+        for (const [sRef, sData] of Object.entries(doc.sections)) {
+          if (!segsByRef.has(sRef) && Array.isArray(sData)) { segsByRef.set(sRef, sData); }
+        }
+      } else if (Array.isArray(doc) || Array.isArray(doc.content)) {
+        const stem = name.replace(/\.[0-9a-f]+\.(?:he|en)\.json$/, '').replace(/\.(?:he|en)\.json$/, '');
+        const segs = Array.isArray(doc) ? doc : doc.content;
+        if (stem && !segsByRef.has(stem)) { segsByRef.set(stem, segs); }
       }
-    });
+    }
+    for (const [sRef, segs] of segsByRef.entries()) {
+      if (!sRef.startsWith(prefix)) { continue; }
+      const coord = sRef.slice(prefix.length).trim();
+      const meta = metaByRef.get(sRef);
+      const heSec = (meta && meta.heRef) || sRef;
+      const isDepth3 = coord.includes(':');
+      segs.forEach((seg, j) => {
+        const hasText = typeof seg === 'string' ? seg.trim().length > 0 : !!(seg && (seg.he || seg.text));
+        if (!hasText) { return; }
+        const target = isDepth3 ? `${base} ${coord}` : `${base} ${coord}:${j + 1}`;
+        out.push({a: `${sRef}:${j + 1}`, ah: `${heSec}:${j + 1}`, t: target, th: '', r: 'base'});
+      });
+    }
   }
   return out;
 }

@@ -177,7 +177,8 @@ export function loadExtras() {
       state = {installed: (s && s.installed) || {}, blocked: (s && s.blocked) || {}};
       catalogs = {};
       for (const id of Object.keys(EXTRA_SOURCES)) {
-        if (enabled[id]) { catalogs[id] = await readJSON(catalogFile(id), null); }
+        const hasInstalled = Object.values(state.installed).some(r => r.source === id);
+        if (enabled[id] || hasInstalled) { catalogs[id] = await readJSON(catalogFile(id), null); }
       }
     })();
   }
@@ -189,11 +190,18 @@ export function loadExtras() {
  * which then applies to these books too). Also tells hebrewCategory() their categories' names.
  */
 export function applyToToc(toc) {
+  const isCombined = e => !e || e.kind === 'combined' ||
+    /\(Combined editions\)$/i.test(e.title || '') || /\(מהדורות משולבות\)$/.test(e.heTitle || '');
   const lists = {};
   for (const [id, cat] of Object.entries(catalogs)) {
-    if (enabled[id] && cat && Array.isArray(cat.entries)) {
+    if (cat && Array.isArray(cat.entries)) {
       const current = (EXTRA_SOURCES[id] && EXTRA_SOURCES[id].currentEntry) || (e => e);
-      lists[id] = cat.entries.map(withCurrentShelf).map(current);
+      const isOn = !!enabled[id];
+      const installedIds = new Set(Object.values(state.installed).filter(r => r.source === id).map(r => r.id));
+      lists[id] = cat.entries
+        .map(withCurrentShelf)
+        .map(current)
+        .filter(e => !isCombined(e) && (isOn || installedIds.has(e.id) || (e.title && state.installed[e.title])));
     }
   }
   const chosen = chooseBooks(toc, lists, state);
@@ -241,21 +249,34 @@ export async function refreshCatalog(id) {
   return entries;
 }
 
-/** Turn a source on (its catalogue is downloaded) or off (its downloaded books are deleted). */
-export async function setSourceEnabled(id, on) {
+/** Turn a source on (its catalogue is downloaded) or off (stop active downloads, keep or delete books). */
+export async function setSourceEnabled(id, on, { keepBooks = false } = {}) {
   await loadExtras();
   if (on) {
     if (!catalogs[id]) { await refreshCatalog(id); }
     enabled = {...enabled, [id]: true};
   } else {
-    for (const title of installedTitles(id)) { await removeFiles(title); delete state.installed[title]; }
-    await saveState();
-    forgetCaches();
+    try {
+      const eq = require('../extrasQueue');
+      if (eq && eq.removeSources) { await eq.removeSources([id]); }
+    } catch (e) { /* queue not loaded */ }
+    await cancelSourceDownloads(id);
+    if (!keepBooks) {
+      for (const title of installedTitles(id)) { await removeFiles(title); delete state.installed[title]; }
+      await saveState();
+      forgetCaches();
+    }
     const {[id]: _, ...rest} = enabled;
     enabled = rest;
   }
   await AsyncStorage.setItem(ENABLED_KEY, JSON.stringify(enabled));
   await reloadToc();
+  if (on) {
+    try {
+      const eq = require('../extrasQueue');
+      if (eq && eq.restoreSource) { await eq.restoreSource(id); }
+    } catch (e) { /* queue not loaded */ }
+  }
 }
 
 /** Weekly: the catalogues of the sources turned on (new books, and which books changed). */
@@ -306,8 +327,11 @@ async function removeFiles(title, {keepZip = false} = {}) {
   // deleted book stayed readable until the app was restarted, an updated one showed its old text
   let names = [];
   try { names = await FileSystem.readDirectoryAsync(FileSystem.documentDirectory); } catch (e) { names = []; }
-  for (const name of names.filter(n => isUnpackedFileOf(n, title))) {
-    await FileSystem.deleteAsync(`${FileSystem.documentDirectory}${name}`, {idempotent: true}).catch(() => {});
+  const unpacked = names.filter(n => isUnpackedFileOf(n, title));
+  const DELETE_BATCH = 128;
+  for (let i = 0; i < unpacked.length; i += DELETE_BATCH) {
+    await Promise.all(unpacked.slice(i, i + DELETE_BATCH).map(name =>
+      FileSystem.deleteAsync(`${FileSystem.documentDirectory}${name}`, {idempotent: true}).catch(() => {})));
   }
 }
 
@@ -319,6 +343,7 @@ function forgetCaches() {
   if (typeof Sefaria !== 'undefined') {
     Sefaria._jsonSectionData = {};
     Sefaria._jsonData = {};
+    Sefaria._commentatorListBySection = {};
   }
   clearOfflineSearchCache();
 }
@@ -350,28 +375,50 @@ export function convertBook(entry, text) {
  * there stays readable until then, and stays as it was if this fails (QA round 14: a disk that
  * filled up mid-way left books half written).
  */
-async function writeBook(title, files) {
+const yieldFrame = () => new Promise(resolve => setTimeout(resolve, 0));
+
+async function writeBook(title, files, job = null) {
   const dir = `${TMP_DIR}${md5(title)}/`;
   const newZip = `${TMP_DIR}${md5(title)}.zip`;
   const zipPath = `${LIBRARY_DIR}${title}.zip`;
+  const entries = Object.entries(files);
+  const showSteps = !!(job && entries.length > 50);
   await FileSystem.deleteAsync(dir, {idempotent: true}).catch(() => {});
   await FileSystem.deleteAsync(newZip, {idempotent: true}).catch(() => {});   // (zip adds to a file that is there)
   try {
+    if (job) { job.check(); }
     await FileSystem.makeDirectoryAsync(dir, {intermediates: true});
-    for (const [name, data] of Object.entries(files)) {
-      await FileSystem.writeAsStringAsync(`${dir}${name}`, JSON.stringify(data));
+    const BATCH = 128;
+    for (let i = 0; i < entries.length; i += BATCH) {
+      if (job) { job.check(); }
+      const batch = entries.slice(i, i + BATCH);
+      await Promise.all(batch.map(([name, data]) => {
+        if (job) { job.check(); }
+        return FileSystem.writeAsStringAsync(`${dir}${name}`, JSON.stringify(data));
+      }));
+      if (showSteps) {
+        job.progress(20 + Math.round((60 * Math.min(entries.length, i + BATCH)) / entries.length), 100, 'percent');
+      }
+      await yieldFrame();
     }
+    if (job) { job.check(); }
+    if (showSteps) { job.progress(85, 100, 'percent'); }
     await FileSystem.makeDirectoryAsync(LIBRARY_DIR, {intermediates: true}).catch(() => {});
     await zip(dir, newZip);
+    if (job) { job.check(); }
     const made = await FileSystem.getInfoAsync(newZip).catch(() => null);
     if (!made || !made.exists || !made.size) { throw new Error(`extras: the zip of ${title} was not made`); }
     await removeFiles(title, {keepZip: true});   // (what was unpacked from the old copy, its search lines)
+    if (job) { job.check(); }
     await replaceFile(newZip, zipPath);
   } finally {
     await FileSystem.deleteAsync(dir, {idempotent: true}).catch(() => {});
     await FileSystem.deleteAsync(newZip, {idempotent: true}).catch(() => {});
   }
-  const lines = await searchLines(files);
+  if (job) { job.check(); }
+  if (showSteps) { job.progress(92, 100, 'percent'); }
+  const lines = await searchLines(files, job);
+  if (job) { job.check(); }
   if (lines.length) {
     await FileSystem.writeAsStringAsync(`${LIBRARY_DIR}${title}_search.txt`, `${lines.join('\n')}\n`);
   }
@@ -381,10 +428,16 @@ async function writeBook(title, files) {
 const companionsOf = title => Object.keys(state.installed).filter(t => state.installed[t].companionOf === title);
 
 /** The offline search lines of a converted book (localSearch.js's format) */
-export async function searchLines(files) {
+export async function searchLines(files, job = null) {
   // (no _index.json given: bookLines then treats every version as not hosted, so all are indexed)
   const names = Object.keys(files).filter(n => !n.endsWith('_index.json'));
-  return bookLines(names, async name => JSON.stringify(files[name]));
+  let count = 0;
+  return bookLines(names, async name => {
+    if (job) { job.check(); }
+    count += 1;
+    if (count % 200 === 0) { await yieldFrame(); }
+    return files[name];
+  });
 }
 
 export class RestrictedBookError extends Error {}
@@ -395,13 +448,13 @@ export class DownloadCancelledError extends Error {}
 // all, or a share of the bytes) and the Cancel. unit: 'pages' (Wikisource's pages), 'percent'
 // (a file whose size is known: Dicta's zips), null (not known: a spinner).
 const downloads = {};
-const PROGRESS_EVERY = 250;          // ms between two progress notices
+const PROGRESS_EVERY = 650;          // ms between two progress notices
 let lastNotice = 0;
 
 /** {done, total, unit} of a book being downloaded now (total 0: not known yet), else null */
 export function downloadProgress(title) {
   const d = downloads[title];
-  return d ? {done: d.done, total: d.total, unit: d.unit} : null;
+  return d && !d.cancelled ? {done: d.done, total: d.total, unit: d.unit} : null;
 }
 export const downloadsUnderWay = () => Object.keys(downloads);
 
@@ -412,6 +465,19 @@ export function cancelDownload(title) {
   d.cancelled = true;
   d.hooks.forEach(fn => { try { fn(); } catch (e) { console.log('extras: cancel', e); } });
   notify();
+}
+
+/** Cancel every download under way belonging to `sourceId` and wait for them to finish cleaning up. */
+export async function cancelSourceDownloads(sourceId) {
+  const waiting = [];
+  for (const [title, d] of Object.entries(downloads)) {
+    const src = d.sourceId || (books[title] && books[title].source);
+    if (src === sourceId) {
+      cancelDownload(title);
+      if (d.promise) { waiting.push(d.promise.catch(() => {})); }
+    }
+  }
+  if (waiting.length) { await Promise.all(waiting); }
 }
 
 /**
@@ -446,7 +512,7 @@ export function downloadBook(title) {
     //  is not the reader's: a new one starts once it has stopped)
     return under.promise.catch(() => {}).then(() => downloadBook(title));
   }
-  downloads[title] = {done: 0, total: 0, unit: null, cancelled: false, hooks: []};
+  downloads[title] = {done: 0, total: 0, unit: null, cancelled: false, hooks: [], sourceId: books[title]?.source || null};
   const promise = fetchAndInstall(title, jobFor(title)).then(first => {
     delete downloads[title];
     notify();
@@ -504,11 +570,16 @@ async function fetchAndInstall(title, job) {
       text = await source.fetchBook(entry, job);
     }
   } else {
+    job.progress(2, 100, 'percent');
     const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
     if (controller) { job.onCancel(() => controller.abort()); }
     const response = await fetch(source.bookUrl(entry), controller ? {signal: controller.signal} : undefined);
     if (!response.ok) { throw new Error(`${entry.source}: HTTP ${response.status} for ${title}`); }
     text = await response.text();
+    job.check();
+    job.progress(15, 100, 'percent');
+    await yieldFrame();
+    job.check();
   }
   job.check();
   if (source.isRestricted(text, entry)) {
@@ -517,9 +588,26 @@ async function fetchAndInstall(title, job) {
     await reloadToc();
     throw new RestrictedBookError(title);
   }
-  const {files, firstSection, companions, tree} = convertBook(entry, text);
-  job.check();                         // (the last moment to cancel: nothing is written yet)
-  await writeBook(title, files);
+  let converted = convertBook(entry, text);
+  let {files, firstSection, companions, tree} = converted;
+  converted = null;
+  job.check();                         // (the last moment to cancel before writing)
+  try {
+    await writeBook(title, files, job);
+    files = null;
+    for (const c of companions || []) {
+      job.check();
+      await writeBook(c.entry.title, c.files, job);
+      c.files = null;
+    }
+    job.check();
+  } catch (e) {
+    if (job.cancelled || e instanceof DownloadCancelledError) {
+      await removeFiles(title).catch(() => {});
+      for (const c of companions || []) { await removeFiles(c.entry.title).catch(() => {}); }
+    }
+    throw e;
+  }
   const at = new Date().toISOString();
   state.installed[title] = {
     source: entry.source, id: entry.id, hash: entry.hash || null, converter: source.converterVersion,
@@ -527,7 +615,6 @@ async function fetchAndInstall(title, job) {
   };
   for (const old of companionsOf(title)) { await removeFiles(old); delete state.installed[old]; }
   for (const c of companions || []) {
-    await writeBook(c.entry.title, c.files);
     state.installed[c.entry.title] = {
       source: entry.source, id: `${entry.id}#${c.entry.title}`, companionOf: title, entry: c.entry,
       converter: source.converterVersion, firstSection: c.firstSection, at,
@@ -535,9 +622,26 @@ async function fetchAndInstall(title, job) {
     books[c.entry.title] = {...c.entry, source: entry.source};
   }
   await saveState();
-  await collectLinks(title, entry, source, text, tree, at);
+  await collectLinks(title, entry, source, text, tree, at, job);
+  tree = null;
+  text = null;
+  if (job.cancelled) {
+    for (const c of companions || []) { await removeFiles(c.entry.title).catch(() => {}); delete state.installed[c.entry.title]; }
+    await removeFiles(title).catch(() => {});
+    delete state.installed[title];
+    await saveState();
+    throw new DownloadCancelledError(title);
+  }
   forgetCaches();
-  refreshInferred(title);              // (in the background: it may read the texts it is on)
+  let queueBusy = false;
+  try {
+    const eq = require('../extrasQueue');
+    queueBusy = !!(eq.isQueueActive && eq.isQueueActive());
+    if (queueBusy) { pendingInferred = true; ensureQueueInferredHook(eq); }
+  } catch (e) { /* queue not loaded */ }
+  if (!queueBusy) {
+    refreshInferred(title);              // (in the background: it may read the texts it is on)
+  }
   if (companions && companions.length) { await reloadToc(); }     // (the notes book joins the library)
   const index = typeof Sefaria !== 'undefined' && Sefaria.index && Sefaria.index(title);
   if (index) { index.firstSection = firstSection; }
@@ -549,10 +653,10 @@ async function fetchAndInstall(title, job) {
  * The book's connections, from its source (extras/links.js): Otzaria's link file now; Dicta's
  * citations, a request a page, in the background (kept only if the same download is still there).
  */
-async function collectLinks(title, entry, source, text, tree, at) {
+async function collectLinks(title, entry, source, text, tree, at, job = null) {
   // (a source with no links of its own - Wikisource - still keeps what its sections say of their
   //  place: its obvious connections, extras/inferred.js)
-  const stillThere = () => !!state.installed[title] && state.installed[title].at === at;
+  const stillThere = () => !(job && job.cancelled) && !!state.installed[title] && state.installed[title].at === at;
   // (a book that comes ready made - the Sofer Library's - has no tree to place connections on
   //  (QA round 14, "Cannot read property 'paras' of undefined"), but its files' own links are
   //  still kept: links.collect without a tree. Leaving them out kept Chashukei Chemed off the
@@ -580,6 +684,19 @@ async function collectLinks(title, entry, source, text, tree, at) {
   }
 }
 
+let pendingInferred = false;
+let queueHooked = false;
+function ensureQueueInferredHook(eq) {
+  if (queueHooked || !eq || !eq.subscribe) { return; }
+  queueHooked = true;
+  eq.subscribe(() => {
+    if (pendingInferred && (!eq.isQueueActive || !eq.isQueueActive())) {
+      pendingInferred = false;
+      refreshInferred(null);
+    }
+  });
+}
+
 /**
  * The obvious connections (extras/inferred.js) of the downloaded books, worked out again after
  * `changed` was downloaded (or a book deleted: null): the book's own, those of the books on it,
@@ -595,10 +712,12 @@ async function inferNow(changed) {
   await loadExtras();
   // (after what the reader is doing - opening the book just downloaded - not in its way)
   //  (at most a few seconds: an interaction never ended must not hold it back for good)
-  await new Promise(resolve => {
-    const timer = setTimeout(resolve, 3000);
-    InteractionManager.runAfterInteractions(() => { clearTimeout(timer); resolve(); });
-  });
+  if (typeof jest === 'undefined' && InteractionManager && InteractionManager.runAfterInteractions) {
+    await new Promise(resolve => {
+      const timer = setTimeout(resolve, 3000);
+      InteractionManager.runAfterInteractions(() => { clearTimeout(timer); resolve(); });
+    });
+  }
   const titles = installedTitles().filter(t => !state.installed[t].companionOf);
   const files = {};
   for (const t of titles) {
@@ -635,7 +754,7 @@ async function inferNow(changed) {
   for (const t of done) {
     if (state.installed[t]) { await links.saveLinks(t, files[t]); }
   }
-  if (done.length) { notify(); }
+  if (done.length) { forgetCaches(); notify(); }
 }
 
 /** The books a commentary may be on: Sefaria's (the toc the content filter leaves) and the downloaded extra books */
@@ -678,13 +797,17 @@ export function repairReadyMadeLinks(titles) {
         const entry = books[title];
         const rec = state.installed[title];
         if (!entry || !rec || rec.source !== soferLibrary.id) { continue; }
-        if (await links.readLinks(title)) { continue; }
+        const existing = await links.readLinks(title);
+        const needsCommRepair = entry.dependence === 'Commentary' && Array.isArray(entry.base_text_titles) &&
+          entry.base_text_titles.length > 0 && (!existing || (!(existing.links || []).length && !(existing.inferred || []).length));
+        if (existing && !needsCommRepair) { continue; }
         const dir = `${TMP_DIR}links-${md5(title)}/`;
         try {
           await FileSystem.makeDirectoryAsync(dir, {intermediates: true}).catch(() => {});
           await safeUnzip(`${LIBRARY_DIR}${title}.zip`, dir);
           const files = {};
-          for (const name of (await FileSystem.readDirectoryAsync(dir)).filter(n => n.endsWith('.metadata.json'))) {
+          const wantJson = name => needsCommRepair ? (name.endsWith('.json') && !name.endsWith('_index.json')) : name.endsWith('.metadata.json');
+          for (const name of (await FileSystem.readDirectoryAsync(dir)).filter(wantJson)) {
             files[name] = JSON.parse(await FileSystem.readAsStringAsync(`${dir}${name}`));
           }
           const where = soferLibrary.linksOf(entry, {book: {files}}) || {};
@@ -718,18 +841,17 @@ export async function extraLinksFor(sectionRef) {
 export async function deleteBook(title) {
   await loadExtras();
   const companions = companionsOf(title);
-  for (const t of [title, ...companions]) {
-    await removeFiles(t);
-    delete state.installed[t];
-  }
+  const titles = [title, ...companions];
+  for (const t of titles) { delete state.installed[t]; }
   companions.forEach(t => { delete books[t]; });
   await saveState();
-  if (companions.length) { await reloadToc(); }   // (its notes book leaves the library with it)
   forgetCaches();
-  refreshInferred(null);               // (the books that were on it lose those connections)
   const index = typeof Sefaria !== 'undefined' && Sefaria.index && Sefaria.index(title);
   if (index) { index.firstSection = title; }
   notify();
+  for (const t of titles) { await removeFiles(t); }
+  if (companions.length) { await reloadToc(); }   // (its notes book leaves the library with it)
+  refreshInferred(null);               // (the books that were on it lose those connections)
 }
 
 // The content filter applies to these books too: a book it hides is not kept on the phone

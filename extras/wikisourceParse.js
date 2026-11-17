@@ -587,7 +587,8 @@ export function wikiTree(book) {
         if (WIKI_END.has(h)) { break; }        // (the site's own lists at the page's end)
         const hw = h.split(' ').filter(Boolean);
         const nw = name.split(' ').filter(Boolean);
-        if (!h || h === name || (hw.length < nw.length && wordsIn(hw, nw))) { continue; }
+        const singleNumeral = hw.length === 1 && /^[א-ת]{1,3}$/.test(hw[0]);
+        if (!h || h === name || (!singleNumeral && hw.length < nw.length && wordsIn(hw, nw))) { continue; }
         if (wordsIn(nw, hw)) {
           // (the page's fuller name: "אופן א" on the page "א": the section is called so)
           if (!node.paras.length) { node.title = normSpace(b[2]); }

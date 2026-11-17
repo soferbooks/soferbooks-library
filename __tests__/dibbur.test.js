@@ -5,7 +5,7 @@
  * results Sofer's Python gives for them (run through bold_dibbur(parse_comment(html)) on
  * 2026-11-11), shown as Sofer's test shows them: the bold in {braces}, tags left out.
  */
-import {boldDibbur, tokenize, plainWithBold, boldRuns, isCommentaryBook, isCommentaryCategory} from '../reader/dibbur';
+import {boldDibbur, stripLeadingVerseMarker, tokenize, plainWithBold, boldRuns, isCommentaryBook, isCommentaryCategory} from '../reader/dibbur';
 
 // Sofer's test's `marked`: the text, "{" / "}" for bold, other tags left out (and spaces as
 // Sofer's parser leaves them: runs of two or more as one, none at the start)
@@ -115,5 +115,20 @@ describe('which texts are commentaries', () => {
     expect(isCommentaryBook('Onkelos Genesis')).toBe(false);
     expect(isCommentaryBook('פירוש על ספר')).toBe(false);
     expect(isCommentaryBook('פירוש על ספר', new Set(['פירוש על ספר']))).toBe(true);
+  });
+});
+
+describe('gematria guard and inconsistent leading verse markers', () => {
+  test('boldDibbur does not bold gematria or explanatory phrases ending with dash/period', () => {
+    expect(boldDibbur("שלמה גי' עשה – את המנורה")).toBe("שלמה גי' עשה – את המנורה");
+    expect(boldDibbur("רמז בגי' שס\"ה. ונראה עוד")).toBe("רמז בגי' שס\"ה. ונראה עוד");
+  });
+
+  test('stripLeadingVerseMarker removes inconsistent comment verse labels', () => {
+    expect(stripLeadingVerseMarker('(ב) שיר השירים. פירוש')).toBe('שיר השירים. פירוש');
+    expect(stripLeadingVerseMarker('<b>(ג)</b> אשר לשלמה.')).toBe('אשר לשלמה.');
+    expect(stripLeadingVerseMarker('[א] ישקני מנשיקות.')).toBe('ישקני מנשיקות.');
+    expect(stripLeadingVerseMarker('פסוק ד - כל עצמותי.')).toBe('כל עצמותי.');
+    expect(stripLeadingVerseMarker('<b>שיר השירים</b> אשר לשלמה')).toBe('<b>שיר השירים</b> אשר לשלמה');
   });
 });

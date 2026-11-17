@@ -1,7 +1,7 @@
 import { openScheduleRef } from '../reader/inlineCommentaryPrefs';
 import React, { useContext } from 'react';
 import ReaderAppContext from '../context';
-import {View} from "react-native";
+import {View, useWindowDimensions} from "react-native";
 import {
     ContentTextWithFallback,
     FlexFrame,
@@ -86,7 +86,22 @@ export const LearningSchedulesBoxFactory = ({ categories, openRef, extraStyles=[
 
 const LearningScheduleTable = ({ desiredCalendarTitles, openRef }) => {
     const { calendarItems } = useCalendarItems();
+    const { interfaceLanguage } = useGlobalState();
+    const { width } = useWindowDimensions();
+    const isTablet = width >= 600;
+    const isHeb = interfaceLanguage === 'hebrew';
     const filteredCalendarItems = getFilteredCalendarItems(calendarItems, desiredCalendarTitles);
+    if (isTablet && filteredCalendarItems.length > 1) {
+        return (
+            <View style={{ flexDirection: isHeb ? 'row-reverse' : 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+                {filteredCalendarItems.map(item => (
+                    <View key={item.title.en} style={{ width: '48.5%' }}>
+                        <LearningScheduleRow calendarItem={item} openRef={openRef} />
+                    </View>
+                ))}
+            </View>
+        );
+    }
     return (
         <FlexFrame dir={"column"}>
             {filteredCalendarItems.map(item => (

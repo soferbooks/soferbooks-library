@@ -38,7 +38,7 @@ export const ExtraDownloadStatus = ({ title, theme, langStyle }) => {
     <View style={local.status} testID="extra-download-status">
       <View style={local.row}>
         {share === null ? <ActivityIndicator /> : null}
-        {text ? <Text style={[langStyle, theme.secondaryText, local.text]}>{text}</Text> : null}
+        {text ? <Text style={[langStyle, theme.secondaryText, local.text]}>{text}</Text> : <View style={local.text} />}
         <TouchableOpacity
           onPress={() => extras.cancelDownload(title)}
           accessibilityRole="button"

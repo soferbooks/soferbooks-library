@@ -11,7 +11,7 @@
  */
 import pLimit from 'p-limit';
 
-export const CONCURRENCY = {dictaPages: 5, files: 3, wikisource: 2, queueBooks: 3};
+export const CONCURRENCY = {dictaPages: 4, files: 4, wikisource: 1, queueBooks: 4};
 
 export {pLimit};
 

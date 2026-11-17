@@ -458,7 +458,7 @@ describe('opening a book that is not downloaded', () => {
     const [title, message, buttons] = alert.mock.calls[0];
     expect(title).toBe(strings.extras.not_downloaded_title);
     expect(message).toContain('ספר בדיקה מקונן');
-    expect(message).toContain('Otzaria');
+    expect(message.toLowerCase()).not.toContain('server');
     expect(buttons.map(b => b.text)).toEqual([strings.common.cancel, strings.download.download]);
 
     app.openRef = jest.fn(async () => {});   // (the second open, after the download)
@@ -547,6 +547,154 @@ describe('opening a book that is not downloaded', () => {
   test('ERRORS has the extra-book error', () => {
     expect(ERRORS.EXTRA_NOT_DOWNLOADED).toBeTruthy();
   });
+
+  test('large Otzaria book with thousands of paragraphs does not overflow call stack in inlineSections', () => {
+    const { Node, inlineSections } = require('../extras/tree');
+    const root = new Node('');
+    for (let i = 0; i < 6000; i++) {
+      const c = root.addChild(`פרק ${i + 1}`);
+      c.addPara(`תוכן פסקה ${i + 1}`);
+    }
+    expect(() => inlineSections(root)).not.toThrow();
+  });
+
+  test('setSourceEnabled(id, false, { keepBooks: true }) hides undownloaded books while keeping downloaded ones', async () => {
+    jest.resetModules();
+    const ex = require('../extras');
+    const FS = require('expo-file-system/legacy');
+    FS.clear();
+    ex._reset({
+      enabled: { otzaria: true },
+      catalogs: { otzaria: { fetchedAt: Date.now(), entries: CATALOG } },
+      state: { installed: { 'ספר בדיקה מקונן': { source: 'otzaria', id: CATALOG[0].id, firstSection: 'ספר בדיקה מקונן, S1' } }, blocked: {} },
+    });
+    const prevSefaria = global.Sefaria;
+    global.Sefaria = { _loadTOC: jest.fn(async () => ex.applyToToc(SEFARIA_TOC)) };
+    try {
+      await ex.setSourceEnabled('otzaria', false, { keepBooks: true });
+      expect(ex.isEnabled('otzaria')).toBe(false);
+      expect(ex.isDownloaded('ספר בדיקה מקונן')).toBe(true);
+      expect(ex.isExtraTitle('ספר בדיקה מקונן')).toBe(true);
+      const undownloaded = CATALOG.find(c => c.heTitle !== 'ספר בדיקה מקונן');
+      if (undownloaded) { expect(ex.isExtraTitle(undownloaded.heTitle)).toBe(false); }
+    } finally {
+      global.Sefaria = prevSefaria;
+    }
+  });
+
+  test('cancelDownload during writeBook/searchLines rejects with DownloadCancelledError and cleans up partial files', async () => {
+    jest.resetModules();
+    const ex = require('../extras');
+    const FS = require('expo-file-system/legacy');
+    FS.clear();
+    ex._reset({ enabled: { otzaria: true }, catalogs: { otzaria: { fetchedAt: Date.now(), entries: CATALOG } } });
+    ex.applyToToc(SEFARIA_TOC);
+    serve({ [encodeURIComponent('ספר בדיקה מקונן') + '.txt']: BOOK_TEXT });
+
+    const prevImpl = FS.writeAsStringAsync.getMockImplementation();
+    let fileWrites = 0;
+    FS.writeAsStringAsync.mockImplementation(async (p, content) => {
+      if (typeof p === 'string' && p.includes('extras/') && p.endsWith('.json')) {
+        fileWrites += 1;
+        if (fileWrites === 2) { ex.cancelDownload('ספר בדיקה מקונן'); }
+      }
+      return prevImpl(p, content);
+    });
+    try {
+      await expect(ex.downloadBook('ספר בדיקה מקונן')).rejects.toBeInstanceOf(ex.DownloadCancelledError);
+      expect(fileWrites).toBeGreaterThanOrEqual(2);
+      expect(ex.isDownloaded('ספר בדיקה מקונן')).toBe(false);
+      expect((await FS.getInfoAsync('library/ספר בדיקה מקונן.zip')).exists).toBe(false);
+      expect((await FS.getInfoAsync('library/ספר בדיקה מקונן_search.txt')).exists).toBe(false);
+    } finally {
+      FS.writeAsStringAsync.mockImplementation(prevImpl);
+    }
+  });
+
+  test('ExtraSourceRow asks Keep/Delete/Cancel when turning off a source with downloaded books, and Keep leaves books installed', async () => {
+    jest.resetModules();
+    const React = require('react');
+    const renderer = require('react-test-renderer');
+    const { act } = renderer;
+    const { Alert: RNAlert, Switch } = require('react-native');
+    const FS = require('expo-file-system/legacy');
+    FS.clear();
+    const ex = require('../extras');
+    const strings = require('../LocalizedStrings').default;
+    const { ExtraSourceRow } = require('../shomer/ContentFilterSettings');
+
+    ex._reset({
+      enabled: { otzaria: true },
+      catalogs: { otzaria: { fetchedAt: Date.now(), entries: CATALOG } },
+      state: { installed: { 'ספר בדיקה מקונן': { source: 'otzaria', id: CATALOG[0].id, firstSection: 'ספר בדיקה מקונן, S1' } }, blocked: {} },
+    });
+    const prevSefaria = global.Sefaria;
+    global.Sefaria = { _loadTOC: jest.fn(async () => ex.applyToToc(SEFARIA_TOC)) };
+    const alertSpy = jest.spyOn(RNAlert, 'alert').mockImplementation(() => {});
+    let tree;
+    try {
+      await act(async () => {
+        tree = renderer.create(
+          <ExtraSourceRow
+            source={{ id: 'otzaria', name: 'Otzaria', heName: 'אוצריא', extra: true }}
+            langStyle={{}}
+            theme={{}}
+            interfaceLanguage="english"
+          />
+        );
+      });
+      const toggleSwitch = tree.root.findByType(Switch);
+      act(() => { toggleSwitch.props.onValueChange(false); });
+      expect(alertSpy).toHaveBeenCalledTimes(1);
+      const buttons = alertSpy.mock.calls[0][2];
+      expect(buttons.map(b => b.text)).toEqual([
+        strings.common.cancel,
+        strings.extras.keep_books,
+        strings.extras.delete_books,
+      ]);
+      const keepBtn = buttons.find(b => b.text === strings.extras.keep_books);
+      await act(async () => { keepBtn.onPress(); await new Promise(r => setImmediate(r)); });
+      expect(ex.isEnabled('otzaria')).toBe(false);
+      expect(ex.isDownloaded('ספר בדיקה מקונן')).toBe(true);
+      expect(ex.isExtraTitle('ספר בדיקה מקונן')).toBe(true);
+      act(() => { tree.unmount(); });
+    } finally {
+      alertSpy.mockRestore();
+      global.Sefaria = prevSefaria;
+    }
+  });
+
+  test('large Otzaria book (Ohr HaYashar scale) downloads, converts, zips, and indexes for search cleanly', async () => {
+    jest.resetModules();
+    const ex = require('../extras');
+    const FS = require('expo-file-system/legacy');
+    FS.clear();
+    const largeCatalog = parseCatalog(JSON.stringify({
+      'Ben-YehudaToOtzaria/ספרים/אוצריא/מחשבה/אור הישר הגדול.txt': { hash: 'big1' },
+    }), { restricted: [], permitted: {}, in_sefaria: [] });
+    ex._reset({ enabled: { otzaria: true }, catalogs: { otzaria: { fetchedAt: Date.now(), entries: largeCatalog } } });
+    ex.applyToToc(SEFARIA_TOC);
+
+    const lines = ['<h1>אור הישר הגדול</h1>'];
+    for (let ch = 1; ch <= 5; ch++) {
+      lines.push(`<h2>פרק ${ch}</h2>`);
+      for (let sec = 1; sec <= 50; sec++) {
+        lines.push(`<h3>סעיף ${ch}-${sec}</h3>`);
+        for (let p = 1; p <= 10; p++) {
+          lines.push(`פסקה ${ch}.${sec}.${p} בדברי מוסר ומחשבה.`);
+        }
+      }
+    }
+    expect(lines.length).toBeGreaterThan(2500);
+    serve({ [encodeURIComponent('אור הישר הגדול') + '.txt']: lines.join('\n') });
+
+    const first = await ex.downloadBook('אור הישר הגדול');
+    expect(first).toBeTruthy();
+    expect(ex.isDownloaded('אור הישר הגדול')).toBe(true);
+    expect((await FS.getInfoAsync('library/אור הישר הגדול.zip')).exists).toBe(true);
+    const search = await FS.readAsStringAsync('library/אור הישר הגדול_search.txt');
+    expect(search.split('\n').filter(Boolean).length).toBeGreaterThanOrEqual(2500);
+  }, 30000);
 });
 
 afterAll(() => { delete global.fetch; });

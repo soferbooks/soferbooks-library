@@ -114,6 +114,22 @@ describe('the Sofer Library source', () => {
     expect(bookUrl(tur)).toBe(`${RELEASE_URL}/Tur-Test-Part-33333333.zip`);
     expect(() => parseCatalog(JSON.stringify({format: 2, books: []}))).toThrow();
     expect(entryFor({title: 'x'})).toBeNull();
+    expect(entryFor({
+      title: 'Tur (Combined editions)', heTitle: 'טור (מהדורות משולבות)', kind: 'combined',
+      categories: ['Halakhah'], file: 'tur.zip',
+    })).toBeNull();
+    expect(entryFor({
+      title: 'Tur, Orach Chayim', heTitle: 'טור אורח חיים', kind: 'split',
+      categories: ['Halakhah', 'Tur'], file: 'tur-oc.zip',
+    })).toBeNull();
+    expect(entryFor({
+      title: 'Beit Yosef, Yoreh De\'ah', heTitle: 'בית יוסף יורה דעה', kind: 'split',
+      categories: ['Halakhah', 'Tur', 'Commentary'], file: 'by-yd.zip',
+    })).toBeNull();
+    expect(entryFor({
+      title: 'Ben Ish Hai Drashot', heTitle: 'בן איש חי - דרשות', kind: 'split',
+      categories: ['Jewish Thought'], file: 'bih.zip',
+    })).not.toBeNull();
   });
 
   test('its books are listed on the shelves of their kind (a new "שירה ופיוט" shelf for poems)', () => {

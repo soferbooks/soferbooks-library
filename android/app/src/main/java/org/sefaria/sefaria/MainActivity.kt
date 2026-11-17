@@ -6,6 +6,8 @@ import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.fabricEnabled
 import com.facebook.react.defaults.DefaultReactActivityDelegate
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import com.zoontek.rnbootsplash.RNBootSplash
 
@@ -24,8 +26,22 @@ class MainActivity : ReactActivity() {
   override fun createReactActivityDelegate(): ReactActivityDelegate =
       ReactActivityDelegateWrapper(this, BuildConfig.IS_NEW_ARCHITECTURE_ENABLED, DefaultReactActivityDelegate(this, mainComponentName, fabricEnabled))
 
+  private fun normalizeLauncherIntent(targetIntent: Intent?) {
+    if (targetIntent != null && targetIntent.data == null && targetIntent.action == Intent.ACTION_MAIN) {
+      targetIntent.action = Intent.ACTION_VIEW
+      targetIntent.data = Uri.parse("soferbooks://home")
+    }
+  }
+
   override fun onCreate(savedInstanceState: Bundle?) {
+    normalizeLauncherIntent(intent)
     RNBootSplash.init(this, R.style.SplashTheme) // ⬅️ initialize the splash screen
     super.onCreate(savedInstanceState) // super.onCreate(null) with react-native-screens
+  }
+
+  override fun onNewIntent(intent: Intent) {
+    normalizeLauncherIntent(intent)
+    super.onNewIntent(intent)
+    setIntent(intent)
   }
 }

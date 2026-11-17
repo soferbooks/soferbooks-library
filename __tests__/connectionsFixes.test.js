@@ -239,3 +239,416 @@ describe('a downloaded extra book is a commentary when its links tie it to its t
     expect([...map.commentaries].sort()).toEqual(['מפרש', 'פירוש']);
   });
 });
+
+describe('panel height constant and offline link heRef alignment', () => {
+  test('READER_HEADER_HEIGHT matches header + category color line (54)', () => {
+    expect(require('../reader/panelLayout').READER_HEADER_HEIGHT).toBe(54);
+  });
+
+  test('linkSummary keeps refList and heRefList 1-to-1 when offline sourceHeRef is empty', () => {
+    const savedIndex = Sefaria._index;
+    const savedList = Sefaria._commentatorListBySection;
+    Sefaria._index = { 'Rashi on Niddah': { heTitle: 'רש"י על נדה' } };
+    Sefaria._commentatorListBySection = {};
+    try {
+      const summary = Sefaria.links.linkSummary('Niddah 32a', [
+        { category: 'Commentary', textTitle: 'Rashi on Niddah', collectiveTitle: 'Rashi', heCollectiveTitle: 'רש"י', sourceRef: 'Rashi on Niddah 32a:1:1', sourceHeRef: '', sourceHasEn: false },
+        { category: 'Commentary', textTitle: 'Rashi on Niddah', collectiveTitle: 'Rashi', heCollectiveTitle: 'רש"י', sourceRef: 'Rashi on Niddah 32a:1:2', sourceHeRef: '', sourceHasEn: false },
+      ], 'hebrew');
+      const rashi = summary.find(c => c.category === 'Commentary').books[0];
+      expect(rashi.refList).toEqual(['Rashi on Niddah 32a:1:1', 'Rashi on Niddah 32a:1:2']);
+      expect(rashi.heRefList).toHaveLength(2);
+      expect(rashi.heRefList.every(Boolean)).toBe(true);
+    } finally {
+      Sefaria._index = savedIndex;
+      Sefaria._commentatorListBySection = savedList;
+    }
+  });
+});
+
+describe('offlineOnline.loadRelated prefers offline Niddah links and fills sourceHeRef', () => {
+  const api = require('../api');
+  const offlineOnline = require('../offlineOnline');
+  const { ERRORS } = require('../errors');
+
+  let savedRelatedCache;
+  let savedJsonSectionData;
+  let savedIndex;
+  let apiSpy;
+
+  beforeEach(() => {
+    savedRelatedCache = api._related;
+    savedJsonSectionData = Sefaria._jsonSectionData;
+    savedIndex = Sefaria._index;
+    api._related = {};
+    Sefaria._jsonSectionData = {};
+    Sefaria._index = {
+      ...savedIndex,
+      Niddah: { title: 'Niddah', heTitle: 'נדה', categories: ['Talmud', 'Bavli'] },
+      'Rashi on Niddah': { title: 'Rashi on Niddah', heTitle: 'רש"י על נדה', dependence: 'Commentary', categories: ['Talmud', 'Bavli', 'Rashi on Talmud'] },
+    };
+    apiSpy = jest.spyOn(api, 'related').mockResolvedValue({
+      links: [{ category: 'Commentary', textTitle: 'Rashi on Niddah', sourceRef: 'Rashi on Niddah 32a:1:1', sourceHeRef: 'רש"י', anchorRef: 'Niddah 32a:1' }],
+    });
+  });
+
+  afterEach(() => {
+    apiSpy.mockRestore();
+    api._related = savedRelatedCache;
+    Sefaria._jsonSectionData = savedJsonSectionData;
+    Sefaria._index = savedIndex;
+  });
+
+  test('when offline and section metadata is missing, loadRelated rejects with MISSING_OFFLINE_DATA', async () => {
+    await expect(offlineOnline.loadRelated('Niddah 32a', false)).rejects.toBe(ERRORS.MISSING_OFFLINE_DATA);
+    expect(apiSpy).not.toHaveBeenCalled();
+  });
+
+  test('when online and offline links exist, uses offline links with populated sourceHeRef without calling api.related', async () => {
+    Sefaria._jsonSectionData['Niddah 32a|metadata'] = [
+      { links: [[{ sourceRef: 'Rashi on Niddah 32a:1:1', sourceHeRef: '', category: 'Commentary', sourceHasEn: false }]] },
+      'Niddah 32a',
+    ];
+    const res = await offlineOnline.loadRelated('Niddah 32a', true);
+    expect(apiSpy).not.toHaveBeenCalled();
+    expect(res.links).toHaveLength(1);
+    expect(res.links[0].sourceRef).toBe('Rashi on Niddah 32a:1:1');
+    expect(res.links[0].sourceHeRef).toBeTruthy();
+  });
+
+  test('when online and offline metadata is missing, falls back to api.related', async () => {
+    const res = await offlineOnline.loadRelated('Niddah 32a', true);
+    expect(apiSpy).toHaveBeenCalledWith('Niddah 32a');
+    expect(res.links).toHaveLength(1);
+  });
+});
+
+describe('TextColumn Next Daf selection, scroll tracking, and explicit bold detection', () => {
+  const TextColumn = require('../TextColumn');
+
+  let savedIndex;
+  beforeEach(() => {
+    savedIndex = Sefaria._index;
+    Sefaria._index = {
+      ...savedIndex,
+      'Rashi on Niddah': { title: 'Rashi on Niddah', heTitle: 'רש"י על נדה', dependence: 'Commentary', categories: ['Talmud', 'Bavli', 'Rashi on Talmud'] },
+    };
+  });
+  afterEach(() => {
+    Sefaria._index = savedIndex;
+  });
+
+  const makeProps = (overrides = {}) => ({
+    theme: {},
+    themeStr: 'white',
+    fontSize: 20,
+    data: [
+      [{ segmentNumber: '1', text: 's0-1', he: 'פתיחה פרק ראשון' }],
+      [
+        { segmentNumber: '1', text: 's1-1', he: '<b>ד"ה א</b> פירוש ראשון' },
+        { segmentNumber: '2', text: 's1-2', he: '<b>ד"ה ב</b> פירוש שני' },
+      ],
+    ],
+    sectionArray: ['Niddah 31b', 'Niddah 32a'],
+    sectionHeArray: ['נדה לא:', 'נדה לב.'],
+    textTitle: 'Rashi on Niddah',
+    heTitle: 'רש"י על נדה',
+    textFlow: 'segmented',
+    textLanguage: 'hebrew',
+    interfaceLanguage: 'hebrew',
+    showAliyot: false,
+    handleOpenURL: jest.fn(),
+    shareCurrentSegment: jest.fn(),
+    getDisplayedText: jest.fn(),
+    biLayout: 'stacked',
+    textUnavailableAlert: jest.fn(),
+    textSegmentPressed: jest.fn(),
+    setHighlightedWord: jest.fn(),
+    updateTitle: jest.fn(),
+    textListVisible: false,
+    linksLoaded: [true, true],
+    ...overrides,
+  });
+
+  test('maps Next Daf segments to real sectionIndex/itemIndex, handles large scroll jumps, and marks noAutoDibbur', () => {
+    const props = makeProps();
+    const tc = new TextColumn(props);
+    tc.sectionListRef = { scrollToLocation: jest.fn(), scrollToOffset: jest.fn() };
+    tc.rowYHash['Niddah 32a:2'] = { y: 1200, height: 80 };
+    tc.currentY = 100;
+
+    expect(tc.sectionItemMap.get('Niddah 32a:2')).toEqual({ sectionIndex: 1, itemIndex: 1 });
+    expect(tc.state.dataSource[0].data[0].data.noAutoDibbur).toBe(false);
+    expect(tc.state.dataSource[1].data[0].data.noAutoDibbur).toBe(true);
+
+    tc.textSegmentPressed(1, 1, 'Niddah 32a:2', true);
+    expect(tc.sectionListRef.scrollToLocation).toHaveBeenCalledWith({
+      animated: false,
+      sectionIndex: 1,
+      itemIndex: 1,
+      viewPosition: 0,
+    });
+    expect(props.textSegmentPressed).toHaveBeenCalledWith(1, 1, 'Niddah 32a:2', true, true);
+
+    props.textSegmentPressed.mockClear();
+    tc.viewableSectionData = { indexes: [1], sections: [[tc.state.dataSource[1].data[1]]] };
+    tc.handleScroll({ nativeEvent: { contentOffset: { y: 900 } } });
+    expect(props.textSegmentPressed).toHaveBeenCalledWith(1, 1, 'Niddah 32a:2');
+  });
+});
+
+describe('Tablet sw600dp detection and 2-column grid layouts', () => {
+  test('isIPad treats 600dp shortest side as tablet', () => {
+    let tablet;
+    jest.isolateModules(() => {
+      const RN = require('react-native');
+      const spy = jest.spyOn(RN.Dimensions, 'get').mockReturnValue({ width: 600, height: 960, scale: 2, fontScale: 1 });
+      try {
+        tablet = require('../isIPad').default;
+      } finally {
+        spy.mockRestore();
+      }
+    });
+    expect(tablet).toBe(true);
+  });
+
+  test('TextsPage, LearningSchedulesBox, TextCategoryPage, and ReaderTextTableOfContents use 2-column tablet layouts on width >= 600', () => {
+    const RN = require('react-native');
+    const { FlatList } = RN;
+    const { TwoBox } = require('../Misc');
+    const ReaderAppContext = require('../context').default;
+    const { TextsPage } = require('../TextsPage');
+    const { LearningSchedulesBox } = require('../learningSchedules/LearningSchedulesBox');
+    const { TextCategoryPage } = require('../TextCategoryPage');
+    const ReaderTextTableOfContents = require('../ReaderTextTableOfContents').default;
+
+    const widthSpy = jest.spyOn(RN, 'useWindowDimensions').mockReturnValue({ width: 800, height: 1280, scale: 2, fontScale: 1 });
+    const dimSpy = jest.spyOn(RN.Dimensions, 'get').mockReturnValue({ width: 800, height: 1280, scale: 2, fontScale: 1 });
+    const savedToc = Sefaria.toc;
+    const savedCalendar = Sefaria.calendar;
+    const savedGetCalendars = Sefaria.getCalendars;
+    const savedCommentaryList = Sefaria.commentaryList;
+    const savedIndex = Sefaria._index;
+
+    Sefaria.toc = [
+      { category: 'Tanakh', heCategory: 'תנ"ך', contents: [{ title: 'Genesis', heTitle: 'בראשית', categories: ['Tanakh', 'Torah'] }, { title: 'Exodus', heTitle: 'שמות', categories: ['Tanakh', 'Torah'] }] },
+      { category: 'Talmud', heCategory: 'תלמוד', contents: [{ title: 'Berakhot', heTitle: 'ברכות', categories: ['Talmud', 'Bavli'] }] },
+    ];
+    Sefaria._index = {
+      ...savedIndex,
+      'Sample Book': { title: 'Sample Book', heTitle: 'ספר לדוגמה', categories: ['Halakhah'] },
+    };
+    Sefaria.calendar = {};
+    Sefaria.getCalendars = jest.fn(() => [
+      { title: { en: 'Parashat Hashavua', he: 'פרשת השבוע' }, displayValue: { en: 'Bereshit', he: 'בראשית' }, refs: ['Genesis 1'] },
+      { title: { en: 'Haftarah', he: 'הפטרה' }, displayValue: { en: 'Isaiah 42', he: 'ישעיהו מ"ב' }, refs: ['Isaiah 42'] },
+    ]);
+    Sefaria.commentaryList = jest.fn(() => []);
+
+    let tree;
+    try {
+      act(() => {
+        tree = renderer.create(
+          <GlobalStateContext.Provider value={{ ...DEFAULT_STATE, interfaceLanguage: 'english', menuLanguage: 'english' }}>
+            <ReaderAppContext.Provider value={{ readerTabs: { tabs: [] }, openScheduleItem: jest.fn() }}>
+              <TextsPage categories={[]} setCategories={jest.fn()} openRef={jest.fn()} openLearningSchedules={jest.fn()} onBack={jest.fn()} openAbout={jest.fn()} openHistory={jest.fn()} />
+            </ReaderAppContext.Provider>
+          </GlobalStateContext.Provider>
+        );
+      });
+      const flatList = tree.root.findByType(FlatList);
+      expect(flatList.props.numColumns).toBe(2);
+      act(() => { tree.unmount(); });
+
+      act(() => {
+        tree = renderer.create(
+          <GlobalStateContext.Provider value={{ ...DEFAULT_STATE, interfaceLanguage: 'english' }}>
+            <ReaderAppContext.Provider value={{ readerTabs: { tabs: [] }, openScheduleItem: jest.fn() }}>
+              <LearningSchedulesBox openRef={jest.fn()} desiredCalendarTitles={['Parashat Hashavua', 'Haftarah']} />
+            </ReaderAppContext.Provider>
+          </GlobalStateContext.Provider>
+        );
+      });
+      const halfWidthSchedCols = tree.root.findAll(n => n.props && n.props.style && n.props.style.width === '48.5%');
+      expect(halfWidthSchedCols.length).toBeGreaterThanOrEqual(2);
+      act(() => { tree.unmount(); });
+
+      act(() => {
+        tree = renderer.create(
+          <GlobalStateContext.Provider value={{ ...DEFAULT_STATE, interfaceLanguage: 'english', menuLanguage: 'english' }}>
+            <TextCategoryPage categories={['Tanakh']} setCategories={jest.fn()} openRef={jest.fn()} onBack={jest.fn()} />
+          </GlobalStateContext.Provider>
+        );
+      });
+      const halfWidthCatCols = tree.root.findAll(n => n.props && n.props.style && n.props.style.width === '48.5%');
+      expect(halfWidthCatCols.length).toBeGreaterThanOrEqual(2);
+      act(() => { tree.unmount(); });
+
+      act(() => {
+        tree = renderer.create(
+          <GlobalStateContext.Provider value={{ ...DEFAULT_STATE, interfaceLanguage: 'english', menuLanguage: 'english' }}>
+            <ReaderTextTableOfContents
+              title="Sample Book"
+              textToc={{ schema: { nodes: [{ depth: 1, title: 'Part 1', heTitle: 'חלק א' }, { depth: 1, title: 'Part 2', heTitle: 'חלק ב' }] } }}
+              openRef={jest.fn()}
+              close={jest.fn()}
+              openUri={jest.fn()}
+              textUnavailableAlert={jest.fn()}
+            />
+          </GlobalStateContext.Provider>
+        );
+      });
+      expect(tree.root.findAllByType(TwoBox).length).toBeGreaterThanOrEqual(1);
+      act(() => { tree.unmount(); });
+    } finally {
+      widthSpy.mockRestore();
+      dimSpy.mockRestore();
+      Sefaria.toc = savedToc;
+      Sefaria.calendar = savedCalendar;
+      Sefaria.getCalendars = savedGetCalendars;
+      Sefaria.commentaryList = savedCommentaryList;
+      Sefaria._index = savedIndex;
+    }
+  });
+});
+
+describe('Extra commentary collectiveTitle strings and depth-3 1D content_counts TOC', () => {
+  test('organizeRelatedBySegment preserves string collectiveTitle and heCollectiveTitle from extra books', () => {
+    const savedBooksDict = Sefaria.booksDict;
+    Sefaria.booksDict = { ...savedBooksDict, 'Rokeach on Song of Songs': 1, 'Siach HaShirah on Song of Songs': 1 };
+    try {
+      const out = Sefaria.links.organizeRelatedBySegment({
+        links: [
+          {
+            category: 'Commentary',
+            index_title: 'Rokeach on Song of Songs',
+            collectiveTitle: 'Rokeach',
+            heCollectiveTitle: 'רוקח',
+            sourceRef: 'Rokeach on Song of Songs 1:1:1',
+            sourceHeRef: 'רוקח על שיר השירים א:א:א',
+            anchorRef: 'Song of Songs 1:1',
+            sourceHasEn: false,
+          },
+          {
+            category: 'Commentary',
+            index_title: 'Siach HaShirah on Song of Songs',
+            collectiveTitle: 'Siach HaShirah',
+            heCollectiveTitle: 'שיח השירה',
+            sourceRef: 'Siach HaShirah on Song of Songs 1:1:1',
+            sourceHeRef: 'שיח השירה על שיר השירים א:א:א',
+            anchorRef: 'Song of Songs 1:1',
+            sourceHasEn: false,
+          },
+        ],
+      });
+      expect(out.links[0]).toHaveLength(2);
+      expect(out.links[0][0].collectiveTitle).toBe('Rokeach');
+      expect(out.links[0][0].heCollectiveTitle).toBe('רוקח');
+      expect(out.links[0][1].collectiveTitle).toBe('Siach HaShirah');
+      expect(out.links[0][1].heCollectiveTitle).toBe('שיח השירה');
+    } finally {
+      Sefaria.booksDict = savedBooksDict;
+    }
+  });
+
+  test('ReaderTextTableOfContents renders depth-3 schema with 1D numeric content_counts without crashing', () => {
+    const ReaderTextTableOfContents = require('../ReaderTextTableOfContents').default;
+    const savedIndex = Sefaria._index;
+    const savedCommentaryList = Sefaria.commentaryList;
+    Sefaria._index = {
+      ...savedIndex,
+      'Derech HaShlemut on Proverbs': {
+        title: 'Derech HaShlemut on Proverbs',
+        heTitle: 'דרך השלמות על משלי',
+        categories: ['Tanakh', 'Acharonim on Tanakh', 'Rabbi Eliezer Ben-David'],
+      },
+    };
+    Sefaria.commentaryList = jest.fn(() => []);
+    let tree;
+    try {
+      act(() => {
+        tree = renderer.create(
+          <GlobalStateContext.Provider value={{ ...DEFAULT_STATE, interfaceLanguage: 'english', menuLanguage: 'english' }}>
+            <ReaderTextTableOfContents
+              title="Derech HaShlemut on Proverbs"
+              textToc={{
+                schema: {
+                  nodeType: 'JaggedArrayNode',
+                  depth: 3,
+                  sectionNames: ['Chapter', 'Verse', 'Comment'],
+                  addressTypes: ['Perek', 'Pasuk', 'Integer'],
+                  content_counts: [33, 0, 35],
+                },
+              }}
+              openRef={jest.fn()}
+              close={jest.fn()}
+              openUri={jest.fn()}
+              textUnavailableAlert={jest.fn()}
+            />
+          </GlobalStateContext.Provider>
+        );
+      });
+      const serialized = JSON.stringify(tree.toJSON());
+      expect(serialized).toContain('Chapter 1');
+      expect(serialized).toContain('Chapter 3');
+      expect(serialized).not.toContain('Chapter 2');
+      act(() => { tree.unmount(); });
+    } finally {
+      Sefaria._index = savedIndex;
+      Sefaria.commentaryList = savedCommentaryList;
+    }
+  });
+
+  test('offline.loadTextOffline reuses cached section across commentary segments in the same daf', async () => {
+    const FS = require('expo-file-system/legacy');
+    const md5 = require('md5');
+    const { loadTextOffline } = require('../offline');
+    FS.clear();
+    const savedIndex = Sefaria._index;
+    const savedBooksDict = Sefaria.booksDict;
+    Sefaria._index = {
+      ...savedIndex,
+      'Rashi on Niddah': { title: 'Rashi on Niddah', heTitle: 'רש"י על נדה', categories: ['Talmud', 'Bavli', 'Rashi'] },
+    };
+    Sefaria.booksDict = { ...savedBooksDict, 'Rashi on Niddah': 1 };
+    const stem = 'Rashi on Niddah 2a';
+    const vTitle = 'Vilna Edition';
+    const hash = md5(vTitle).substring(0, 8);
+    try {
+      await FS.writeAsStringAsync(encodeURI(`${FS.documentDirectory}/Rashi on Niddah_index.json`), JSON.stringify({
+        title: 'Rashi on Niddah',
+        versions: [{ language: 'he', versionTitle: vTitle, priority: 0, isSource: true }],
+      }));
+      await FS.writeAsStringAsync(encodeURI(`${FS.documentDirectory}/${stem}.metadata.json`), JSON.stringify({
+        sections: {
+          'Rashi on Niddah 2a:1': {
+            ref: 'Rashi on Niddah 2a:1',
+            heRef: 'רש"י על נדה ב׳ א:א׳',
+            indexTitle: 'Rashi on Niddah',
+            sectionRef: 'Rashi on Niddah 2a:1',
+            versions: [{ language: 'he', versionTitle: vTitle }],
+            links: [[], []],
+          },
+        },
+      }));
+      await FS.writeAsStringAsync(encodeURI(`${FS.documentDirectory}/${stem}.${hash}.he.json`), JSON.stringify({
+        sections: { 'Rashi on Niddah 2a:1': ['ראשון', 'שני'] },
+      }));
+
+      Sefaria._jsonSectionData = {};
+      const readsBefore = FS.readAsStringAsync.mock.calls.length;
+      const first = await loadTextOffline('Rashi on Niddah 2a:1:1', {}, true);
+      const readsAfterFirst = FS.readAsStringAsync.mock.calls.length;
+      const second = await loadTextOffline('Rashi on Niddah 2a:1:2', {}, true);
+      const readsAfterSecond = FS.readAsStringAsync.mock.calls.length;
+
+      expect(first.textContent.requestedRef).toBe('Rashi on Niddah 2a:1:1');
+      expect(second.textContent.requestedRef).toBe('Rashi on Niddah 2a:1:2');
+      expect(readsAfterFirst).toBeGreaterThan(readsBefore);
+      expect(readsAfterSecond).toBe(readsAfterFirst);
+    } finally {
+      Sefaria._index = savedIndex;
+      Sefaria.booksDict = savedBooksDict;
+    }
+  });
+});

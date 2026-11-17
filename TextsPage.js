@@ -1,5 +1,5 @@
 import React, {useCallback, useContext}  from 'react';
-import {View, FlatList, Platform} from "react-native";
+import {View, FlatList, Platform, useWindowDimensions} from "react-native";
 import Sefaria from "./sefaria";
 import {displayRef, displayHeRef} from "./extras/schema7";
 import {
@@ -100,25 +100,32 @@ export const continueReadingItems = (lastPlace, tabs, count = CONTINUE_READING_C
 };
 
 const ContinueReading = ({ openRef, openHistory }) => {
-    const { theme, readingHistory } = useGlobalState();
+    const { theme, readingHistory, interfaceLanguage } = useGlobalState();
+    const { width } = useWindowDimensions();
+    const isTablet = width >= 600;
+    const isHeb = interfaceLanguage === 'hebrew';
     const { readerTabs } = useContext(ReaderAppContext);
     const items = readingHistory ? continueReadingItems(Sefaria.history.lastPlace, readerTabs?.tabs) : [];
     if (!items.length) { return null; }
     return (
         <View style={styles.homeSection}>
             <HomeSectionHeader titleKey={"home.continue_reading"} actionKey={"common.see_all"} onAction={openHistory} />
-            {items.map(item => (
-                <SefariaPressable key={item.ref} onPress={() => openRef(item.ref, item.versions)}>
-                    <View style={[styles.homeContinueRow, theme.lighterGreyBorder]}>
-                        <CategoryColorLine category={Sefaria.primaryCategoryForTitle(bookOfPlace(item))} thickness={4}/>
-                        <ContentTextWithFallback
-                            en={displayRef(item.ref, item.he_ref || item.heRef)}
-                            he={(item.he_ref || item.heRef) ? Sefaria.normHebrewRef(displayHeRef(item.ref, item.he_ref || item.heRef)) : item.ref}
-                            extraStyles={[styles.homeContinueText, theme.text]}
-                        />
+            <View style={isTablet && items.length > 1 ? { flexDirection: isHeb ? 'row-reverse' : 'row', flexWrap: 'wrap', justifyContent: 'space-between' } : undefined}>
+                {items.map(item => (
+                    <View key={item.ref} style={isTablet && items.length > 1 ? { width: '48.5%' } : undefined}>
+                        <SefariaPressable onPress={() => openRef(item.ref, item.versions)}>
+                            <View style={[styles.homeContinueRow, theme.lighterGreyBorder]}>
+                                <CategoryColorLine category={Sefaria.primaryCategoryForTitle(bookOfPlace(item))} thickness={4}/>
+                                <ContentTextWithFallback
+                                    en={displayRef(item.ref, item.he_ref || item.heRef)}
+                                    he={(item.he_ref || item.heRef) ? Sefaria.normHebrewRef(displayHeRef(item.ref, item.he_ref || item.heRef)) : item.ref}
+                                    extraStyles={[styles.homeContinueText, theme.text]}
+                                />
+                            </View>
+                        </SefariaPressable>
                     </View>
-                </SefariaPressable>
-            ))}
+                ))}
+            </View>
         </View>
     );
 };
@@ -192,7 +199,10 @@ const HomePageFooter = ({ openAbout, openRef, openLearningSchedules }) => {
 };
 
 export const TextsPage = ({categories, setCategories, openRef, openLearningSchedules, onBack, openAbout, openHistory}) => {
-    const { theme } = useGlobalState();
+    const { theme, interfaceLanguage } = useGlobalState();
+    const { width } = useWindowDimensions();
+    const isTablet = width >= 600;
+    const isHeb = interfaceLanguage === 'hebrew';
 
     if (categories.length) {
         return (
@@ -210,6 +220,9 @@ export const TextsPage = ({categories, setCategories, openRef, openLearningSched
         // outer view with flexDirection row properly bounds the FlatList so it doesn't overflow horizontally on some displays.
         <View style={{flex: 1, flexDirection: "row"}}>
             <FlatList
+                key={isTablet ? 'tablet-2col' : 'phone-1col'}
+                numColumns={isTablet ? 2 : 1}
+                columnWrapperStyle={isTablet ? { flexDirection: isHeb ? 'row-reverse' : 'row', justifyContent: 'space-between' } : undefined}
                 data={data}
                 contentContainerStyle={[{paddingHorizontal: 15, alignSelf: "stretch"}, theme.mainTextPanel]}
                 ListHeaderComponent={
@@ -221,10 +234,12 @@ export const TextsPage = ({categories, setCategories, openRef, openLearningSched
                 ListFooterComponent={<HomePageFooter openAbout={openAbout} openRef={openRef} openLearningSchedules={openLearningSchedules} />}
                 keyExtractor={item => item.category}
                 renderItem={({ item }) => (
-                    <TopLevelCategory
-                        item={item}
-                        setCategories={setCategories}
-                    />
+                    <View style={isTablet ? { width: '48.5%' } : undefined}>
+                        <TopLevelCategory
+                            item={item}
+                            setCategories={setCategories}
+                        />
+                    </View>
                 )}
             />
         </View>

@@ -100,7 +100,10 @@ export function entryFor(b) {
     heCategories: [CATEGORY_HE[b.category] || b.category, CATEGORY_HE[CATEGORY]],
     // the names it may have in the library (importers.wiki_keys), and the copies it is used instead of
     names: b.names || wikiKeys(b.page),
-    ...(b.preferred ? {preferred: true, replaces: b.replaces || []} : {}),
+    ...(b.preferred ? {
+      preferred: true,
+      replaces: [...new Set([...(b.replaces || []), ...(he === 'רוקח על שיר השירים' ? ['רוקח על שיר השירים חלק א'] : [])])],
+    } : {}),
     // its English name and other names, when it has them (the Rokeach on Shir HaShirim, used
     // instead of Sefaria's "Rokeach on Song of Songs"): shown in English and found by them
     ...englishNames(b),

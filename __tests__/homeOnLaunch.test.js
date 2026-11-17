@@ -36,6 +36,17 @@ describe('the app-icon launch link', () => {
     // RN's Linking only reports VIEW intents (getInitialURL and the 'url' event)
     expect(src).toMatch(/action = Intent\.ACTION_VIEW;/);
   });
+
+  test('MainActivity normalizes an icon launch (MAIN, no link) to that same link onCreate and onNewIntent', () => {
+    const src = fs.readFileSync(path.join(__dirname, '..', 'android', 'app', 'src', 'main', 'java',
+      'org', 'sefaria', 'sefaria', 'MainActivity.kt'), 'utf8');
+    expect(src).toContain(`Uri.parse("${APP_HOME_URL}")`);
+    expect(src).toContain('normalizeLauncherIntent');
+    expect(src).toMatch(/targetIntent\.data == null && targetIntent\.action == Intent\.ACTION_MAIN/);
+    expect(src).toMatch(/targetIntent\.action = Intent\.ACTION_VIEW/);
+    expect(src).toMatch(/override fun onCreate[\s\S]*normalizeLauncherIntent\(intent\)/);
+    expect(src).toMatch(/override fun onNewIntent[\s\S]*normalizeLauncherIntent\(intent\)/);
+  });
 });
 
 describe('DeepLinkRouter', () => {

@@ -12,7 +12,7 @@ import { itemsForSource } from './inlineCommentaryPrefs';
 import { NakdanText } from './NakdanNotices';
 import { useNakdan } from './nakdan';
 import { commentaryFontSize } from '../StateManager';
-import { boldDibbur, plainWithBold, boldRuns, isCommentaryBook, isCommentaryCategory } from './dibbur';
+import { boldDibbur, stripLeadingVerseMarker, plainWithBold, boldRuns, isCommentaryBook, isCommentaryCategory } from './dibbur';
 import { commentaryTitles } from '../extras/links';
 
 // ref -> {he, en}; shared by every segment so scrolling back does not reload.
@@ -40,8 +40,19 @@ export const loadCommentText = (ref, load = loadText) => {
       // (the Hebrew's bold words kept, with the dibbur hamaschil made bold as SoferBooks prints a
       //  commentary - reader/dibbur.js: shown when the source is a commentary)
       const heHtml = flatten(result?.he);
-      const withDibbur = plainWithBold(typeof heHtml === 'string' ? boldDibbur(heHtml) : '');
-      return { he: plain(heHtml), en: plain(flatten(result?.en)), heText: withDibbur.text, heDibburBold: withDibbur.bold };
+      const cleanedHe = typeof heHtml === 'string' ? stripLeadingVerseMarker(heHtml) : '';
+      const hasExplicitBold = /<(?:b|strong)\b[^>]*>[^<\s]/i.test(cleanedHe);
+      const plainBold = plainWithBold(cleanedHe);
+      const withDibbur = plainWithBold(cleanedHe ? boldDibbur(cleanedHe) : '');
+      return {
+        he: plain(cleanedHe || heHtml),
+        en: plain(flatten(result?.en)),
+        heText: withDibbur.text,
+        heDibburBold: withDibbur.bold,
+        hePlainText: plainBold.text,
+        hePlainBold: plainBold.bold,
+        hasExplicitBold,
+      };
     })
     .catch(() => ({ he: '', en: '' }))
     .then(texts => {
@@ -117,11 +128,16 @@ const InlineCommentary = ({ links, sourceKey, nakdan = false }) => {
   const showEn = textLanguage !== 'hebrew';
   const size = Math.max(14, readerFontSize * 0.72) * scale;
   const parts = [];
+  const sourceUsesExplicitBold = texts.filter(t => t && t.hasExplicitBold).length >= 2;
   texts.forEach((t, i) => {
     if (!t) { return; }
     // fall back to whichever language exists, so a Hebrew-only commentary still shows in English mode
     // (the Hebrew as its words were counted for their bold: heText)
-    const he = (showHe || !t.en) ? (t.heText != null ? t.heText : t.he) : '';
+    const dibbur = !(items[i] && items[i].he) && !!items[i] && isCommentaryItem(items[i].ref, links);
+    const activeT = (sourceUsesExplicitBold && !t.hasExplicitBold && t.hePlainText != null)
+      ? { ...t, heText: t.hePlainText, heDibburBold: t.hePlainBold }
+      : t;
+    const he = (showHe || !t.en) ? (activeT.heText != null ? activeT.heText : activeT.he) : '';
     const en = (showEn || !t.he) ? t.en : '';
     const name = items[i] && items[i].he;
     if (name && (he || en)) {
@@ -130,8 +146,7 @@ const InlineCommentary = ({ links, sourceKey, nakdan = false }) => {
       parts.push(<Text key={`name${i}`} style={[heName ? localStyles.nameHe : localStyles.nameEn, theme.tertiaryText, { fontSize: size * 0.85 }]}>{heName ? name : items[i].ref}</Text>);
     }
     // (a commentary's comment: its dibbur hamaschil in bold, as SoferBooks prints it)
-    const dibbur = !name && !!items[i] && isCommentaryItem(items[i].ref, links);
-    if (he) { parts.push(<InlineCommentaryHe key={`he${i}`} t={t} he={he} dibbur={dibbur} nakdan={nakdan} style={[localStyles.he, theme.tertiaryText, { fontSize: size * 1.1, lineHeight: size * 1.6 }]} />); }
+    if (he) { parts.push(<InlineCommentaryHe key={`he${i}`} t={activeT} he={he} dibbur={dibbur} nakdan={nakdan} style={[localStyles.he, theme.tertiaryText, { fontSize: size * 1.1, lineHeight: size * 1.6 }]} />); }
     // (LRM first: English Rashi opens with the Hebrew words it explains, and Android then laid the
     // whole paragraph out right to left - its closing period at the start of the line, ".daytime")
     if (en) { parts.push(<Text key={`en${i}`} style={[localStyles.en, theme.tertiaryText, { fontSize: size, lineHeight: size * 1.45 }]}>{LRM + en}</Text>); }

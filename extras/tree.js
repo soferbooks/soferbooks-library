@@ -188,8 +188,14 @@ export function inlineSections(tree) {
   if (parts.filter(c => c.title).length > 1 || parts.some(c => c.children.length) || tree.hasNotes()) {
     return tree;
   }
-  const owners = tree.paras.map(() => tree).concat(...parts.map(c => c.paras.map(() => c)));
-  const paras = tree.paras.concat(...parts.map(c => c.paras));
+  const owners = tree.paras.map(() => tree);
+  const paras = tree.paras.slice();
+  for (const c of parts) {
+    for (const p of c.paras) {
+      owners.push(c);
+      paras.push(p);
+    }
+  }
   const run = inlineRun(paras);
   if (!run.length) { return tree; }
   const out = new Node('');

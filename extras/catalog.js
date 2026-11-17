@@ -75,7 +75,7 @@ export function chooseBooks(toc, catalogs, {installed = {}, blocked = {}} = {}) 
   //  is taken before the other sources' books; entry.names: its other names, as Sofer compares them)
   const passes = [true, false].map(pref => order.map(source => [source, (catalogs[source] || [])
     .filter(e => !!e.preferred === pref)]));
-  for (const [source, entries] of [].concat(...passes)) {
+  for (const [source, entries] of passes.flat(1)) {
     for (const entry of entries) {
       const key = `${entry.source || source}|${entry.id}`;
       if (blocked[key]) { skipped.blocked += 1; continue; }
@@ -83,8 +83,8 @@ export function chooseBooks(toc, catalogs, {installed = {}, blocked = {}} = {}) 
       const all = [name, ...(entry.names || []).map(normTitle)];
       // (a preferred book: the toc's copies of it are not "the same sefer already there" - it
       //  is used instead of them)
-      const ousts = !entry.preferred || !name ? [] : [...new Set([].concat(...[entry.heTitle, ...(entry.names || []),
-        ...(entry.replaces || [])].map(n => tocByName[nameKey(n)] || [])))].filter(t => !(t in replaced));
+      const ousts = !entry.preferred || !name ? [] : [...new Set([entry.heTitle, ...(entry.names || []),
+        ...(entry.replaces || [])].flatMap(n => tocByName[nameKey(n)] || []))].filter(t => !(t in replaced));
       const theirs = new Set();
       walkBooks(toc, b => { if (ousts.includes(b.title) && b.heTitle) { theirs.add(normTitle(b.heTitle)); } });
       if (!name || all.some(n => names.has(n) && !theirs.has(n))) { skipped.duplicate += 1; continue; }

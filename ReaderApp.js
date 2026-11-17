@@ -456,15 +456,26 @@ class ReaderApp extends React.PureComponent {
 
           this.getInitialPromise()
           .then(Sefaria.postInitSearch)
-          .then(() => { this.setState({_completedInit: true}); })  // setting this true before end of postInit. postInit takes a surprisingly long time due to download update check.
+          .then(() => {
+            this.setState({_completedInit: true}, () => {
+              if (this._initDeepLinkURL) {
+                const lateUrl = this._initDeepLinkURL;
+                this._initDeepLinkURL = null;
+                this._deepLinkRouterRef.route(lateUrl, this._initDeepLinkFromOutside);
+              }
+            });
+          })  // setting this true before end of postInit. postInit takes a surprisingly long time due to download update check.
           .then(() => Sefaria.postInit(this.props.downloadNetworkSetting))
           .then(this.promptLibraryDownload.bind(this));
         } else {
           // apply deep link here to make sure it applies correctly
           // load search files before deep link incase deep link is to search
+          const initUrl = this._initDeepLinkURL;
+          const initFromOutside = this._initDeepLinkFromOutside;
+          this._initDeepLinkURL = null;
           Sefaria.postInitSearch()
           .then(() => {
-            this._deepLinkRouterRef.route(this._initDeepLinkURL, this._initDeepLinkFromOutside);
+            this._deepLinkRouterRef.route(initUrl, initFromOutside);
           })
           .then(() => { this.setState({_completedInit: true}); })
           .then(() => Sefaria.postInit(this.props.downloadNetworkSetting))
@@ -852,6 +863,8 @@ class ReaderApp extends React.PureComponent {
     if (((segment !== this.state.segmentIndexRef || section !== this.state.sectionIndexRef) && !justScrolling) || justOpened) {
       if (this.state.linksLoaded[section]) {
         this.updateLinkSummary(section, segment);
+      } else if (this.state.sectionArray?.[section] && !isSheet) {
+        this.loadRelated(this.state.sectionArray[section], false);
       }
       this.updateVersionCat(null, segmentRef);
     }
@@ -1148,7 +1161,7 @@ class ReaderApp extends React.PureComponent {
           } else {
             relatedObj = Sefaria.links.postProcessRelatedResponse(response, offset, currSection.length);
           }
-          Sefaria.cacheCommentatorListBySection(ref, currSection);
+          Sefaria.cacheCommentatorListBySection(ref, relatedObj);
 
           // Update linksLoaded immutably
           let newLinksLoaded = prevState.linksLoaded;
@@ -1252,7 +1265,10 @@ class ReaderApp extends React.PureComponent {
               this.setCurrVersionObjects(textContent.sectionRef);
             });
           })
-          .catch(function(error) {
+          .catch(error => {
+            if (loadToken === this._loadToken) {
+              this.setState({ loadingTextTail: false });
+            }
             console.log('Error caught from ReaderApp.updateDataNext', error);
           });
     });
@@ -1327,8 +1343,15 @@ class ReaderApp extends React.PureComponent {
       const download = async () => {
         // (how far it is, and Cancel, over the reader while it downloads: ExtraDownloadModal)
         this.setState({extraDownload: {title, name: (isHe ? book?.heTitle : book?.title) || title}});
+        const downloading = extras.downloadBook(title);
+        const unsubscribe = extras.subscribe ? extras.subscribe(() => {
+          if (!extras.downloadProgress(title)) {
+            this.setState(prev => (prev.extraDownload && prev.extraDownload.title === title ? {extraDownload: null} : null));
+          }
+        }) : () => {};
         try {
-          const firstSection = await extras.downloadBook(title);
+          const firstSection = await downloading;
+          unsubscribe();
           this.setState({extraDownload: null});
           if (open) { await open(firstSection); }
           resolve(true);
@@ -1350,6 +1373,8 @@ class ReaderApp extends React.PureComponent {
             restricted ? strings.extras.not_offered_message : strings.extras.download_failed_message,
             [{text: strings.common.ok}]);
           resolve(false);
+        } finally {
+          unsubscribe();
         }
       };
       // (how big it is, when its source says - Chok LeYisrael - or its size is known: the Sofer
@@ -1757,8 +1782,9 @@ ${strings.formatString(strings.extras.download_size, size)}` : '';
   updateLinkSummary = (section, segment) => {
     const menuLanguage = Sefaria.util.get_menu_language(this.props.interfaceLanguage, this.props.textLanguage);
     try {
-      const links = this.state.relatedBySectionRef[this.state.sectionArray[section]][segment]?.links;
-      const linkSummary = Sefaria.links.linkSummary(this.state.textReference, links, menuLanguage);
+      const sectionRef = (this.state.sectionArray && this.state.sectionArray[section]) || this.state.textReference;
+      const links = this.state.relatedBySectionRef[sectionRef][segment]?.links;
+      const linkSummary = Sefaria.links.linkSummary(sectionRef, links, menuLanguage);
       this.setState({linkSummary, loadingLinks: false});
       this.updateLinkCat(null, linkSummary); // Set up `linkContents` in their initial state as an array of nulls
     } catch (error) {
@@ -2923,8 +2949,7 @@ ${strings.formatString(strings.extras.download_size, size)}` : '';
       sectionLacksNikud(this.state.data[this.state.sectionIndexRef]);
     const nakdanSwitchAvailable = !!nakdanBook && this.props.vocalization !== VOCALIZATION.NONE &&
       (vowelToggleAvailable === VOCALIZATION.NONE || !!inlineCommentary);
-    const showNakdanAsk = !loading && !this.state.ReaderDisplayOptionsMenuVisible &&
-      shouldAskNakdan(this.state.nakdanPrefs, nakdanBook, this.props.vocalization, mainLacksNikud);
+    const showNakdanAsk = false;  // popup hidden; toggle lives in Aa menu & Settings
     const showNakdanCredit = !loading && nakdanOn && (mainLacksNikud || !!inlineCommentary);
     return (
         <Animated.View

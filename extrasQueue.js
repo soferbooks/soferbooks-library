@@ -22,13 +22,21 @@ import { freeBytes, cleanWork, LOW_SPACE_BYTES, LowSpaceError } from './storage'
 import { CONCURRENCY } from './downloadPool';
 
 export const STORAGE_KEY = 'extrasQueue';
-export const POLITE_MS = 1500;           // between two books
+export const POLITE_MS = 1500;           // between two Wikisource books
+export const INTER_BOOK_DELAY_MS = 20;   // let the UI / reader go first
 export const NETWORK_RETRY_MS = 30000;   // waiting for Wi-Fi (or any network)
 let timing = {polite: POLITE_MS, retry: NETWORK_RETRY_MS, books: CONCURRENCY.queueBooks};
 export const MAX_TRIES = 2;
 
-// {sources: [id], running, paused, pausedBy ('user' | 'low_space'), wifiOnly, failed: {title: tries}}
-let state = {sources: [], running: false, paused: false, pausedBy: null, wifiOnly: true, failed: {}};
+const politeDelayFor = sourceId => {
+  if (!timing.polite || timing.polite <= 0) { return 0; }
+  if (sourceId === 'sofer_library') { return 0; }
+  if (sourceId === 'dicta' || sourceId === 'otzaria') { return Math.min(timing.polite, 100); }
+  return timing.polite;
+};
+
+// {sources: [id], pausedSources: [id], running, paused, pausedBy ('user' | 'low_space'), wifiOnly, failed: {title: tries}}
+let state = {sources: [], pausedSources: [], running: false, paused: false, pausedBy: null, wifiOnly: true, failed: {}};
 let status = 'idle';                     // idle | downloading | waiting_network | paused | done
 const inFlight = new Set();              // the titles downloading now
 let freeAtPause = null;                  // bytes free when it paused for space
@@ -43,6 +51,8 @@ const save = () => AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state)).catc
 
 export const getState = () => ({...state, status, current: inFlight.size ? [...inFlight][0] : null,
   downloading: [...inFlight], freeAtPause});
+
+export const isQueueActive = () => !!(state.running && !state.paused && (inFlight.size || status === 'downloading'));
 
 async function load() {
   if (!loaded) {
@@ -141,6 +151,10 @@ async function worker() {
       break;
     }
     if (!state.running || state.paused || inFlight.has(book.title)) { continue; }
+    if (timing.polite > 0 && INTER_BOOK_DELAY_MS > 0) {
+      await wait(INTER_BOOK_DELAY_MS);
+      if (!state.running || state.paused || inFlight.has(book.title)) { continue; }
+    }
     const title = book.title;
     inFlight.add(title);
     status = 'downloading';
@@ -162,7 +176,8 @@ async function worker() {
     }
     inFlight.delete(title);
     notify();
-    await wait(timing.polite);
+    const politeDelay = politeDelayFor(book.source);
+    if (politeDelay > 0) { await wait(politeDelay); }
   }
 }
 
@@ -194,7 +209,7 @@ export async function start(sources) {
       try { await extras.setSourceEnabled(id, true); } catch (e) { console.log(`full library: ${id}`, e); }
     }
   }
-  state = {...state, sources: [...sources], running: true, paused: false, pausedBy: null, failed: {}};
+  state = {...state, sources: [...sources], pausedSources: [], running: true, paused: false, pausedBy: null, failed: {}};
   freeAtPause = null;
   await save();
   notify();
@@ -230,7 +245,7 @@ export async function cancel() {
   const was = [...inFlight];
   const sources = state.sources;
   const kept = sources.reduce((n, id) => n + progressOf(id).done, 0);
-  state = {...state, sources: [], running: false, paused: false, pausedBy: null, failed: {}};
+  state = {...state, sources: [], pausedSources: [], running: false, paused: false, pausedBy: null, failed: {}};
   freeAtPause = null;
   await save();
   was.forEach(t => extras.cancelDownload(t));
@@ -246,6 +261,51 @@ export async function setWifiOnly(on) {
   state = {...state, wifiOnly: !!on};
   await save();
   notify();
+}
+
+/** Remove `sourceIds` from the queue and cancel any in-flight downloads for them. */
+export async function removeSources(sourceIds) {
+  await load();
+  const drop = new Set(sourceIds || []);
+  if (!drop.size) { return; }
+  const current = state.sources || [];
+  const dropped = current.filter(id => drop.has(id));
+  const pausedSources = Array.from(new Set([...(state.pausedSources || []), ...dropped]));
+  state = { ...state, sources: current.filter(id => !drop.has(id)), pausedSources };
+  if (!state.sources.length) {
+    state = { ...state, running: false, paused: false, pausedBy: null };
+    status = 'idle';
+  }
+  await save();
+  for (const title of [...inFlight]) {
+    const info = extras.extraBook ? extras.extraBook(title) : (extras.getBooks && extras.getBooks()[title]);
+    if (info && drop.has(info.source)) {
+      extras.cancelDownload(title);
+    }
+  }
+  notify();
+  if (loop && !state.sources.length) { await Promise.race([loop, wait(3000)]); }
+}
+
+/** Re-add a source that was previously toggled off while queued, and resume downloading it. */
+export async function restoreSource(id) {
+  await load();
+  const paused = state.pausedSources || [];
+  if (!paused.includes(id)) { return false; }
+  const nextSources = state.sources.includes(id) ? state.sources : [...state.sources, id];
+  state = {
+    ...state,
+    sources: nextSources,
+    pausedSources: paused.filter(x => x !== id),
+    running: true,
+    paused: false,
+    pausedBy: null,
+  };
+  freeAtPause = null;
+  await save();
+  notify();
+  startLoop();
+  return true;
 }
 
 /** At startup: go on with a download the app was closed during */
@@ -265,7 +325,7 @@ export async function resumeIfRunning() {
 // (tests)
 export function _reset(next = {}, t = {polite: 0, retry: 0, books: 1}) {
   timing = {books: 1, ...t};
-  state = {sources: [], running: false, paused: false, pausedBy: null, wifiOnly: true, failed: {}, ...next};
+  state = {sources: [], pausedSources: [], running: false, paused: false, pausedBy: null, wifiOnly: true, failed: {}, ...next};
   status = 'idle';
   inFlight.clear();
   freeAtPause = null;

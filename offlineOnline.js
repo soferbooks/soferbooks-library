@@ -214,16 +214,26 @@ export const loadRelated = async function(ref, online) {
     // Sefaria's links (online or offline), with the downloaded extra books' links of the section
     // added (extras/links.js: an extra book's own connections, and the extra commentaries on a
     // Sefaria passage). Added each time, not cached, so a book just downloaded or deleted shows.
+    if (isExtraRef(ref)) {
+        return shomer.filterRelated({links: await extras.extraLinksFor(ref)});
+    }
     let response = api._related[ref];
     if (!response) {
-        const loader = online && !isExtraRef(ref) ? api.related : loadLinksOffline;
-        try {
-            response = await loader(ref);
-        } catch (error) {
-            // (Sefaria's links could not be had - offline, not downloaded: the extra books' still can)
-            const extra = await extras.extraLinksFor(ref);
-            if (!extra.length) { throw error; }
-            return shomer.filterRelated({links: extra});
+        if (!online) {
+            response = await loadLinksOffline(ref);
+        } else {
+            try {
+                response = await loadLinksOffline(ref);
+            } catch (offlineErr) {
+                try {
+                    response = await api.related(ref);
+                } catch (error) {
+                    // (Sefaria's links could not be had - offline, not downloaded: the extra books' still can)
+                    const extra = await extras.extraLinksFor(ref);
+                    if (!extra.length) { throw error; }
+                    return shomer.filterRelated({links: extra});
+                }
+            }
         }
         api._related[ref] = response;
     }

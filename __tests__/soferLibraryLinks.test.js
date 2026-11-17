@@ -83,4 +83,54 @@ describe('the Sofer Library\'s own connections', () => {
         expect.objectContaining({sourceRef: `${TITLE} 2a:4`, category: 'Talmud'})]);
     });
   });
+
+  test('depth-3 Ben-David commentary with empty metadata links derives base verse links & short collectiveTitle', () => {
+    const entry = {
+      title: 'Siach HaShirah on Song of Songs',
+      heTitle: 'שיח השירה על שיר השירים',
+      dependence: 'Commentary',
+      base_text_titles: ['Song of Songs'],
+    };
+    const files = {
+      'Siach HaShirah on Song of Songs_index.json': { title: entry.title },
+      'Siach HaShirah on Song of Songs 1.metadata.json': {
+        ref: 'Siach HaShirah on Song of Songs 1',
+        sections: {
+          'Siach HaShirah on Song of Songs 1:1': { ref: 'Siach HaShirah on Song of Songs 1:1', heRef: 'שיח השירה על שיר השירים א:א', links: [] },
+          'Siach HaShirah on Song of Songs 1:2': { ref: 'Siach HaShirah on Song of Songs 1:2', heRef: 'שיח השירה על שיר השירים א:ב', links: [] },
+        },
+      },
+      'Siach HaShirah on Song of Songs 1.11111111.he.json': {
+        sections: {
+          'Siach HaShirah on Song of Songs 1:1': ['פירוש א', 'פירוש ב'],
+          'Siach HaShirah on Song of Songs 1:2': ['ישקני מנשיקות'],
+        },
+      },
+    };
+    const own = ownLinks(entry, files);
+    expect(own).toEqual([
+      { a: 'Siach HaShirah on Song of Songs 1:1:1', ah: 'שיח השירה על שיר השירים א:א:1', t: 'Song of Songs 1:1', th: '', r: 'base' },
+      { a: 'Siach HaShirah on Song of Songs 1:1:2', ah: 'שיח השירה על שיר השירים א:א:2', t: 'Song of Songs 1:1', th: '', r: 'base' },
+      { a: 'Siach HaShirah on Song of Songs 1:2:1', ah: 'שיח השירה על שיר השירים א:ב:1', t: 'Song of Songs 1:2', th: '', r: 'base' },
+    ]);
+    const saved = global.Sefaria;
+    global.Sefaria = {
+      textTitleForRef: ref => (ref.startsWith('Siach') ? entry.title : 'Song of Songs'),
+      primaryCategoryForTitle: () => 'Commentary',
+      categoriesForTitle: () => ['Tanakh', 'Commentary'],
+      index: t => (t === entry.title ? entry : null),
+    };
+    try {
+      const map = buildIndex([{ title: entry.title, heTitle: entry.heTitle, links: own, pending: [] }]);
+      const related = relatedFromIndex(map, 'Song of Songs 1');
+      expect(related[0]).toMatchObject({
+        sourceRef: 'Siach HaShirah on Song of Songs 1:1:1',
+        collectiveTitle: 'Siach HaShirah',
+        heCollectiveTitle: 'שיח השירה',
+        category: 'Commentary',
+      });
+    } finally {
+      global.Sefaria = saved;
+    }
+  });
 });

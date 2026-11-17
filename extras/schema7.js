@@ -155,6 +155,32 @@ export function bookFiles(tree, book) {
   return {files, firstSection: refs[0] || title, sections: refs};
 }
 
+/** Plain commentator title for a commentary ("Rokeach on Song of Songs" -> "Rokeach"). */
+export function commentaryShortTitles(title, heTitle, enTitle, dependence) {
+  const fullEn = enTitle || title || '';
+  const isComm = dependence === 'Commentary' || dependence === 'Targum' ||
+    (typeof heTitle === 'string' && heTitle.includes(' על ')) ||
+    (typeof fullEn === 'string' && fullEn.includes(' on '));
+  if (!isComm) { return null; }
+  let heShort = null;
+  if (typeof heTitle === 'string' && heTitle.includes(' על ')) {
+    heShort = heTitle.split(' על ')[0].replace(/\s+חלק\s+[א-ת0-9]+$/, '').trim();
+    if (/^פירוש\s+ה/.test(heShort)) { heShort = heShort.replace(/^פירוש\s+ה/, ''); }
+    else if (/^פירוש\s+/.test(heShort)) { heShort = heShort.replace(/^פירוש\s+/, ''); }
+  }
+  let enShort = null;
+  if (typeof fullEn === 'string' && fullEn.includes(' on ')) {
+    enShort = fullEn.split(' on ')[0].trim();
+    if (/^Commentary of the /i.test(enShort)) { enShort = enShort.replace(/^Commentary of the /i, ''); }
+    else if (/^Commentary of /i.test(enShort)) { enShort = enShort.replace(/^Commentary of /i, ''); }
+  }
+  if (!heShort && !enShort) { return null; }
+  return {
+    collectiveTitle: enShort || heShort || title,
+    heCollectiveTitle: heShort || enShort || heTitle || title,
+  };
+}
+
 /** The book's entry in the library's table of contents (as export_v7.book_toc_item). */
 export function tocItem(entry, firstSection) {
   const item = {
@@ -167,6 +193,7 @@ export function tocItem(entry, firstSection) {
     heShortDesc: '',
     librarySource: entry.source,
   };
+  if (entry.enTitle) { item.enTitle = entry.enTitle; }
   if (entry.dependence) { item.dependence = entry.dependence; }
   if (entry.base_text_titles) { item.base_text_titles = entry.base_text_titles; }
   // (the book's other names: the search box finds it by them - search/localAutocomplete.js)

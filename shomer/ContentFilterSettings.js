@@ -153,10 +153,11 @@ export const ExtraSourceRow = ({ source, langStyle, theme, interfaceLanguage }) 
   };
   const toggle = value => {
     if (value) { run(() => extras.setSourceEnabled(source.id, true)); return; }
-    if (!downloaded) { run(() => extras.setSourceEnabled(source.id, false)); return; }
+    if (!downloaded) { run(() => extras.setSourceEnabled(source.id, false, { keepBooks: false })); return; }
     Alert.alert(name, countString(strings.extras.turn_off_message, strings.extras.turn_off_message_one, downloaded), [
       {text: strings.common.cancel, style: 'cancel'},
-      {text: strings.common.yes, onPress: () => run(() => extras.setSourceEnabled(source.id, false))},
+      {text: strings.extras.keep_books, onPress: () => run(() => extras.setSourceEnabled(source.id, false, { keepBooks: true }))},
+      {text: strings.extras.delete_books, style: 'destructive', onPress: () => run(() => extras.setSourceEnabled(source.id, false, { keepBooks: false }))},
     ]);
   };
   const checkUpdates = () => run(async () => {

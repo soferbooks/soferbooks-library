@@ -13,6 +13,9 @@ export class FilterSearcher {
         this._queryMatchesText(query, filter.title) ||
         this._queryMatchesText(query, filter.heTitle)
     );
+    static _hasWordStartingWithOrSelected = (filter, query) => (
+        this._queryMatchesFilter(this._normalizeQuery(query), filter)
+    );
 
     static _getFilterTreeByQuery = (filterTree, query) => {
         query = this._normalizeQuery(query);

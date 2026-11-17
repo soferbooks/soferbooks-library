@@ -97,8 +97,6 @@ export const NakdanSettings = ({ langStyle }) => {
       <Text style={[langStyle, styles.settingsSectionHeader, theme.tertiaryText]}>{strings.settings.nakdan_header}</Text>
       {row(strings.settings.nakdan_always, strings.settings.nakdan_always_detail, !!prefs.settings.always,
         on => setNakdanSettings({ always: on }), 'nakdan-always-switch')}
-      {row(strings.settings.nakdan_ask, null, !prefs.settings.neverAsk,
-        on => setNakdanSettings({ neverAsk: !on }), 'nakdan-ask-switch')}
       <TouchableOpacity accessibilityRole="link" onPress={openDicta}>
         <Text style={[langStyle, theme.tertiaryText, local.detail]}>{strings.settings.nakdan_credit}</Text>
       </TouchableOpacity>

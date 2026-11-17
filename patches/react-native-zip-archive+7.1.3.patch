@@ -1,24 +1,124 @@
-diff --git a/node_modules/react-native-zip-archive/android/build.gradle b/node_modules/react-native-zip-archive/android/build.gradle
-index b199afa..d4ae028 100644
---- a/node_modules/react-native-zip-archive/android/build.gradle
-+++ b/node_modules/react-native-zip-archive/android/build.gradle
-@@ -1,11 +1,13 @@
- buildscript {
--    repositories {
--        google()
--        mavenCentral()
--    }
-+    if (project == rootProject) {
-+        repositories {
-+            google()
-+            mavenCentral()
-+        }
+diff --git a/node_modules/react-native-zip-archive/android/src/main/java/com/rnziparchive/RNZipArchiveModule.java b/node_modules/react-native-zip-archive/android/src/main/java/com/rnziparchive/RNZipArchiveModule.java
+index 9d1b2c1..9ae3fec 100644
+--- a/node_modules/react-native-zip-archive/android/src/main/java/com/rnziparchive/RNZipArchiveModule.java
++++ b/node_modules/react-native-zip-archive/android/src/main/java/com/rnziparchive/RNZipArchiveModule.java
+@@ -17,6 +17,7 @@ import com.facebook.react.modules.core.DeviceEventManagerModule;
+ import java.io.BufferedInputStream;
+ import java.io.BufferedOutputStream;
+ import java.io.File;
++import java.io.FileInputStream;
+ import java.io.FileOutputStream;
+ import java.io.IOException;
+ import java.io.InputStream;
+@@ -27,9 +28,11 @@ import java.util.Arrays;
+ import java.util.Collections;
+ import java.util.Enumeration;
+ import java.util.List;
++import java.util.zip.Deflater;
+ import java.util.zip.ZipEntry;
+ //import java.util.zip.ZipFile;
+ import java.util.zip.ZipInputStream;
++import java.util.zip.ZipOutputStream;
  
--    dependencies {
--        classpath 'com.android.tools.build:gradle:3.2.1'
-+        dependencies {
-+            classpath 'com.android.tools.build:gradle:8.3.1'
-+        }
+ import net.lingala.zip4j.exception.ZipException;
+ import net.lingala.zip4j.model.FileHeader;
+@@ -150,6 +153,7 @@ public class RNZipArchiveModule extends ReactContextBaseJavaModule {
+           }
+ 
+           long extractedBytes = 0;
++          int lastPercent = -1;
+           for (FileHeader fileHeader : fileHeaderList) {
+             ZipSecurity.validateExtractPath(destDirectory, fileHeader.getFileName());
+             zipFile.extractFile(fileHeader, destDirectory, ZipSecurity.createExtractParameters());
+@@ -157,7 +161,11 @@ public class RNZipArchiveModule extends ReactContextBaseJavaModule {
+             if (size > 0) {
+               extractedBytes += size;
+             }
+-            updateProgress(extractedBytes, totalUncompressedBytes, zipFilePath);
++            int percent = (int) Math.min(100L, (extractedBytes * 100L) / totalUncompressedBytes);
++            if (percent != lastPercent) {
++              lastPercent = percent;
++              updateProgress(extractedBytes, totalUncompressedBytes, zipFilePath);
++            }
+           }
+ 
+           zipFile.close();
+@@ -347,18 +355,73 @@ public class RNZipArchiveModule extends ReactContextBaseJavaModule {
      }
- }
+   }
  
++  private static void collectZipItems(File dir, String prefix, List<File> filesOut, List<String> namesOut) {
++    File[] children = dir.listFiles();
++    if (children == null) { return; }
++    for (File child : children) {
++      String entryName = prefix + child.getName();
++      if (child.isDirectory()) {
++        collectZipItems(child, entryName + "/", filesOut, namesOut);
++      } else {
++        filesOut.add(child);
++        namesOut.add(entryName);
++      }
++    }
++  }
++
+   private void processZip(final ArrayList<Object> entries, final String destFile, final ZipParameters parameters, final Promise promise, final char[] password) {
+     new Thread(new Runnable() {
+       @Override
+       public void run() {
+         try {
+-          net.lingala.zip4j.ZipFile zipFile;
+-          if (password != null) {
+-            zipFile = new net.lingala.zip4j.ZipFile(destFile, password);
+-          } else {
+-            zipFile = new net.lingala.zip4j.ZipFile(destFile);
++          if (password == null || password.length == 0) {
++            List<File> filesOut = new ArrayList<>();
++            List<String> namesOut = new ArrayList<>();
++            for (int i = 0; i < entries.size(); i++) {
++              File f = new File(entries.get(i).toString());
++              if (!f.exists()) {
++                promise.reject("RNZipArchiveError", "File or folder does not exist");
++                return;
++              }
++              if (f.isDirectory()) {
++                collectZipItems(f, "", filesOut, namesOut);
++              } else {
++                filesOut.add(f);
++                namesOut.add(f.getName());
++              }
++            }
++            updateProgress(0, 100, destFile);
++            try (ZipOutputStream zos = new ZipOutputStream(
++                    new BufferedOutputStream(new FileOutputStream(destFile), 65536),
++                    Charset.forName("UTF-8"))) {
++              zos.setLevel(Deflater.BEST_SPEED);
++              byte[] buffer = new byte[65536];
++              int totalFiles = filesOut.size();
++              int lastPercent = -1;
++              for (int i = 0; i < totalFiles; i++) {
++                File src = filesOut.get(i);
++                zos.putNextEntry(new ZipEntry(namesOut.get(i)));
++                try (FileInputStream fis = new FileInputStream(src)) {
++                  int len;
++                  while ((len = fis.read(buffer)) > 0) {
++                    zos.write(buffer, 0, len);
++                  }
++                }
++                zos.closeEntry();
++                int percent = (int) (((i + 1) * 100L) / Math.max(1, totalFiles));
++                if (percent != lastPercent) {
++                  lastPercent = percent;
++                  updateProgress(i + 1, totalFiles, destFile);
++                }
++              }
++            }
++            updateProgress(1, 1, destFile);
++            promise.resolve(destFile);
++            return;
+           }
+ 
++          net.lingala.zip4j.ZipFile zipFile = new net.lingala.zip4j.ZipFile(destFile, password);
++
+           updateProgress(0, 100, destFile);
+ 
+           int totalFiles = 0;

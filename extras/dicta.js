@@ -226,7 +226,13 @@ const lettersOf = s => (String(s).replace(/<[^>]+>/g, '').match(LETTERS) || []).
 
 /** importers._share_in: how much of tree's text (~300 pieces of 30 letters) is in other's */
 export function shareIn(tree, other) {
-  const paras = n => [n.title, ...n.paras].map(lettersOf).concat(...n.children.map(paras));
+  const paras = n => {
+    const out = [n.title, ...n.paras].map(lettersOf);
+    for (const c of n.children) {
+      for (const p of paras(c)) { out.push(p); }
+    }
+    return out;
+  };
   const mine = paras(tree).filter(t => t.length >= 30);
   const o = paras(other).join('');
   const step = Math.max(30, Math.floor(mine.reduce((a, t) => a + t.length, 0) / 300));
@@ -621,7 +627,7 @@ export async function fetchPageCitations(entry, job = null) {
     }
     return found;
   });
-  return [].concat(...each);
+  return each.flat(1);
 }
 
 /**

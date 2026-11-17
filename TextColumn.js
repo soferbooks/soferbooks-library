@@ -321,6 +321,8 @@ class TextColumn extends React.PureComponent {
       for (let sectionIndex = 0; sectionIndex < data.length; sectionIndex++) {
         let rows = [];
         const sectionRef = props.sectionArray[sectionIndex];
+        const isComm = this.isCommentary();
+        const sectionHasExplicitBold = isComm && data[sectionIndex].filter(s => s && typeof s.he === 'string' && /<(?:b|strong)\b/i.test(s.he)).length >= 2;
         const isEmpty = seg => !seg.text && !seg.he;
         // (the first segment is kept, even empty, only when the whole section is: a book of notes
         //  on another book, laid out like it, has no blank first row where that paragraph has none)
@@ -337,7 +339,7 @@ class TextColumn extends React.PureComponent {
           const rowContent = data[sectionIndex][segmentIndex];
           const highlight = offsetRef === rowID || (props.textListVisible && props.segmentRef === rowID);
           const highlightedWordID = props.highlightedWordSegmentRef === rowID && props.highlightedWordID;
-          const changeString = `${rowID}|${relatedObj?.links?.length}|${highlight}|${this.props.fontSize}|${highlightedWordID}`;
+          const changeString = `${rowID}|${sectionIndex}|${relatedObj?.links?.length}|${highlight}|${this.props.fontSize}|${highlightedWordID}|${sectionHasExplicitBold}`;
           let rowData = this.dataSourceHash[changeString];
           if (!rowData) {
             rowData = {
@@ -347,12 +349,14 @@ class TextColumn extends React.PureComponent {
               rowIndex: segmentIndex,
               highlight,
               highlightedWordID,
+              noAutoDibbur: sectionHasExplicitBold,
             };
             this.dataSourceHash[changeString] = rowData;           
           } else {
             // in the case where you loaded a previous section, this sectionIndex is no longer valid
             // always update when pulling from cache just in case
             rowData.sectionIndex = sectionIndex;
+            rowData.noAutoDibbur = sectionHasExplicitBold;
           }
           // excluding b/c they don't change height: props.themeStr, props.linksLoaded[sectionIndex]
           //rowData.changeString += rowData.highlight ? "|highlight" : "";
@@ -438,14 +442,13 @@ class TextColumn extends React.PureComponent {
           console.log("target Y is no good :(", segmentRef);
         }
       } else {
-        const itemIndex = this.state.jumpInfoMap.get(segmentRef);
+        const loc = this.sectionItemMap && this.sectionItemMap.get(segmentRef);
         const { startY, endY } = this.getSegScrollPos(segmentRef);
-        if (startY > 0) {  // only scroll when segment top is visible on screen
-          if (!itemIndex) { debugger; }
+        if (startY > 0 && loc && this.sectionListRef) {  // only scroll when segment top is visible on screen
           this.sectionListRef.scrollToLocation({
               animated: false,
-              sectionIndex: 0,
-              itemIndex,
+              sectionIndex: loc.sectionIndex,
+              itemIndex: loc.itemIndex,
               viewPosition: 0,
           });
         }
@@ -482,6 +485,7 @@ class TextColumn extends React.PureComponent {
         this.props.segmentRef !== prevProps.segmentRef ||
         //this.props.themeStr !== prevProps.themeStr ||
         this.props.linksLoaded !== prevProps.linksLoaded ||
+        this.props.relatedBySectionRef !== prevProps.relatedBySectionRef ||
         this.props.textToc !== prevProps.textToc ||
         this.props.readingEditions !== prevProps.readingEditions ||
         (this.props.sheet && this.props.sheet.id) !== (prevProps.sheet && prevProps.sheet.id) ||
@@ -505,14 +509,13 @@ class TextColumn extends React.PureComponent {
   updateHighlightedSegmentContinuous = (secData) => {
     for (let i = 0; i < secData.sections.length; i++) {
       let sectionIndex = secData.indexes[i];
-      //let firstSegRefOffset = this.state.dataSource[sectionIndex].data[0].data.segmentData.length > 0 ? this.rowYHash[this.state.dataSource[sectionIndex].data[0].data.segmentData[0].ref] : null;
+      const secLayout = this.state.itemLayoutList && this.state.itemLayoutList[this.state.jumpInfoMap.get(this.props.sectionArray[sectionIndex])];
+      if (!secLayout) { continue; }
+      const sectionOffset = secLayout.offset;
       for (let j = 0; j < this.state.dataSource[sectionIndex].data[0].data.segmentData.length; j++) {
         let segment = this.state.dataSource[sectionIndex].data[0].data.segmentData[j];
-        const sectionOffset = this.state.itemLayoutList[this.state.jumpInfoMap.get(this.props.sectionArray[sectionIndex])].offset;
-        //console.log(segment.ref, this.rowYHash[segment.ref], this.currentY, sectionOffset, firstSegRefOffset);
         if (this.rowYHash[segment.ref] + sectionOffset - this.currentY > -20) {
           this.props.textSegmentPressed(sectionIndex, segment.segmentNumber, segment.ref);
-          //console.log("I choose you,", segment.ref, "!!!!")
           return;
         }
       }
@@ -546,13 +549,15 @@ class TextColumn extends React.PureComponent {
 
   setHighlight = (sectionIndex, segmentIndex, ref) => {
     //console.log("VISIBLE", allVisibleRows, "TO LOAD", segmentToLoad,"Seg Ind Ref",this.props.segmentIndexRef);
-    if (segmentIndex !== this.props.segmentIndexRef || ref !== this.props.segmentRef) {
+    if (sectionIndex !== this.props.sectionIndexRef || segmentIndex !== this.props.segmentIndexRef || ref !== this.props.segmentRef) {
       this.props.textSegmentPressed(sectionIndex, segmentIndex, ref);
     }
   };
 
   getSegScrollPos = ref => {
-    const { y, height } = this.rowYHash[ref];
+    const entry = this.rowYHash[ref];
+    if (!entry) { return { startY: 0, endY: 999999 }; }
+    const { y, height } = entry;
     const startY = y - this.currentY;
     const endY = (y + height) - this.currentY;
     return { startY, endY };
@@ -586,7 +591,6 @@ class TextColumn extends React.PureComponent {
   };
 
   handleScroll = (e) => {
-    const previousY = this.currentY;
     this.currentY = e.nativeEvent.contentOffset.y;
     if (this._anchorActive()) {
       // the list is still settling around the opened passage: these scrolls are ours, not reading
@@ -594,14 +598,21 @@ class TextColumn extends React.PureComponent {
       return;
     }
     if (this.viewableSectionData) {
-      if (Math.abs(previousY - this.currentY) > 80) {
-        return;
-      }
       if (this.props.textFlow === 'continuous') {
         this.updateHighlightedSegmentContinuous(this.viewableSectionData);
       } else {
         this.updateHighlightedSegment(this.viewableSectionData);
       }
+    }
+  };
+
+  handleScrollEnd = () => {
+    if (this._anchorActive() || !this.viewableSectionData) { return; }
+    this.updateTitle(this.viewableSectionData);
+    if (this.props.textFlow === 'continuous') {
+      this.updateHighlightedSegmentContinuous(this.viewableSectionData);
+    } else {
+      this.updateHighlightedSegment(this.viewableSectionData);
     }
   };
 
@@ -644,10 +655,16 @@ class TextColumn extends React.PureComponent {
   };
 
   onViewableItemsChanged = ({viewableItems, changed}) => {
+    this._latestViewableItems = viewableItems;
     let secData = this.getViewableSectionData(viewableItems);
     this.viewableSectionData = secData;
-    if (this._anchorActive()) { return; }  // title follows the passage once the list has settled
+    if (this._anchorActive() || this.state.jumpState.jumping) { return; }  // title follows the passage once the list has settled
     this.updateTitle(secData);
+    if (this.props.textFlow === 'continuous') {
+      this.updateHighlightedSegmentContinuous(secData);
+    } else {
+      this.updateHighlightedSegment(secData);
+    }
   };
 
   /******************
@@ -719,7 +736,7 @@ class TextColumn extends React.PureComponent {
           isSheet={this.props.isSheet}
           setHighlightedWord={this.props.setHighlightedWord}
           nakdan={!!this.props.nakdan}
-          boldDibbur={this.isCommentary()}
+          boldDibbur={this.isCommentary() && !item.data?.noAutoDibbur}
         />
         {this.props.inlineCommentary && item.type === ROW_TYPES.SEGMENT && !this.props.isSheet ?
           <InlineCommentary links={item.data.related?.links} sourceKey={this.props.inlineCommentary} nakdan={!!this.props.nakdan} /> : null}
@@ -830,16 +847,21 @@ class TextColumn extends React.PureComponent {
 
   updateJumpInfoMap = (dataSource) => {
     let jumpInfoMap = new Map();
+    let sectionItemMap = new Map();
     let currIndex = 0;
-    for (let section of dataSource) {
+    for (let sIdx = 0; sIdx < dataSource.length; sIdx++) {
+      let section = dataSource[sIdx];
       jumpInfoMap.set(section.ref, currIndex);
       currIndex++; //sections are counted in the index count
-      for (let segment of section.data) {
+      for (let iIdx = 0; iIdx < section.data.length; iIdx++) {
+        let segment = section.data[iIdx];
         jumpInfoMap.set(segment.ref, currIndex);
+        sectionItemMap.set(segment.ref, { sectionIndex: sIdx, itemIndex: iIdx });
         currIndex++;
       }
       currIndex++;
     }
+    this.sectionItemMap = sectionItemMap;
     return jumpInfoMap;
   }
 
@@ -894,23 +916,28 @@ class TextColumn extends React.PureComponent {
     let currOffset = 0;
     let itemLayoutList = [];
     let jumpInfoMap = new Map();
+    let sectionItemMap = new Map();
     let currIndex = 0;
-    for (let section of this.state.nextDataSource) {
+    for (let sIdx = 0; sIdx < this.state.nextDataSource.length; sIdx++) {
+      let section = this.state.nextDataSource[sIdx];
       let currHeight = textToHeightMap.get(section.ref);
       itemLayoutList[currIndex] = {index: currIndex, length: currHeight, offset: currOffset};
       jumpInfoMap.set(section.ref, currIndex);
       currOffset += currHeight;
       currIndex++; //sections are counted in the index count
-      for (let segment of section.data) {
+      for (let iIdx = 0; iIdx < section.data.length; iIdx++) {
+        let segment = section.data[iIdx];
         let currHeight = textToHeightMap.get(segment.ref);
         itemLayoutList[currIndex] = {index: currIndex, length: currHeight, offset: currOffset};
         jumpInfoMap.set(segment.ref, currIndex);
+        sectionItemMap.set(segment.ref, { sectionIndex: sIdx, itemIndex: iIdx });
         currOffset += currHeight;
         currIndex++;
       }
       itemLayoutList[currIndex] = {index: currIndex, length: 0, offset: currOffset};
       currIndex++;
     }
+    this.sectionItemMap = sectionItemMap;
     this.callOnEndReachedWhenContentIsShort(itemLayoutList);
     this.backupItemLayoutList = itemLayoutList;
     this.measuringHeights = false;
@@ -1005,6 +1032,8 @@ class TextColumn extends React.PureComponent {
               onEndReachedThreshold={2.0}
               onScroll={this.handleScroll}
               onScrollBeginDrag={this._onScrollBeginDrag}
+              onScrollEndDrag={this.handleScrollEnd}
+              onMomentumScrollEnd={this.handleScrollEnd}
               onContentSizeChange={this._scheduleReanchor}
               extraData={`${this.props.fontSize}|${this.props.inlineCommentary}|${!!this.props.nakdan}`}
               scrollEventThrottle={100}

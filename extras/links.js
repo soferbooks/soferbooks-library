@@ -43,6 +43,7 @@
  */
 import * as FileSystem from 'expo-file-system/legacy';
 import md5 from 'md5';
+import {commentaryShortTitles} from './schema7';
 import {sectionsOf} from './schema7';
 import {normTitle} from './tree';
 import {linksUrlForPath} from './otzaria';
@@ -394,7 +395,8 @@ async function talmudBase(f, base, loadSection, loadIndex) {
     const m = /^(\d+)([ab])$/.exec(l);
     return 2 * parseInt(m[1], 10) - 2 + (m[2] === 'b' ? 1 : 0);
   });
-  const lastNamed = named.length ? Math.max(...named) : 2;
+  let lastNamed = 2;
+  for (const n of named) { if (n > lastNamed) { lastNamed = n; } }
   const amudim = [];
   const unread = new Set();
   const read = async i => {
@@ -591,11 +593,25 @@ export function relatedFromIndex(map, sectionRef) {
     if (!title) { continue; }          // (not in the library: hidden by the content filter, or not there)
     const category = l.commentary ? 'Commentary'
       : ((typeof Sefaria !== 'undefined' && Sefaria.primaryCategoryForTitle(title)) || 'Other');
+    let collectiveTitle;
+    let heCollectiveTitle;
+    if (category === 'Commentary') {
+      const dict = typeof Sefaria !== 'undefined' && Sefaria.collectiveTitlesDict && Sefaria.collectiveTitlesDict[title];
+      const idx = typeof Sefaria !== 'undefined' && Sefaria.index ? Sefaria.index(title) : null;
+      const short = dict
+        ? { collectiveTitle: dict.en || dict.collectiveTitle, heCollectiveTitle: dict.he || dict.heCollectiveTitle }
+        : commentaryShortTitles(title, (idx && idx.heTitle) || String(l.otherHe || '').split(',')[0], idx && idx.enTitle, 'Commentary');
+      if (short) {
+        collectiveTitle = short.collectiveTitle;
+        heCollectiveTitle = short.heCollectiveTitle;
+      }
+    }
     out.push({
       sourceRef: dafRef(l.other, title),
       sourceHeRef: l.otherHe || l.other,
       index_title: title,
-      collectiveTitle: undefined,
+      collectiveTitle,
+      ...(heCollectiveTitle ? {heCollectiveTitle} : {}),
       category,
       anchorRef: l.anchor,
       sourceHasEn: false,

@@ -263,7 +263,7 @@ export default StyleSheet.create({
     flex: 1,
     left: 0,
     right: 0,
-    top:58,
+    top:54,
     position: 'absolute',
     backgroundColor: 'transparent',  // required to give the view height and width of children
     overflow: 'hidden',  // required on iOS to clip subviews outside of parent for masking
