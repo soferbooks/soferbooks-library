@@ -46,14 +46,15 @@ export const HOME_URL = `https://github.com/${REPO}`;
 export const CONVERTER_VERSION = 1;
 
 const SEPARATED_TUR = /^(?:Tur|Beit Yosef|Bach|Darkhei Moshe|Drisha|Prisha), (?:Orach Chayim|Yoreh De'ah|Even HaEzer|Choshen Mishpat)$/i;
+const SEPARATED_SPLIT = /^(?:Ben Ish Hai (?:Drashot|Halachot)|Shaar HaBitachon|.*, Gate of Trust)$/i;
 
 /** One book of the catalogue as a catalogue entry (null: not usable) */
 export function entryFor(b) {
   if (!b || !b.title || !b.heTitle || !b.file || !Array.isArray(b.categories) || !b.categories.length) { return null; }
-  if (b.kind === 'combined' || /\(Combined editions\)$/i.test(b.title) || /\(מהדורות משולבות\)$/.test(b.heTitle)) {
+  if (b.kind === 'combined' || b.kind === 'split' || /\(Combined editions\)$/i.test(b.title) || /\(מהדורות משולבות\)$/.test(b.heTitle)) {
     return null;
   }
-  if (SEPARATED_TUR.test(b.title)) {
+  if (SEPARATED_TUR.test(b.title) || SEPARATED_SPLIT.test(b.title)) {
     return null;
   }
   // (the book's files name it by its title: a title the library would change cannot be used)

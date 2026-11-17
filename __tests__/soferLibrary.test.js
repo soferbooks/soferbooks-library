@@ -76,7 +76,7 @@ const CATALOG = {
       }],
     },
     {
-      title: 'Tur, Test Part', heTitle: 'טור, חלק בדיקה', kind: 'split', categories: ['Halakhah', 'Tur'],
+      title: 'Tur, Test Part', heTitle: 'טור, חלק בדיקה', kind: 'sofer', categories: ['Halakhah', 'Tur'],
       heCategories: ['הלכה', 'טור'], license: ['CC0', 'Public Domain'], file: 'Tur-Test-Part-33333333.zip', size: 200,
       sha256: 'c'.repeat(64), md5: null, firstSection: 'Tur, Test Part',
     },
@@ -129,7 +129,15 @@ describe('the Sofer Library source', () => {
     expect(entryFor({
       title: 'Ben Ish Hai Drashot', heTitle: 'בן איש חי - דרשות', kind: 'split',
       categories: ['Jewish Thought'], file: 'bih.zip',
-    })).not.toBeNull();
+    })).toBeNull();
+    expect(entryFor({
+      title: 'Ben Ish Hai Halachot', heTitle: 'בן איש חי - הלכות', kind: 'split',
+      categories: ['Halakhah'], file: 'bih-h.zip',
+    })).toBeNull();
+    expect(entryFor({
+      title: 'Shaar HaBitachon', heTitle: 'שער הבטחון', kind: 'split',
+      categories: ['Jewish Thought'], file: 'shaar.zip',
+    })).toBeNull();
   });
 
   test('its books are listed on the shelves of their kind (a new "שירה ופיוט" shelf for poems)', () => {
