@@ -74,7 +74,7 @@ Module._load = function (request, ...rest) {
       downloadAsync: async (url, dest) => {
         const fp = toFsPath(dest);
         fs.mkdirSync(path.dirname(fp), { recursive: true });
-        const res = await fetch(url);
+        const res = await fetch(url, { signal: AbortSignal.timeout(30000) });
         if (!res.ok) { return { status: res.status, uri: dest }; }
         const buf = Buffer.from(await res.arrayBuffer());
         fs.writeFileSync(fp, buf);
@@ -177,37 +177,21 @@ async function convertOneBook(entry) {
   const searchText = lines.length ? `${lines.join('\n')}\n` : '';
 
   const where = dicta.linksOf(entry, doc) || {};
-  const { data: linkData, later } = await linksMod.collect({
+  const { data: linkData } = await linksMod.collect({
     title: entry.title,
     heTitle: entry.heTitle,
     tree,
     where,
-    fetchCitations: where.dictaPages && dicta.fetchPageCitations
-      ? () => dicta.fetchPageCitations(entry, { cancelled: false })
-      : null,
+    fetchCitations: null,
     stillWanted: () => false,
   });
-  const cites = await later.catch(() => false);
-  void cites;
-  // Wait for citations if dictaPages was present so pre-built links include them!
-  let finalLinks = linkData;
-  if (where.dictaPages && dicta.fetchPageCitations) {
-    try {
-      const passages = linksMod.passagesOf(tree, entry.title, entry.heTitle);
-      const pages = await dicta.fetchPageCitations(entry, { cancelled: false });
-      const extracted = linksMod.placeCitations(pages, passages);
-      if (extracted && extracted.length) {
-        finalLinks = { ...linkData, links: (linkData.links || []).concat(extracted) };
-      }
-    } catch (e) { /* keep base links */ }
-  }
 
   return {
     entry,
     firstSection,
     bookZipBuf,
     searchText,
-    linksJson: JSON.stringify(finalLinks),
+    linksJson: JSON.stringify(linkData),
   };
 }
 
@@ -257,7 +241,7 @@ async function main() {
           totalBytes,
           items,
         });
-        if (results.length % 25 === 0 || results.length === target.length) {
+        if (results.length % 10 === 0 || results.length === target.length) {
           console.log(`Converted ${results.length}/${target.length} (failed: ${failed.length})`);
         }
       } catch (e) {
