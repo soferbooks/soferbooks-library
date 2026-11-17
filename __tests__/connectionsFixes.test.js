@@ -651,4 +651,57 @@ describe('Extra commentary collectiveTitle strings and depth-3 1D content_counts
       Sefaria.booksDict = savedBooksDict;
     }
   });
+
+  test('prewarmSection warms Rashi everywhere and Steinsaltz on Shas, current daf before next daf', async () => {
+    const FS = require('expo-file-system/legacy');
+    const md5 = require('md5');
+    const { prewarmSection, _resetPrewarm, commentariesToPrewarm } = require('../reader/prewarm');
+    _resetPrewarm();
+    FS.clear();
+    expect(commentariesToPrewarm('Genesis', ['Tanakh', 'Torah'])).toEqual(['Rashi on Genesis']);
+    expect(commentariesToPrewarm('Niddah', ['Talmud', 'Bavli'])).toEqual(['Rashi on Niddah', 'Steinsaltz on Niddah']);
+    expect(commentariesToPrewarm('Rashi on Niddah', ['Talmud'])).toEqual([]);
+
+    const savedIndex = Sefaria._index;
+    const savedBooksDict = Sefaria.booksDict;
+    Sefaria._index = {
+      ...savedIndex,
+      Niddah: { title: 'Niddah', categories: ['Talmud', 'Bavli'] },
+      'Rashi on Niddah': { title: 'Rashi on Niddah', categories: ['Talmud', 'Bavli', 'Rashi'] },
+      'Steinsaltz on Niddah': { title: 'Steinsaltz on Niddah', categories: ['Talmud', 'Bavli', 'Steinsaltz'] },
+    };
+    Sefaria.booksDict = { ...savedBooksDict, Niddah: 1, 'Rashi on Niddah': 1, 'Steinsaltz on Niddah': 1 };
+    const vTitle = 'Vilna';
+    const hash = md5(vTitle).substring(0, 8);
+    try {
+      for (const comm of ['Rashi on Niddah', 'Steinsaltz on Niddah']) {
+        await FS.writeAsStringAsync(encodeURI(`${FS.documentDirectory}/${comm}_index.json`), JSON.stringify({
+          title: comm, versions: [{ language: 'he', versionTitle: vTitle, priority: 0, isSource: true }],
+        }));
+        for (const daf of ['2a', '2b']) {
+          const stem = `${comm} ${daf}`;
+          await FS.writeAsStringAsync(encodeURI(`${FS.documentDirectory}/${stem}.metadata.json`), JSON.stringify({
+            sections: {
+              [`${stem}:1`]: {
+                ref: `${stem}:1`, heRef: stem, indexTitle: comm, sectionRef: `${stem}:1`,
+                versions: [{ language: 'he', versionTitle: vTitle }], links: [[]],
+              },
+            },
+          }));
+          await FS.writeAsStringAsync(encodeURI(`${FS.documentDirectory}/${stem}.${hash}.he.json`), JSON.stringify({
+            sections: { [`${stem}:1`]: ['פירוש'] },
+          }));
+        }
+      }
+      Sefaria._jsonSectionData = {};
+      await prewarmSection('Niddah 2a', 'Niddah 2b');
+      expect(Sefaria._jsonSectionData['Rashi on Niddah 2a:1|']).toBeTruthy();
+      expect(Sefaria._jsonSectionData['Steinsaltz on Niddah 2a:1|']).toBeTruthy();
+      expect(Sefaria._jsonSectionData['Rashi on Niddah 2b:1|']).toBeTruthy();
+      expect(Sefaria._jsonSectionData['Steinsaltz on Niddah 2b:1|']).toBeTruthy();
+    } finally {
+      Sefaria._index = savedIndex;
+      Sefaria.booksDict = savedBooksDict;
+    }
+  });
 });

@@ -1,5 +1,5 @@
 diff --git a/node_modules/react-native-zip-archive/android/src/main/java/com/rnziparchive/RNZipArchiveModule.java b/node_modules/react-native-zip-archive/android/src/main/java/com/rnziparchive/RNZipArchiveModule.java
-index 9d1b2c1..9ae3fec 100644
+index 9d1b2c1..3293663 100644
 --- a/node_modules/react-native-zip-archive/android/src/main/java/com/rnziparchive/RNZipArchiveModule.java
 +++ b/node_modules/react-native-zip-archive/android/src/main/java/com/rnziparchive/RNZipArchiveModule.java
 @@ -17,6 +17,7 @@ import com.facebook.react.modules.core.DeviceEventManagerModule;
@@ -22,7 +22,57 @@ index 9d1b2c1..9ae3fec 100644
  
  import net.lingala.zip4j.exception.ZipException;
  import net.lingala.zip4j.model.FileHeader;
-@@ -150,6 +153,7 @@ public class RNZipArchiveModule extends ReactContextBaseJavaModule {
+@@ -107,6 +110,49 @@ public class RNZipArchiveModule extends ReactContextBaseJavaModule {
+     }).start();
+   }
+ 
++  @ReactMethod
++  public void extractPrefix(final String zipFilePath, final String destDirectory, final String prefix, final Promise promise) {
++    new Thread(new Runnable() {
++      @Override
++      public void run() {
++        int extracted = 0;
++        byte[] buffer = new byte[32768];
++        try (java.util.zip.ZipFile zipFile = new java.util.zip.ZipFile(new File(zipFilePath), Charset.forName("UTF-8"))) {
++          File destDir = new File(destDirectory);
++          if (!destDir.exists()) {
++            //noinspection ResultOfMethodCallIgnored
++            destDir.mkdirs();
++          }
++          Enumeration<? extends ZipEntry> entries = zipFile.entries();
++          while (entries.hasMoreElements()) {
++            ZipEntry entry = entries.nextElement();
++            if (entry.isDirectory()) { continue; }
++            String name = entry.getName();
++            if (!name.startsWith(prefix)) { continue; }
++            ZipSecurity.validateExtractPath(destDirectory, name);
++            File outFile = new File(destDirectory, name);
++            File parent = outFile.getParentFile();
++            if (parent != null && !parent.exists()) {
++              //noinspection ResultOfMethodCallIgnored
++              parent.mkdirs();
++            }
++            try (InputStream is = new BufferedInputStream(zipFile.getInputStream(entry), 32768);
++                 BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(outFile), 32768)) {
++              int len;
++              while ((len = is.read(buffer)) > 0) {
++                bos.write(buffer, 0, len);
++              }
++            }
++            extracted += 1;
++          }
++          promise.resolve(extracted);
++        } catch (Exception ex) {
++          promise.reject("RNZipArchiveError", "Failed to extract prefix " + ex.getLocalizedMessage());
++        }
++      }
++    }).start();
++  }
++
+   @ReactMethod
+   public void unzip(final String zipFilePath, final String destDirectory, final String charset, final Promise promise) {
+     new Thread(new Runnable() {
+@@ -150,6 +196,7 @@ public class RNZipArchiveModule extends ReactContextBaseJavaModule {
            }
  
            long extractedBytes = 0;
@@ -30,7 +80,7 @@ index 9d1b2c1..9ae3fec 100644
            for (FileHeader fileHeader : fileHeaderList) {
              ZipSecurity.validateExtractPath(destDirectory, fileHeader.getFileName());
              zipFile.extractFile(fileHeader, destDirectory, ZipSecurity.createExtractParameters());
-@@ -157,7 +161,11 @@ public class RNZipArchiveModule extends ReactContextBaseJavaModule {
+@@ -157,7 +204,11 @@ public class RNZipArchiveModule extends ReactContextBaseJavaModule {
              if (size > 0) {
                extractedBytes += size;
              }
@@ -43,7 +93,7 @@ index 9d1b2c1..9ae3fec 100644
            }
  
            zipFile.close();
-@@ -347,18 +355,73 @@ public class RNZipArchiveModule extends ReactContextBaseJavaModule {
+@@ -347,18 +398,73 @@ public class RNZipArchiveModule extends ReactContextBaseJavaModule {
      }
    }
  
@@ -122,3 +172,25 @@ index 9d1b2c1..9ae3fec 100644
            updateProgress(0, 100, destFile);
  
            int totalFiles = 0;
+diff --git a/node_modules/react-native-zip-archive/index.js b/node_modules/react-native-zip-archive/index.js
+index f1e46b0..594654b 100644
+--- a/node_modules/react-native-zip-archive/index.js
++++ b/node_modules/react-native-zip-archive/index.js
+@@ -22,6 +22,17 @@ export const unzip = (source, target, charset = "UTF-8") => {
+   );
+ };
+ 
++export const extractPrefix = (source, target, prefix) => {
++  if (!RNZipArchive || !RNZipArchive.extractPrefix) {
++    return Promise.resolve(null);
++  }
++  return RNZipArchive.extractPrefix(
++    normalizeFilePath(source),
++    normalizeFilePath(target),
++    prefix
++  );
++};
++
+ export const isPasswordProtected = (source) => {
+   return RNZipArchive.isPasswordProtected(normalizeFilePath(source)).then(
+     (isEncrypted) => !!isEncrypted

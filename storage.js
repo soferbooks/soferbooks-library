@@ -13,7 +13,7 @@
  *     until then, and put back if the new one cannot be moved in.
  */
 import * as FileSystem from 'expo-file-system/legacy';
-import {unzip} from 'react-native-zip-archive';
+import {unzip, extractPrefix} from 'react-native-zip-archive';
 
 export const WORK_DIR = `${FileSystem.documentDirectory}work/`;
 export const MB = 1e6;
@@ -87,6 +87,20 @@ export async function safeUnzip(zipPath, dest) {
     return await unzip(zipPath, dest);
   } catch (e) {
     throw new UnzipError(`could not unzip ${zipPath}: ${(e && e.message) || e}`);
+  }
+}
+
+/** Extract only entries matching `prefix` from `zipPath` into `dest`, or null if unsupported. */
+export async function safeExtractPrefix(zipPath, dest, prefix) {
+  if (typeof extractPrefix !== 'function') { return null; }
+  let info = null;
+  try { info = await FileSystem.getInfoAsync(zipPath); } catch (e) { info = null; }
+  if (!info || !info.exists) { throw new UnzipError(`no zip at ${zipPath}`); }
+  if (!info.size) { throw new UnzipError(`empty zip at ${zipPath}`); }
+  try {
+    return await extractPrefix(zipPath, dest, prefix);
+  } catch (e) {
+    throw new UnzipError(`could not extract ${prefix} from ${zipPath}: ${(e && e.message) || e}`);
   }
 }
 

@@ -67,6 +67,7 @@ import {partLines} from "./FullLibraryPanel";
 import {fullLibraryParts, formatSize, knownBookSize, bookSizeText} from "./fullLibrary";
 import {downloadNeedsConnection} from "./connectivity";
 import ActionToast from "./tabs/ActionToast";
+import { prewarmSection } from "./reader/prewarm";
 import * as extrasQueue from "./extrasQueue";
 import ReaderTabBar, { READER_TAB_BAR_HEIGHT } from "./tabs/ReaderTabBar";
 import {
@@ -993,6 +994,7 @@ class ReaderApp extends React.PureComponent {
               this.loadTextToc(textContent.indexTitle, textContent.sectionRef).then(() => {
                 // dependent on versions cached from offline textToc
                 this.loadSecondaryData(textContent.sectionRef);
+                prewarmSection(textContent.sectionRef, around.next);
                 // dependent on nextState and currVersionObjects
                 Sefaria.history.saveHistoryItem(this.getHistoryObject);
               });
@@ -1262,6 +1264,7 @@ class ReaderApp extends React.PureComponent {
               };
             }, () => {
               this.loadSecondaryData(textContent.sectionRef);
+              prewarmSection(textContent.sectionRef, this.state.next);
               this.setCurrVersionObjects(textContent.sectionRef);
             });
           })

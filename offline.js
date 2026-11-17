@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 import md5 from 'md5';
 import * as FileSystem from 'expo-file-system/legacy';
-import { safeUnzip as unzip } from './storage';   // (checks the zip first; fails as an error, never a crash)
+import { safeUnzip as unzip, safeExtractPrefix } from './storage';   // (checks the zip first; fails as an error, never a crash)
 import LinkContent from './LinkContent';
 import {ERRORS} from "./errors";
 import {loadJSONFile} from "./DownloadControl";
@@ -589,13 +589,27 @@ const loadOfflineSectionMetadata = async function(ref) {
     } catch (e) {
         const exists = await fileExists(zipPath);
         if (exists) {
+            const depth1FilenameStem = fileNameStem.substring(0, fileNameStem.lastIndexOf(" "));
+            const depth1JSONPath = _JSONMetadataPath(depth1FilenameStem);
+            try {
+                const count = await _extractPrefix(zipPath, `${fileNameStem}.`);
+                if (count && count > 0) {
+                    return [preResolve(await _loadJSON(jsonPath)), fileNameStem];
+                }
+            } catch (eSel) { /* fall back below */ }
+            if (depth1FilenameStem) {
+                try {
+                    const count1 = await _extractPrefix(zipPath, `${depth1FilenameStem}.`);
+                    if (count1 && count1 > 0) {
+                        return [preResolve(await _loadJSON(depth1JSONPath)), depth1FilenameStem];
+                    }
+                } catch (eSel1) { /* fall back below */ }
+            }
             await _unzip(zipPath);
             try {
                 return [preResolve(await _loadJSON(jsonPath)), fileNameStem];
             } catch (e2) {
                 // Now that the file is unzipped, if there was an error assume we have a depth 1 or 3 text
-                const depth1FilenameStem = fileNameStem.substring(0, fileNameStem.lastIndexOf(" "));
-                const depth1JSONPath = _JSONMetadataPath(depth1FilenameStem);
                 try {
                     return [preResolve(await _loadJSON(depth1JSONPath)), depth1FilenameStem];
                 } catch (e3) {
@@ -649,6 +663,17 @@ const _unzip = function(zipSourcePath) {
             .finally(() => { delete _unzipsInFlight[zipSourcePath]; });
     }
     return _unzipsInFlight[zipSourcePath];
+};
+
+const _extractPrefix = function(zipSourcePath, prefix) {
+    const key = `${zipSourcePath}|${prefix}`;
+    if (!_unzipsInFlight[key]) {
+        const cleanup = (typeof Sefaria !== 'undefined' && Sefaria.util && Sefaria.util.unzippedCleanup) || Promise.resolve();
+        _unzipsInFlight[key] = Promise.resolve(cleanup).catch(() => {})
+            .then(() => safeExtractPrefix(zipSourcePath, FileSystem.documentDirectory, prefix))
+            .finally(() => { delete _unzipsInFlight[key]; });
+    }
+    return _unzipsInFlight[key];
 };
 
 const _loadJSON = function(JSONSourcePath) {
@@ -731,7 +756,10 @@ async function ensureTitleUnzipped(title) {
 
     if (zipExists) {
         try {
-            await _unzip(zipPath);
+            const count = await _extractPrefix(zipPath, `${title}_index.json`);
+            if (!count || !(await fileExists(_indexJSONPath(title)))) {
+                await _unzip(zipPath);
+            }
         } catch (error) {
             console.error(`Error unzipping ${zipPath}:`, error);
             return false;
