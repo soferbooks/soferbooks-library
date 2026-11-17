@@ -695,6 +695,46 @@ describe('opening a book that is not downloaded', () => {
     const search = await FS.readAsStringAsync('library/אור הישר הגדול_search.txt');
     expect(search.split('\n').filter(Boolean).length).toBeGreaterThanOrEqual(2500);
   }, 30000);
+
+  test('installHostedBundle downloads and extracts shard zips for Dicta without per-book fetches', async () => {
+    jest.resetModules();
+    const FS = require('expo-file-system/legacy');
+    const ex = require('../extras');
+    const dicta = require('../extras/dicta');
+    FS.clear();
+
+    const prevFetch = global.fetch;
+    const prevDownloadAsync = FS.downloadAsync;
+    global.fetch = jest.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        format: 1,
+        converterVersion: dicta.CONVERTER_VERSION,
+        shards: [{ file: 'dicta-shard-1.zip', size: 1024, titles: ['Dicta Bundle Book'] }],
+        books: { 'Dicta Bundle Book': { id: 'dicta-1', hash: 'h1', firstSection: 'Dicta Bundle Book, S1', size: 500 } },
+      }),
+    }));
+    FS.downloadAsync = jest.fn(async (url, dest) => {
+      await FS.writeAsStringAsync(dest, JSON.stringify({ 'library/Dicta Bundle Book.zip': '{}' }));
+      return { status: 200, uri: dest };
+    });
+
+    ex._reset({
+      enabled: { dicta: true },
+      books: { 'Dicta Bundle Book': { source: 'dicta', id: 'dicta-1', title: 'Dicta Bundle Book', heTitle: 'דיקטה', hash: 'h1' } },
+    });
+    dicta._forgetHostedManifest();
+    try {
+      const ok = await ex.installHostedBundle('dicta');
+      expect(ok).toBe(true);
+      expect(ex.isDownloaded('Dicta Bundle Book')).toBe(true);
+      expect(FS.downloadAsync).toHaveBeenCalledTimes(1);
+    } finally {
+      global.fetch = prevFetch;
+      FS.downloadAsync = prevDownloadAsync;
+    }
+  });
 });
 
 afterAll(() => { delete global.fetch; });

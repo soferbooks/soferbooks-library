@@ -50,6 +50,10 @@ export const ID = 'dicta';
 export const CATALOG_URL = 'https://raw.githubusercontent.com/Dicta-Israel-Center-for-Text-Analysis/Dicta-Library-Download/main/books.json';
 export const OTZARIA_MANIFEST_URL = 'https://raw.githubusercontent.com/Otzaria/otzaria-library/main/files_manifest.json';
 export const HOME_URL = 'https://library.dicta.org.il';
+export const HOSTED_REPO = 'soferbooks/soferbooks-library-data';
+export const HOSTED_TAG = 'dicta-2026-11-17';
+export const HOSTED_URL = `https://github.com/${HOSTED_REPO}/releases/download/${HOSTED_TAG}`;
+export const HOSTED_MANIFEST = 'dicta-manifest.json';
 // (2: the edition with nikud; 3: the book's connections; 4: only the nikud edition, no plain text
 //  beside it. Books converted by an older one are converted again, as an update)
 export const CONVERTER_VERSION = 4;
@@ -701,6 +705,26 @@ export async function fetchBook(entry, job = null) {
   return doc;
 }
 
+let hostedManifestPromise = null;
+export function hostedManifest(fetchFn = (...a) => fetch(...a)) {
+  if (!hostedManifestPromise) {
+    hostedManifestPromise = (async () => {
+      const res = await fetchFn(`${HOSTED_URL}/${HOSTED_MANIFEST}`);
+      if (!res || !res.ok) { return null; }
+      const data = await res.json();
+      if (!data || data.format !== 1 || data.converterVersion !== CONVERTER_VERSION || !Array.isArray(data.shards)) {
+        return null;
+      }
+      return data;
+    })().catch(() => {
+      hostedManifestPromise = null;
+      return null;
+    });
+  }
+  return hostedManifestPromise;
+}
+export const _forgetHostedManifest = () => { hostedManifestPromise = null; };
+
 export default {
   id: ID,
   converterVersion: CONVERTER_VERSION,
@@ -709,6 +733,8 @@ export default {
   parseCatalog,
   bookUrl,
   fetchBook,
+  hostedManifest,
+  hostedBaseUrl: HOSTED_URL,
   toTree: (doc, entry) => [choose(doc).tree, (entry && entry.author) || ''],
   // (Dicta's own text has no notice; Otzaria's copies are checked when chosen)
   isRestricted: () => false,

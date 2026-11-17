@@ -837,6 +837,83 @@ export async function extraLinksFor(sectionRef) {
   }
 }
 
+/**
+ * Install pre-built shard bundles for a source when it provides a hosted manifest (e.g. Dicta),
+ * dramatically faster than fetching/converting each book individually. Returns true if handled
+ * (remaining unbundled books still fall back to per-book downloads).
+ */
+export async function installHostedBundle(sourceId, { isCancelled = () => false, onProgress = null } = {}) {
+  await loadExtras();
+  const source = EXTRA_SOURCES[sourceId];
+  if (!source || typeof source.hostedManifest !== 'function' || !source.hostedBaseUrl) { return false; }
+  const manifest = await source.hostedManifest();
+  if (!manifest || !Array.isArray(manifest.shards) || !manifest.shards.length) { return false; }
+
+  await FileSystem.makeDirectoryAsync(TMP_DIR, {intermediates: true}).catch(() => {});
+  await FileSystem.makeDirectoryAsync(LIBRARY_DIR, {intermediates: true}).catch(() => {});
+  await FileSystem.makeDirectoryAsync(`${EXTRAS_DIR}links`, {intermediates: true}).catch(() => {});
+
+  const bundleBooks = manifest.books || {};
+  let installedAny = false;
+  for (const shard of manifest.shards) {
+    if (isCancelled()) { break; }
+    const needed = (shard.titles || []).filter(t => books[t] && books[t].source === sourceId && !isDownloaded(t));
+    if (!needed.length) { continue; }
+    await ensureRoom((shard.size || 0) * 2, ROOM_MARGIN);
+    if (isCancelled()) { break; }
+
+    const shardPath = `${TMP_DIR}${shard.file}`;
+    const url = `${source.hostedBaseUrl}/${encodeURIComponent(shard.file)}`;
+    await FileSystem.deleteAsync(shardPath, {idempotent: true}).catch(() => {});
+    try {
+      if (FileSystem.createDownloadResumable) {
+        const transfer = FileSystem.createDownloadResumable(url, shardPath, {}, p => {
+          if (onProgress && p.totalBytesExpectedToWrite > 0) {
+            onProgress(p.totalBytesWritten / p.totalBytesExpectedToWrite);
+          }
+          if (isCancelled()) { transfer.cancelAsync().catch(() => {}); }
+        });
+        const res = await transfer.downloadAsync();
+        if (!res || (res.status && (res.status < 200 || res.status >= 300))) { continue; }
+      } else if (FileSystem.downloadAsync) {
+        const res = await FileSystem.downloadAsync(url, shardPath);
+        if (!res || (res.status && (res.status < 200 || res.status >= 300))) { continue; }
+      } else {
+        continue;
+      }
+      if (isCancelled()) { break; }
+      await safeUnzip(shardPath, FileSystem.documentDirectory);
+      const at = new Date().toISOString();
+      for (const title of needed) {
+        const entry = books[title];
+        const meta = bundleBooks[title] || {};
+        state.installed[title] = {
+          source: sourceId,
+          id: entry.id,
+          hash: entry.hash || meta.hash || null,
+          converter: source.converterVersion,
+          firstSection: meta.firstSection || title,
+          at,
+        };
+      }
+      installedAny = true;
+      await saveState();
+      forgetCaches();
+      notify();
+    } catch (e) {
+      if (e && e.name === 'LowSpaceError') { throw e; }
+      console.log('extras: shard bundle failed for', sourceId, shard.file, e && e.message);
+    } finally {
+      await FileSystem.deleteAsync(shardPath, {idempotent: true}).catch(() => {});
+    }
+  }
+  if (installedAny) {
+    if (links && links._reset) { links._reset(); }
+    refreshInferred(null);
+  }
+  return true;
+}
+
 /** Delete one downloaded book (it stays in the library, to be downloaded again). */
 export async function deleteBook(title) {
   await loadExtras();

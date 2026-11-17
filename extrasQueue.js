@@ -182,7 +182,27 @@ async function worker() {
 }
 
 async function run() {
-  await Promise.all(Array.from({length: Math.max(1, timing.books || 1)}, () => worker()));
+  for (const id of [...(state.sources || [])]) {
+    if (!state.running || state.paused) { break; }
+    if (!(await networkAllows())) { break; }
+    if (typeof extras.installHostedBundle === 'function') {
+      try {
+        status = 'downloading';
+        notify();
+        await extras.installHostedBundle(id, {
+          isCancelled: () => !state.running || state.paused || !(state.sources || []).includes(id),
+        });
+      } catch (e) {
+        if (e instanceof LowSpaceError || (e && e.name === 'LowSpaceError')) {
+          await pauseForSpace(e.free);
+          break;
+        }
+      }
+    }
+  }
+  if (state.running && !state.paused) {
+    await Promise.all(Array.from({length: Math.max(1, timing.books || 1)}, () => worker()));
+  }
   if (state.running && !state.paused && !nextBook() && !inFlight.size) {
     state = {...state, running: false};
     status = 'done';
