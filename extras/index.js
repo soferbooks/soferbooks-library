@@ -581,7 +581,17 @@ async function fetchAndInstall(title, job) {
     await yieldFrame();
     job.check();
   }
-  job.check();
+  const { firstSection } = await installConverted(title, entry, source, text, job);
+  return firstSection;
+}
+
+/**
+ * Validate, convert, write to disk, record in state.installed, collect links, and notify
+ * for a single already-fetched book payload (text/doc). Shared by fetchAndInstall and bundle installers.
+ */
+async function installConverted(title, entry, source, text, job, { triggerInferred = true, skipReloadToc = false } = {}) {
+  const activeJob = job || { cancelled: false, check() {}, progress() {}, onCancel() {} };
+  activeJob.check();
   if (source.isRestricted(text, entry)) {
     state.blocked[`${entry.source}|${entry.id}`] = 'the book\'s own notice';
     await saveState();
@@ -591,18 +601,18 @@ async function fetchAndInstall(title, job) {
   let converted = convertBook(entry, text);
   let {files, firstSection, companions, tree} = converted;
   converted = null;
-  job.check();                         // (the last moment to cancel before writing)
+  activeJob.check();                   // (the last moment to cancel before writing)
   try {
-    await writeBook(title, files, job);
+    await writeBook(title, files, activeJob);
     files = null;
     for (const c of companions || []) {
-      job.check();
-      await writeBook(c.entry.title, c.files, job);
+      activeJob.check();
+      await writeBook(c.entry.title, c.files, activeJob);
       c.files = null;
     }
-    job.check();
+    activeJob.check();
   } catch (e) {
-    if (job.cancelled || e instanceof DownloadCancelledError) {
+    if (activeJob.cancelled || e instanceof DownloadCancelledError) {
       await removeFiles(title).catch(() => {});
       for (const c of companions || []) { await removeFiles(c.entry.title).catch(() => {}); }
     }
@@ -622,10 +632,10 @@ async function fetchAndInstall(title, job) {
     books[c.entry.title] = {...c.entry, source: entry.source};
   }
   await saveState();
-  await collectLinks(title, entry, source, text, tree, at, job);
+  await collectLinks(title, entry, source, text, tree, at, activeJob);
   tree = null;
   text = null;
-  if (job.cancelled) {
+  if (activeJob.cancelled) {
     for (const c of companions || []) { await removeFiles(c.entry.title).catch(() => {}); delete state.installed[c.entry.title]; }
     await removeFiles(title).catch(() => {});
     delete state.installed[title];
@@ -633,20 +643,23 @@ async function fetchAndInstall(title, job) {
     throw new DownloadCancelledError(title);
   }
   forgetCaches();
-  let queueBusy = false;
-  try {
-    const eq = require('../extrasQueue');
-    queueBusy = !!(eq.isQueueActive && eq.isQueueActive());
-    if (queueBusy) { pendingInferred = true; ensureQueueInferredHook(eq); }
-  } catch (e) { /* queue not loaded */ }
-  if (!queueBusy) {
-    refreshInferred(title);              // (in the background: it may read the texts it is on)
+  if (triggerInferred) {
+    let queueBusy = false;
+    try {
+      const eq = require('../extrasQueue');
+      queueBusy = !!(eq.isQueueActive && eq.isQueueActive());
+      if (queueBusy) { pendingInferred = true; ensureQueueInferredHook(eq); }
+    } catch (e) { /* queue not loaded */ }
+    if (!queueBusy) {
+      refreshInferred(title);              // (in the background: it may read the texts it is on)
+    }
   }
-  if (companions && companions.length) { await reloadToc(); }     // (the notes book joins the library)
+  const hadCompanions = !!(companions && companions.length);
+  if (hadCompanions && !skipReloadToc) { await reloadToc(); }     // (the notes book joins the library)
   const index = typeof Sefaria !== 'undefined' && Sefaria.index && Sefaria.index(title);
   if (index) { index.firstSection = firstSection; }
   notify();
-  return firstSection;
+  return { firstSection, hadCompanions };
 }
 
 /**
@@ -845,7 +858,49 @@ export async function extraLinksFor(sectionRef) {
 export async function installHostedBundle(sourceId, { isCancelled = () => false, onProgress = null } = {}) {
   await loadExtras();
   const source = EXTRA_SOURCES[sourceId];
-  if (!source || typeof source.hostedManifest !== 'function' || !source.hostedBaseUrl) { return false; }
+  if (!source) { return false; }
+
+  // Single-archive doc bundles (e.g. sofer_library's sofer-library-all.zip, wikisource's wikisource-all.zip)
+  if (typeof source.fetchBundleDocs === 'function') {
+    const neededEntries = Object.values(books).filter(e => e.source === sourceId && !isDownloaded(e.title));
+    if (!neededEntries.length) { return true; }
+    let installedAny = false;
+    let anyCompanions = false;
+    let handledCount = 0;
+    const job = {
+      get cancelled() { return isCancelled(); },
+      check() { if (isCancelled()) { throw new DownloadCancelledError(sourceId); } },
+      progress() {},
+      onCancel() {},
+    };
+    const handled = await source.fetchBundleDocs(neededEntries, {
+      isCancelled,
+      onBook: async (entry, doc) => {
+        if (isCancelled()) { return; }
+        try {
+          const res = await installConverted(entry.title, entry, source, doc, job, {
+            triggerInferred: false,
+            skipReloadToc: true,
+          });
+          installedAny = true;
+          if (res.hadCompanions) { anyCompanions = true; }
+        } catch (e) {
+          if (!(e instanceof RestrictedBookError)) { throw e; }
+        }
+        handledCount += 1;
+        if (onProgress && neededEntries.length > 0) {
+          onProgress(handledCount / neededEntries.length);
+        }
+      },
+    });
+    if (installedAny) {
+      if (anyCompanions) { await reloadToc(); }
+      refreshInferred(null);
+    }
+    return !!handled;
+  }
+
+  if (typeof source.hostedManifest !== 'function' || !source.hostedBaseUrl) { return false; }
   const manifest = await source.hostedManifest();
   if (!manifest || !Array.isArray(manifest.shards) || !manifest.shards.length) { return false; }
 

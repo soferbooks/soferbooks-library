@@ -10,7 +10,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {unzip} from 'react-native-zip-archive';
 import sofer, {
-  ID, RELEASE_TAG, RELEASE_URL, CATALOG_URL, parseCatalog, entryFor, bookUrl, convert, withSource,
+  ID, RELEASE_TAG, RELEASE_URL, CATALOG_URL, parseCatalog, entryFor, bookUrl, convert, withSource, _resetBundleCache,
 } from '../extras/sofer';
 import * as extras from '../extras';
 import {addToToc, chooseBooks} from '../extras/catalog';
@@ -190,6 +190,7 @@ describe('downloading a Sofer Library book', () => {
     FileSystem.clear();
     FileSystem.downloadAsync.mockClear();
     unzip.mockClear();
+    _resetBundleCache();
     await AsyncStorage.clear();
     for (const [title, files] of Object.entries(BOOKS)) {
       FileSystem.setRemote(`${RELEASE_URL}/${fileFor(title)}`, zipOf(files));
@@ -272,5 +273,43 @@ describe('downloading a Sofer Library book', () => {
     FileSystem.setRemote(`${RELEASE_URL}/Tur-Test-Part-33333333.zip`, '', 404);
     await expect(extras.downloadBook('Tur, Test Part')).rejects.toThrow(/HTTP 404/);
     expect(extras.isDownloaded('Tur, Test Part')).toBe(false);
+  });
+
+  test('installHostedBundle installs all books from sofer-library-all.zip in one download, and returns false when bundle is missing or fails', async () => {
+    const bundleFiles = {};
+    for (const [title, files] of Object.entries(BOOKS)) {
+      bundleFiles[fileFor(title)] = zipOf(files);
+    }
+    FileSystem.setRemote(`${RELEASE_URL}/sofer-library-all.zip`, JSON.stringify(bundleFiles));
+    const catalogWithBundle = {
+      ...CATALOG,
+      bundle: { file: 'sofer-library-all.zip', size: 1000, sha256: 'x', md5: null, books: 2 },
+    };
+    global.fetch = jest.fn(async url => {
+      if (url === CATALOG_URL) {
+        return { ok: true, json: async () => catalogWithBundle };
+      }
+      return { ok: false, status: 404 };
+    });
+
+    const ok = await extras.installHostedBundle(ID);
+    expect(ok).toBe(true);
+    expect(FileSystem.downloadAsync.mock.calls.map(c => c[0])).toEqual([`${RELEASE_URL}/sofer-library-all.zip`]);
+    expect(extras.isDownloaded(POEMS)).toBe(true);
+    expect(extras.isDownloaded(NOTES)).toBe(true);
+    expect(extras.isDownloaded('Tur, Test Part')).toBe(true);
+
+    // Fallback: returns false when bundle is absent
+    await extras.deleteBook(POEMS);
+    _resetBundleCache();
+    global.fetch = jest.fn(async () => ({ ok: true, json: async () => CATALOG }));
+    expect(await extras.installHostedBundle(ID)).toBe(false);
+
+    // Fallback: returns false when bundle archive fails to download
+    _resetBundleCache();
+    FileSystem.setRemote(`${RELEASE_URL}/sofer-library-all.zip`, '', 404);
+    global.fetch = jest.fn(async () => ({ ok: true, json: async () => catalogWithBundle }));
+    expect(await extras.installHostedBundle(ID)).toBe(false);
+    delete global.fetch;
   });
 });

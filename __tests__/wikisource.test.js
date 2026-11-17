@@ -685,6 +685,41 @@ describe('the books hosted as one release: one download a book, the files the ph
     await extras.downloadBook(T);
     expect(calls.length).toBeGreaterThan(5);
   });
+
+  test('installHostedBundle installs from wikisource-all.zip in one download, and returns false when bundle is absent or fails', async () => {
+    const made = convertPages(CAT[0], book);
+    const all = {...made.files};
+    made.companions.forEach(c => Object.assign(all, c.files));
+    const innerZip = JSON.stringify(Object.fromEntries(Object.entries(all).map(([n, d]) => [n, JSON.stringify(d)])));
+    const bundleZip = JSON.stringify({ [FILE]: innerZip });
+    FileSystem.setRemote(`${HOSTED_URL}/wikisource-all.zip`, bundleZip);
+
+    const hostedWithBundle = {
+      ...release(),
+      bundle: { file: 'wikisource-all.zip', size: bundleZip.length, sha256: 'x', md5: null, books: 1 },
+    };
+    const calls = fakeSite(site, {revs, hosted: hostedWithBundle});
+    FileSystem.downloadAsync.mockClear();
+
+    const ok = await extras.installHostedBundle('wikisource');
+    expect(ok).toBe(true);
+    expect(calls).toHaveLength(0);
+    expect(FileSystem.downloadAsync.mock.calls.map(c => c[0])).toEqual([`${HOSTED_URL}/wikisource-all.zip`]);
+    expect(extras.isDownloaded(T)).toBe(true);
+    expect(extras.isDownloaded(NOTES)).toBe(true);
+
+    // Fallback: returns false when bundle is absent
+    await extras.deleteBook(T);
+    _forgetHostedIndex();
+    fakeSite(site, {revs, hosted: release()});
+    expect(await extras.installHostedBundle('wikisource')).toBe(false);
+
+    // Fallback: returns false when bundle archive fails to download
+    _forgetHostedIndex();
+    FileSystem.setRemote(`${HOSTED_URL}/wikisource-all.zip`, '', 404);
+    fakeSite(site, {revs, hosted: hostedWithBundle});
+    expect(await extras.installHostedBundle('wikisource')).toBe(false);
+  });
 });
 
 afterAll(() => { delete global.fetch; });

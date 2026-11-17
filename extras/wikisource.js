@@ -450,6 +450,7 @@ export function treeOf(files, title, heTitle) {
 }
 
 let hostedIndexPromise = null;
+let hostedBundleInfo = null;
 /** The release's index ({page: book}), or null (not there, not readable, or made by another converter) */
 export function hostedIndex(fetchFn = (...a) => fetch(...a)) {
   if (!hostedIndexPromise) {
@@ -460,16 +461,60 @@ export function hostedIndex(fetchFn = (...a) => fetch(...a)) {
       if (!data || data.format !== HOSTED_FORMAT || data.converterVersion !== CONVERTER_VERSION || !data.books) {
         return null;
       }
+      hostedBundleInfo = data.bundle && data.bundle.file ? data.bundle : null;
       return data.books;
     })().catch(e => {
       hostedIndexPromise = null;       // (tried again next time: offline now, perhaps)
+      hostedBundleInfo = null;
       console.log('wikisource: the release\'s index', e && e.message);
       return null;
     });
   }
   return hostedIndexPromise;
 }
-export const _forgetHostedIndex = () => { hostedIndexPromise = null; };
+export const _forgetHostedIndex = () => { hostedIndexPromise = null; hostedBundleInfo = null; };
+
+export async function fetchBundleDocs(entries, {onBook, isCancelled = () => false, fetchFn} = {}) {
+  const books = await hostedIndex(fetchFn);
+  if (!books || !hostedBundleInfo || !hostedBundleInfo.file || !entries.length) { return false; }
+  const {downloadBundleArchive, readZipFiles} = require('./sofer');
+  let unpacked;
+  try {
+    unpacked = await downloadBundleArchive(
+      `${HOSTED_URL}/${encodeURIComponent(hostedBundleInfo.file)}`,
+      hostedBundleInfo.md5 || null,
+      {isCancelled},
+    );
+  } catch (e) {
+    console.log('wikisource: bundle fallback to per-book downloads:', e && e.message);
+    return false;
+  }
+  try {
+    for (const entry of entries) {
+      if (isCancelled()) { break; }
+      const hosted = books[entry.id];
+      if (!hosted || !hosted.file) { continue; }
+      try {
+        const files = await readZipFiles(`${unpacked.dir}${hosted.file}`, entry.title, hosted.md5 || null);
+        await onBook(entry, {
+          hosted: true,
+          title: hosted.title || entry.id,
+          fetched: hosted.fetched,
+          hash: String(hosted.hash),
+          pages: hosted.pages || [],
+          files,
+          firstSection: hosted.firstSection,
+          companions: hosted.companions || [],
+        });
+      } catch (e) {
+        console.log('wikisource: bundle entry skipped for', entry.id, e && e.message);
+      }
+    }
+    return true;
+  } finally {
+    await unpacked.cleanup();
+  }
+}
 
 /** The book from the release: {hosted, title, fetched, hash, pages, files, firstSection, companions} */
 export async function fetchHosted(entry, hosted, job = null) {
@@ -550,6 +595,7 @@ export default {
   parseCatalog: () => parseCatalog(),
   loadCatalog: installed => loadCatalog({installed}),
   fetchBook: (entry, job = null) => fetchBook(entry, job),
+  fetchBundleDocs,
   bookUrl: entry => pageUrl(entry.id),
   // (a book from the release comes ready made; pages from the site are converted: null)
   convert,

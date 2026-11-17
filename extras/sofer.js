@@ -35,7 +35,7 @@ export const ID = 'sofer_library';
 export const REPO = 'soferbooks/soferbooks-library-data';
 // THE ONE LINE a new release of the Sofer Library changes (made with --latest=false: the
 // repository's "latest" release is the Sefaria search packs' one, packs.js)
-export const RELEASE_TAG = 'sofer-library-2026-11-11b';
+export const RELEASE_TAG = 'sofer-library-2026-11-17';
 export const RELEASE_URL = `https://github.com/${REPO}/releases/download/${RELEASE_TAG}`;
 export const CATALOG_NAME = 'sofer-library-catalog.json';
 export const CATALOG_URL = `${RELEASE_URL}/${CATALOG_NAME}`;
@@ -91,14 +91,31 @@ export function entryFor(b) {
   return entry;
 }
 
+let lastBundle = null;
+
 /** sofer-library-catalog.json -> the catalogue's entries */
 export function parseCatalog(text) {
   const catalog = typeof text === 'string' ? JSON.parse(text) : text;
   if (!catalog || catalog.format !== CATALOG_FORMAT || !Array.isArray(catalog.books)) {
     throw new Error('sofer library: not a catalogue this app reads');
   }
+  lastBundle = catalog.bundle && catalog.bundle.file ? catalog.bundle : null;
   return catalog.books.map(entryFor).filter(Boolean);
 }
+
+export async function hostedBundle(fetchFn = (...a) => fetch(...a)) {
+  if (lastBundle) { return lastBundle; }
+  try {
+    const res = await fetchFn(CATALOG_URL);
+    if (!res || !res.ok) { return null; }
+    parseCatalog(await res.json());
+    return lastBundle;
+  } catch (e) {
+    return null;
+  }
+}
+
+export const _resetBundleCache = () => { lastBundle = null; };
 
 export const fileUrl = file => `${RELEASE_URL}/${encodeURIComponent(file)}`;
 export const bookUrl = entry => fileUrl(entry.file);
@@ -116,6 +133,86 @@ async function download(url, path, job, share) {
   return res;
 }
 
+export async function readZipFiles(zipPath, title, expectedMd5 = null) {
+  if (expectedMd5) {
+    const info = await FileSystem.getInfoAsync(zipPath, {md5: true});
+    if (info && info.md5 && info.md5 !== expectedMd5) { throw new Error(`sofer library: ${title} did not arrive whole`); }
+  }
+  const filesDir = `${WORK_DIR}extras/sofer-${md5(`${zipPath}|${title}`)}/`;
+  await FileSystem.makeDirectoryAsync(filesDir, {intermediates: true}).catch(() => {});
+  try {
+    await unzip(zipPath, filesDir);
+    const files = {};
+    for (const name of (await FileSystem.readDirectoryAsync(filesDir)).filter(n => n.endsWith('.json'))) {
+      files[name] = JSON.parse(await FileSystem.readAsStringAsync(`${filesDir}${name}`));
+    }
+    if (!files[`${title}_index.json`]) { throw new Error(`sofer library: ${title} has no index`); }
+    return files;
+  } finally {
+    await FileSystem.deleteAsync(filesDir, {idempotent: true}).catch(() => {});
+  }
+}
+
+export async function downloadBundleArchive(url, expectedMd5 = null, {isCancelled = () => false} = {}) {
+  const dir = `${WORK_DIR}extras/`;
+  const base = `${dir}bundle-${md5(url)}`;
+  const zipPath = `${base}.zip`;
+  const outDir = `${base}/`;
+  await FileSystem.makeDirectoryAsync(dir, {intermediates: true}).catch(() => {});
+  await FileSystem.deleteAsync(outDir, {idempotent: true}).catch(() => {});
+  try {
+    const res = await withRetry(async () => {
+      if (isCancelled()) { throw new Error('cancelled'); }
+      const r = await download(url, zipPath, null, null);
+      if (r.status >= 500) { throw new Error(`bundle: HTTP ${r.status} for ${url}`); }
+      return r;
+    }, {shouldRetry: e => !isCancelled()});
+    if (res.status < 200 || res.status >= 300) { throw new Error(`bundle: HTTP ${res.status} for ${url}`); }
+    if (expectedMd5) {
+      const info = await FileSystem.getInfoAsync(zipPath, {md5: true});
+      if (info && info.md5 && info.md5 !== expectedMd5) { throw new Error(`bundle ${url} did not arrive whole`); }
+    }
+    await FileSystem.makeDirectoryAsync(outDir, {intermediates: true}).catch(() => {});
+    await unzip(zipPath, outDir);
+    return {
+      dir: outDir,
+      cleanup: () => FileSystem.deleteAsync(outDir, {idempotent: true}).catch(() => {}),
+    };
+  } finally {
+    await FileSystem.deleteAsync(zipPath, {idempotent: true}).catch(() => {});
+  }
+}
+
+export async function fetchBundleDocs(entries, {onBook, isCancelled = () => false} = {}) {
+  const bundle = await hostedBundle();
+  if (!bundle || !bundle.file || !entries.length) { return false; }
+  let unpacked;
+  try {
+    unpacked = await downloadBundleArchive(fileUrl(bundle.file), bundle.md5 || null, {isCancelled});
+  } catch (e) {
+    console.log('sofer library: bundle fallback to per-book downloads:', e && e.message);
+    return false;
+  }
+  try {
+    for (const entry of entries) {
+      if (isCancelled()) { break; }
+      try {
+        const mainFiles = await readZipFiles(`${unpacked.dir}${entry.file}`, entry.title, entry.md5 || null);
+        const companions = [];
+        for (const c of entry.companions || []) {
+          companions.push({entry: c, files: await readZipFiles(`${unpacked.dir}${c.file}`, c.title, c.md5 || null)});
+        }
+        await onBook(entry, {book: {entry, files: mainFiles}, companions});
+      } catch (e) {
+        console.log('sofer library: bundle entry skipped for', entry.title, e && e.message);
+      }
+    }
+    return true;
+  } finally {
+    await unpacked.cleanup();
+  }
+}
+
 /**
  * One book's zip: downloaded, checked (md5), unzipped and read -> {file name: its JSON}.
  * entry: {title, file, md5}; url: where it is (this release's, or another's: extras/wikisource.js)
@@ -124,7 +221,6 @@ export async function bookZipFiles(entry, {job = null, share = null, url = bookU
   const dir = `${WORK_DIR}extras/`;   // (not the cache folder, which Android empties when space runs low)
   const base = `${dir}sofer-${md5(entry.file)}`;
   const zipPath = `${base}.zip`;
-  const filesDir = `${base}/`;
   await FileSystem.makeDirectoryAsync(dir, {intermediates: true}).catch(() => {});
   try {
     // (a dropped connection or a server error is tried again; a missing file or a cancel is not)
@@ -135,22 +231,10 @@ export async function bookZipFiles(entry, {job = null, share = null, url = bookU
       return r;
     }, {shouldRetry: e => !(job && job.cancelled) && !(e && e.name === 'DownloadCancelledError')});
     if (res.status < 200 || res.status >= 300) { throw new Error(`sofer library: HTTP ${res.status} for ${url}`); }
-    if (entry.md5) {
-      const info = await FileSystem.getInfoAsync(zipPath, {md5: true});
-      if (info && info.md5 && info.md5 !== entry.md5) { throw new Error(`sofer library: ${entry.title} did not arrive whole`); }
-    }
     if (share) { share(1); }
-    await FileSystem.makeDirectoryAsync(filesDir, {intermediates: true}).catch(() => {});
-    await unzip(zipPath, filesDir);
-    const files = {};
-    for (const name of (await FileSystem.readDirectoryAsync(filesDir)).filter(n => n.endsWith('.json'))) {
-      files[name] = JSON.parse(await FileSystem.readAsStringAsync(`${filesDir}${name}`));
-    }
-    if (!files[`${entry.title}_index.json`]) { throw new Error(`sofer library: ${entry.title} has no index`); }
-    return files;
+    return await readZipFiles(zipPath, entry.title, entry.md5 || null);
   } finally {
     await FileSystem.deleteAsync(zipPath, {idempotent: true}).catch(() => {});
-    await FileSystem.deleteAsync(filesDir, {idempotent: true}).catch(() => {});
   }
 }
 
@@ -282,6 +366,7 @@ export default {
   parseCatalog,
   bookUrl,
   fetchBook,
+  fetchBundleDocs,
   convert,
   // (never called: convert takes the place of the conversion)
   toTree: () => { throw new Error('sofer library: its books come ready made'); },
