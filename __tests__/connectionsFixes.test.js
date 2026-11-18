@@ -1023,4 +1023,114 @@ describe('Extra commentary collectiveTitle strings and depth-3 1D content_counts
       Sefaria.booksDict = savedBooksDict;
     }
   });
+
+  test('Hadar Zekenim complex depth-3 verse sections skip missing chapters (15 -> 17, 20 -> 22) without crashing or duplicating', async () => {
+    const FS = require('expo-file-system/legacy');
+    const md5 = require('md5');
+    const { prewarmSection, _resetPrewarm, commentariesToPrewarm } = require('../reader/prewarm');
+    const { loadTextOffline } = require('../offline');
+    _resetPrewarm();
+    FS.clear();
+
+    expect(commentariesToPrewarm('Hadar Zekenim on Torah', ['Tanakh', 'Rishonim on Tanakh'])).toEqual([]);
+
+    const savedIndex = Sefaria._index;
+    const savedBooksDict = Sefaria.booksDict;
+    const vTitle = 'Livorno, 1840';
+    const hash = md5(vTitle).substring(0, 8);
+    const title = 'Hadar Zekenim on Torah';
+    const hadarIndex = {
+      title,
+      heTitle: 'הדר זקנים על התורה',
+      categories: ['Tanakh', 'Rishonim on Tanakh'],
+      dependence: 'Commentary',
+      versions: [{ language: 'he', versionTitle: vTitle, priority: 0, isSource: true }],
+      schema: {
+        nodes: [
+          { nodeType: 'JaggedArrayNode', depth: 3, addressTypes: ['Integer', 'Integer', 'Integer'], sectionNames: ['Chapter', 'Verse', 'Paragraph'], title: 'Genesis', key: 'Genesis' },
+          { nodeType: 'JaggedArrayNode', depth: 3, addressTypes: ['Integer', 'Integer', 'Integer'], sectionNames: ['Chapter', 'Verse', 'Paragraph'], title: 'Exodus', key: 'Exodus' },
+        ],
+      },
+    };
+    Sefaria._index = { ...savedIndex, [title]: hadarIndex };
+    Sefaria.booksDict = { ...savedBooksDict, [title]: 1 };
+
+    const chapters = {
+      15: ['Genesis 15:3', 'Genesis 15:16'],
+      // Chapter 16 intentionally missing (empty in Hadar Zekenim)
+      17: ['Genesis 17:5'],
+      20: ['Genesis 20:4', 'Genesis 20:16'],
+      21: ['Genesis 21:7', 'Genesis 21:30'],
+      22: ['Genesis 22:2'],
+    };
+
+    try {
+      await FS.writeAsStringAsync(encodeURI(`${FS.documentDirectory}/${title}_index.json`), JSON.stringify(hadarIndex));
+      for (const [ch, verses] of Object.entries(chapters)) {
+        const stem = `${title}, Genesis ${ch}`;
+        const secMeta = {};
+        const secHe = {};
+        verses.forEach((v, idx) => {
+          const full = `${title}, ${v}`;
+          secMeta[full] = {
+            ref: full,
+            heRef: `הדר זקנים ${v}`,
+            indexTitle: title,
+            sectionRef: full,
+            versions: [{ language: 'he', versionTitle: vTitle }],
+            links: [[]],
+            prev: idx > 0 ? `${title}, ${verses[idx - 1]}` : null,
+            next: idx + 1 < verses.length ? `${title}, ${verses[idx + 1]}` : null,
+          };
+          secHe[full] = [`פירוש קצר ${v}`];
+        });
+        await FS.writeAsStringAsync(encodeURI(`${FS.documentDirectory}/${stem}.metadata.json`), JSON.stringify({ sections: secMeta }));
+        await FS.writeAsStringAsync(encodeURI(`${FS.documentDirectory}/${stem}.${hash}.he.json`), JSON.stringify({ sections: secHe }));
+      }
+
+      Sefaria._jsonSectionData = {};
+      const ch15Last = await loadTextOffline(`${title}, Genesis 15:16`, {}, true);
+      expect(ch15Last.textContent.next).toBe(`${title}, Genesis 17:5`);
+      const ch17 = await loadTextOffline(`${title}, Genesis 17:5`, {}, true);
+      expect(ch17.textContent.prev).toBe(`${title}, Genesis 15:16`);
+      expect(ch17.textContent.next).toBe(`${title}, Genesis 20:4`);
+      const ch21Last = await loadTextOffline(`${title}, Genesis 21:30`, {}, true);
+      expect(ch21Last.textContent.next).toBe(`${title}, Genesis 22:2`);
+
+      Sefaria._jsonSectionData = {};
+      await prewarmSection(`${title}, Genesis 15:3`, `${title}, Genesis 15:16`);
+      expect(Sefaria._jsonSectionData[`${title}, Genesis 15:3|`]).toBeTruthy();
+      expect(Sefaria._jsonSectionData[`${title}, Genesis 15:16|`]).toBeTruthy();
+      expect(Sefaria._jsonSectionData[`${title}, Genesis 17:5|`]).toBeTruthy();
+      expect(Sefaria._jsonSectionData[`${title}, Genesis 20:4|`]).toBeTruthy();
+      expect(Sefaria._jsonSectionData[`${title}, Genesis 22:2|`]).toBeTruthy();
+
+      const TextColumn = require('../TextColumn');
+      const tc = new TextColumn({
+        theme: {},
+        fontSize: 16,
+        data: [[{ segmentNumber: '1', he: 'x', text: '', links: [] }]],
+        sectionArray: [`${title}, Genesis 17:5`],
+        sectionHeArray: ['בראשית יז:ה'],
+        relatedBySectionRef: {},
+        textTitle: title,
+        textLanguage: 'hebrew',
+        interfaceLanguage: 'english',
+        showAliyot: false,
+        handleOpenURL: jest.fn(),
+        shareCurrentSegment: jest.fn(),
+        getDisplayedText: jest.fn(),
+        textUnavailableAlert: jest.fn(),
+      });
+      expect(tc.sectionsCoverScreen(0, 1)).toBe(false);
+      expect(tc.getViewableSectionData([null, { item: undefined }, { item: { type: 1 }, section: null }])).toEqual({
+        indexes: [], sections: [], sectionRefs: [],
+      });
+      Sefaria._index = {};
+      expect(tc.inlineSectionHeader(`${title}, Genesis 17:5`)).toBe('Genesis 17:5');
+    } finally {
+      Sefaria._index = savedIndex;
+      Sefaria.booksDict = savedBooksDict;
+    }
+  });
 });

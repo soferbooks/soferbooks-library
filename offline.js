@@ -229,7 +229,7 @@ const getSectionFromJsonData = function(ref, data) {
     /**
      * works on either metadata files or objects returned from loadOfflineSection()
      */
-    if (data.sections) {
+    if (data && data.sections) {
         // If the data file represents multiple sections, pick the appropriate one to return
         const refUpOne = Sefaria.refUpOne(ref);
 
@@ -245,8 +245,11 @@ const getSectionFromJsonData = function(ref, data) {
         // a ref above the file's sections ("Kaf HaChayim ... 300" in a book whose sections are
         // "... 300:1", "... 300:2"): its first section (QA round 14: the whole file was returned,
         // a "section" with no book or ref, and the reader then crashed on its contents page)
-        const first = Object.keys(data.sections).find(k => k.startsWith(`${ref}:`) || k.startsWith(`${ref} `));
-        if (first) { return data.sections[first]; }
+        for (const prefix of [ref, refUpOne].filter(Boolean)) {
+            const first = Object.keys(data.sections).find(k => k.startsWith(`${prefix}:`) || k.startsWith(`${prefix} `));
+            if (first) { return data.sections[first]; }
+        }
+        return null;
     }
     return data;
 };
@@ -427,9 +430,17 @@ const neighboursAcrossFiles = async function(section, fileNameStem) {
 const sectionFileOrder = async function(title) {
     const key = `${title}|fileOrder`;
     if (Sefaria._jsonSectionData[key]) { return Sefaria._jsonSectionData[key]; }
+    if (!Sefaria._jsonSectionData[`${title}|fullyUnzipped`] && await fileExists(_zipSourcePath(title))) {
+        try {
+            await _unzip(_zipSourcePath(title));
+            Sefaria._jsonSectionData[`${title}|fullyUnzipped`] = true;
+        } catch (e) { /* use whatever sections are unpacked */ }
+    }
     const index = await _loadJSON(_indexJSONPath(title));
     const suffix = '.metadata.json';
+    const decodeEntry = n => { try { return decodeURIComponent(n); } catch (e) { return n; } };
     const names = (await FileSystem.readDirectoryAsync(FileSystem.documentDirectory))
+        .map(decodeEntry)
         .filter(n => n.endsWith(suffix) && n.startsWith(title))
         .map(n => n.slice(0, -suffix.length))
         .filter(stem => stem === title || stem.startsWith(`${title} `) || stem.startsWith(`${title},`));
@@ -468,7 +479,7 @@ const loadOfflineSectionByVersions = async function(selectedVersions, allVersion
         }
         loadedVersions[lang] = loadedVTitle;
         // versionText may be depth-3. extract depth-2 if necessary.
-        textByLang[lang] = getSectionFromJsonData(fileRef, versionText);
+        textByLang[lang] = getSectionFromJsonData(fileRef, versionText) || [];
     }
     if (Object.keys(textByLang).length === 0 && versionLoadError) {
         // if no versions were loaded successfully, throw.
@@ -651,29 +662,34 @@ const loadOfflineSectionMetadata = async function(ref) {
  */
 export async function warmOfflineCommentaryChapter(commSectionRef) {
     if (!commSectionRef) { return { chars: 0, nextRef: null }; }
+    const hasColon = commSectionRef.includes(':');
+    const chapterStem = hasColon ? commSectionRef.split(':')[0] : commSectionRef;
     const countContentChars = content => (Array.isArray(content)
         ? content.reduce((sum, seg) => sum + ((seg && typeof seg.he === 'string' ? seg.he.length : 0) + (seg && typeof seg.text === 'string' ? seg.text.length : 0)), 0)
         : 0);
     const getStemMeta = () => {
         if (!Sefaria._jsonSectionData) { return null; }
-        const direct = Sefaria._jsonSectionData[`${commSectionRef}|stemMetadata`];
+        const direct = Sefaria._jsonSectionData[`${commSectionRef}|stemMetadata`] ||
+            (hasColon ? Sefaria._jsonSectionData[`${chapterStem}|stemMetadata`] : null);
         if (direct) { return direct; }
         const title = Sefaria.textTitleForRef && Sefaria.textTitleForRef(commSectionRef);
         const byTitle = title && Sefaria._jsonSectionData[`${title}|stemMetadata`];
         if (!byTitle) { return null; }
         const prefix = `${commSectionRef}:`;
-        const entries = Object.entries(byTitle).filter(([k]) => k === commSectionRef || k.startsWith(prefix));
+        const chapterPrefix = `${chapterStem}:`;
+        const entries = Object.entries(byTitle).filter(([k]) =>
+            k === commSectionRef || k.startsWith(prefix) || (hasColon && k.startsWith(chapterPrefix)));
         return entries.length ? Object.fromEntries(entries) : null;
     };
     let firstResult = null;
     try {
-        firstResult = await loadTextOffline(`${commSectionRef}:1`, {}, true);
+        firstResult = await loadTextOffline(hasColon ? commSectionRef : `${commSectionRef}:1`, {}, true);
     } catch (e) {
         const stemMeta = getStemMeta();
         const firstKey = stemMeta && Object.keys(stemMeta)[0];
         if (firstKey) {
             try { firstResult = await loadTextOffline(firstKey, {}, true); } catch (e2) { firstResult = null; }
-        } else {
+        } else if (!hasColon) {
             try { firstResult = await loadTextOffline(commSectionRef, {}, true); } catch (e3) { firstResult = null; }
         }
     }
@@ -681,7 +697,7 @@ export async function warmOfflineCommentaryChapter(commSectionRef) {
     if (!stemMeta) {
         if (!firstResult || !firstResult.textContent) { return { chars: 0, nextRef: null }; }
         const rawNext = firstResult.textContent.next || null;
-        const nextSection = rawNext && rawNext.includes(':') ? rawNext.split(':')[0] : rawNext;
+        const nextSection = hasColon ? rawNext : (rawNext && rawNext.includes(':') ? rawNext.split(':')[0] : rawNext);
         return {
             chars: countContentChars(firstResult.textContent.content),
             nextRef: nextSection && nextSection !== commSectionRef ? nextSection : null,
@@ -700,7 +716,7 @@ export async function warmOfflineCommentaryChapter(commSectionRef) {
             }
         } catch (e) { /* skip missing/empty verse */ }
     }
-    const nextSection = lastNext && lastNext.includes(':') ? lastNext.split(':')[0] : lastNext;
+    const nextSection = hasColon ? lastNext : (lastNext && lastNext.includes(':') ? lastNext.split(':')[0] : lastNext);
     const nextRef = nextSection && nextSection !== commSectionRef ? nextSection : null;
     return { chars, nextRef };
 }
@@ -727,6 +743,12 @@ const loadDefaultNodeMetadata = async function(ref, title, stems) {
 };
 
 const _unzipsInFlight = {};
+let _zipQueue = Promise.resolve();
+const serializeZipOp = fn => {
+    const next = _zipQueue.catch(() => {}).then(fn);
+    _zipQueue = next;
+    return next;
+};
 const _unzip = function(zipSourcePath) {
     /**
      * One unzip of a book at a time: opening a section unzips the book for its metadata while
@@ -737,9 +759,10 @@ const _unzip = function(zipSourcePath) {
      */
     if (!_unzipsInFlight[zipSourcePath]) {
         const cleanup = (typeof Sefaria !== 'undefined' && Sefaria.util && Sefaria.util.unzippedCleanup) || Promise.resolve();
-        _unzipsInFlight[zipSourcePath] = Promise.resolve(cleanup).catch(() => {})
-            .then(() => unzip(zipSourcePath, FileSystem.documentDirectory))
-            .finally(() => { delete _unzipsInFlight[zipSourcePath]; });
+        _unzipsInFlight[zipSourcePath] = serializeZipOp(() =>
+            Promise.resolve(cleanup).catch(() => {})
+                .then(() => unzip(zipSourcePath, FileSystem.documentDirectory))
+        ).finally(() => { delete _unzipsInFlight[zipSourcePath]; });
     }
     return _unzipsInFlight[zipSourcePath];
 };
@@ -748,9 +771,10 @@ const _extractPrefix = function(zipSourcePath, prefix) {
     const key = `${zipSourcePath}|${prefix}`;
     if (!_unzipsInFlight[key]) {
         const cleanup = (typeof Sefaria !== 'undefined' && Sefaria.util && Sefaria.util.unzippedCleanup) || Promise.resolve();
-        _unzipsInFlight[key] = Promise.resolve(cleanup).catch(() => {})
-            .then(() => safeExtractPrefix(zipSourcePath, FileSystem.documentDirectory, prefix))
-            .finally(() => { delete _unzipsInFlight[key]; });
+        _unzipsInFlight[key] = serializeZipOp(() =>
+            Promise.resolve(cleanup).catch(() => {})
+                .then(() => safeExtractPrefix(zipSourcePath, FileSystem.documentDirectory, prefix))
+        ).finally(() => { delete _unzipsInFlight[key]; });
     }
     return _unzipsInFlight[key];
 };

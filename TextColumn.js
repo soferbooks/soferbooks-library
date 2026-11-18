@@ -465,10 +465,11 @@ class TextColumn extends React.PureComponent {
 
   inlineSectionHeader = (ref) => {
     // Returns a string to be used as an inline section header for `ref`.
-    var heTitle = Sefaria.index(this.props.textTitle).heTitle;
+    const safeRef = String(ref || '');
+    const heTitle = Sefaria.index(this.props.textTitle)?.heTitle;
     const esc = s => String(s || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');  // "ארחות חיים (כתר ראש)"
-    var trimmer = new RegExp("^(" + esc(this.props.textTitle) + "|" + esc(heTitle) + "),? ");
-    return ref.replace(trimmer, '');
+    const trimmer = new RegExp("^(" + esc(this.props.textTitle) + "|" + esc(heTitle) + "),? ");
+    return safeRef.replace(trimmer, '');
   };
 
   componentDidUpdate(prevProps, prevState) {
@@ -532,12 +533,14 @@ class TextColumn extends React.PureComponent {
     }
     let currSec;
     for (let seg of viewableItems) {
+      if (!seg || !seg.item) { continue; }
       if (seg.item.type === ROW_TYPES.ALIYA || seg.item.type === ROW_TYPES.PARASHA) { continue }
       if (seg.item.type === undefined) {
         // apparently segments with item.type === undefined are sections. who knew?
         secData.sectionRefs.push(seg.item.ref);
 
       }
+      else if (!seg.section) { continue; }
       else if (currSec !== seg.section.sectionIndex) {
         currSec = seg.section.sectionIndex;
         secData.indexes.push(currSec);
@@ -645,14 +648,21 @@ class TextColumn extends React.PureComponent {
 
   sectionsCoverScreen = (startSectionInd, endSectionInd) => {
     // return true if there is enough space between the `startSectionInd` and `endSectionInd` to at least fill the screen.
-    if (this.state.dataSource.length <= 1) {
+    if (this.state.dataSource.length <= 1 || !this.state.itemLayoutList) {
       return false;
     }
-    let extra
-    const startSegRef = this.state.dataSource[startSectionInd].data[0].ref;
-    const endSegRef = this.state.dataSource[endSectionInd].data.slice(-1)[0].ref;
+    const startSec = this.state.dataSource[startSectionInd]?.data;
+    const endSec = this.state.dataSource[endSectionInd]?.data;
+    if (!startSec?.length || !endSec?.length) {
+      return false;
+    }
+    const startSegRef = startSec[0].ref;
+    const endSegRef = endSec[endSec.length - 1].ref;
     const firstSeg = this.state.itemLayoutList[this.state.jumpInfoMap.get(startSegRef)];
     const lastSeg = this.state.itemLayoutList[this.state.jumpInfoMap.get(endSegRef)];
+    if (!firstSeg || !lastSeg) {
+      return false;
+    }
     return (lastSeg.offset + lastSeg.length - firstSeg.offset) > ViewPort.height;
   };
 

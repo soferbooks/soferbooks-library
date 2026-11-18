@@ -227,6 +227,8 @@ class ReaderApp extends React.PureComponent {
     this._tabSnapshots = {};  // tab id -> reader state (see TAB_SNAPSHOT_KEYS)
     this._saveTabs = makeDebouncedTabSaver();
     this._loadToken = 0;  // bumped by every text load / tab switch, so stale async loads are dropped
+    this._loadingTail = false;
+    this._loadingHead = false;
     this._tocFromReader = false;
     this._newTabRouteUntil = 0;
     if (Platform.OS === 'android') {
@@ -930,6 +932,8 @@ class ReaderApp extends React.PureComponent {
 
     // Clear the current state, load ref, then load text into the state.
     const loadToken = ++this._loadToken;
+    this._loadingTail = false;
+    this._loadingHead = false;
     return new Promise((resolve, reject) => {
       this.setState({
           loadingTextTail: false,
@@ -1108,7 +1112,7 @@ class ReaderApp extends React.PureComponent {
       try {
         await this._loadRelatedOnlineAndOffline(ref, isSheet, isOnline);
         hadSuccess = true;
-        // TODO check that online call is necessary even after offline call
+        break;
       } catch (error) {
         if (!isOnline && error === ERRORS.MISSING_OFFLINE_DATA) {
           // expected: the book's links are not downloaded, so they are read online next (not an error)
@@ -1223,47 +1227,68 @@ class ReaderApp extends React.PureComponent {
   };
 
   updateDataPrev = () => {
+    if (this._loadingHead || !this.state.prev || this.state.sectionArray.includes(this.state.prev)) {
+      return;
+    }
+    this._loadingHead = true;
     const loadToken = this._loadToken;
-    this.setState({ loadingTextHead: true });
-    Sefaria.offlineOnline.loadText(this.state.prev, true, this.state.selectedVersions, !this.state.hasInternet)
-      .then(({textContent}) => {
-        if (loadToken !== this._loadToken) { return; }  // switched tab/text meanwhile
-        this.setState(prevState => {
-          const updatedData = [textContent.content, ...prevState.data];
-          const newSectionArray = [textContent.sectionRef, ...prevState.sectionArray];
-          const newSectionHeArray = [textContent.heRef, ...prevState.sectionHeArray];
-          const newLinksLoaded = [false, ...prevState.linksLoaded];
-          const newTranslations = [{versions: []}, ...prevState.translations];
+    this.setState({ loadingTextHead: true }, () => {
+      Sefaria.offlineOnline.loadText(this.state.prev, true, this.state.selectedVersions, !this.state.hasInternet)
+        .then(({textContent}) => {
+          if (loadToken !== this._loadToken) { return; }  // switched tab/text meanwhile
+          this._loadingHead = false;
+          this.setState(prevState => {
+            if (prevState.sectionArray.includes(textContent.sectionRef)) {
+              return { loadingTextHead: false };
+            }
+            const updatedData = [textContent.content, ...prevState.data];
+            const newSectionArray = [textContent.sectionRef, ...prevState.sectionArray];
+            const newSectionHeArray = [textContent.heRef, ...prevState.sectionHeArray];
+            const newLinksLoaded = [false, ...prevState.linksLoaded];
+            const newTranslations = [{versions: []}, ...prevState.translations];
 
-          return {
-            data: updatedData,
-            prev: this._readingNeighbours(textContent.sectionRef, textContent).prev,
-            next: prevState.next,
-            sectionArray: newSectionArray,
-            sectionHeArray: newSectionHeArray,
-            sectionIndexRef: prevState.sectionIndexRef + 1,  // needs to be shifted
-            linksLoaded: newLinksLoaded,
-            translations: newTranslations,
-            loaded: true,
-            loadingTextHead: false,
-          };
-        }, () => {
-          this.loadSecondaryData(textContent.sectionRef);
-          this.setCurrVersionObjects(textContent.sectionRef);
+            return {
+              data: updatedData,
+              prev: this._readingNeighbours(textContent.sectionRef, textContent).prev,
+              next: prevState.next,
+              sectionArray: newSectionArray,
+              sectionHeArray: newSectionHeArray,
+              sectionIndexRef: prevState.sectionIndexRef + 1,  // needs to be shifted
+              linksLoaded: newLinksLoaded,
+              translations: newTranslations,
+              loaded: true,
+              loadingTextHead: false,
+            };
+          }, () => {
+            this.loadSecondaryData(textContent.sectionRef);
+            this.setCurrVersionObjects(textContent.sectionRef);
+          });
+        })
+        .catch(error => {
+          if (loadToken === this._loadToken) {
+            this._loadingHead = false;
+            this.setState({ loadingTextHead: false });
+          }
+          console.log('Error caught from ReaderApp.updateDataPrev', error);
         });
-      })
-      .catch(function(error) {
-        console.log('Error caught from ReaderApp.updateDataPrev', error);
-      });
+    });
   };
 
   updateDataNext = () => {
+    if (this._loadingTail || !this.state.next || this.state.sectionArray.includes(this.state.next)) {
+      return;
+    }
+    this._loadingTail = true;
     const loadToken = this._loadToken;
     this.setState({ loadingTextTail: true }, () => {
       Sefaria.offlineOnline.loadText(this.state.next, true, this.state.selectedVersions, !this.state.hasInternet)
           .then(({textContent}) => {
             if (loadToken !== this._loadToken) { return; }  // switched tab/text meanwhile
+            this._loadingTail = false;
             this.setState(prevState => {
+              if (prevState.sectionArray.includes(textContent.sectionRef)) {
+                return { loadingTextTail: false };
+              }
               const updatedData = [...prevState.data, textContent.content];
               const newSectionArray = [...prevState.sectionArray, textContent.sectionRef];
               const newSectionHeArray = [...prevState.sectionHeArray, textContent.heRef];
@@ -1287,6 +1312,7 @@ class ReaderApp extends React.PureComponent {
           })
           .catch(error => {
             if (loadToken === this._loadToken) {
+              this._loadingTail = false;
               this.setState({ loadingTextTail: false });
             }
             console.log('Error caught from ReaderApp.updateDataNext', error);

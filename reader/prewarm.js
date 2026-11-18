@@ -26,14 +26,16 @@ const _warmedMeta = new Map();
 const _inFlight = new Set();
 
 export function commentariesToPrewarm(title, categories) {
+  const cats = Array.isArray(categories) ? categories : [];
   if (
     !title ||
-    /^(?:Rashi|Steinsaltz|Tosafot|Tosafot Yom Tov|Ibn Ezra|Ramban|Sforno|Bartenura|Be'er Heitev|Siftei Kohen|Turei Zahav|Kesef Mishneh|Maggid Mishneh|Matnot Kehunah|Etz Yosef)\s+on\s+|^Mishnah Berurah$/i.test(title)
+    /\son\s/i.test(title) ||
+    /^Mishnah Berurah$/i.test(title) ||
+    cats.some(c => /^(?:Commentary|Targum|Rishonim on Tanakh|Acharonim on Tanakh)$/i.test(c))
   ) {
     return [];
   }
   const out = [`Rashi on ${title}`];
-  const cats = Array.isArray(categories) ? categories : [];
   if (cats.some(c => /^Talmud$/i.test(c))) {
     out.push(`Steinsaltz on ${title}`);
   }
