@@ -6,3 +6,5 @@
   Copyright © 2021 Facebook. All rights reserved.
 */
 UILaunchStoryboardName = "Launch Screen";
+CFBundleDisplayName = "SoferBooks Library";
+CFBundleName = "SoferBooks Library";

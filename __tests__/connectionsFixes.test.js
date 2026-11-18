@@ -873,4 +873,152 @@ describe('Extra commentary collectiveTitle strings and depth-3 1D content_counts
       widthSpy.mockRestore();
     }
   });
+
+  test('commentariesToPrewarm covers Mishnah, Halakhah, and Midrash; prewarmSection warms short base sections and commentaries across chapters', async () => {
+    const FS = require('expo-file-system/legacy');
+    const md5 = require('md5');
+    const { prewarmSection, _resetPrewarm, commentariesToPrewarm } = require('../reader/prewarm');
+    _resetPrewarm();
+    FS.clear();
+
+    expect(commentariesToPrewarm('Mishnah Berakhot', ['Mishnah', 'Seder Zeraim'])).toEqual([
+      'Rashi on Mishnah Berakhot',
+      'Bartenura on Mishnah Berakhot',
+      'Tosafot Yom Tov on Mishnah Berakhot',
+      'Rambam on Mishnah Berakhot',
+    ]);
+    expect(commentariesToPrewarm('Shulchan Arukh, Orach Chayim', ['Halakhah', 'Shulchan Arukh'])).toEqual([
+      'Rashi on Shulchan Arukh, Orach Chayim',
+      'Mishnah Berurah',
+      "Be'er Heitev on Shulchan Arukh, Orach Chayim",
+    ]);
+    expect(commentariesToPrewarm('Bereishit Rabbah', ['Midrash'])).toEqual([
+      'Rashi on Bereishit Rabbah',
+      'Matnot Kehunah on Bereishit Rabbah',
+      'Etz Yosef on Bereishit Rabbah',
+    ]);
+
+    const savedIndex = Sefaria._index;
+    const savedBooksDict = Sefaria.booksDict;
+    Sefaria._index = {
+      ...savedIndex,
+      'Mishnah Berakhot': { title: 'Mishnah Berakhot', categories: ['Mishnah', 'Seder Zeraim'] },
+      'Bartenura on Mishnah Berakhot': { title: 'Bartenura on Mishnah Berakhot', categories: ['Mishnah', 'Commentary', 'Bartenura'] },
+    };
+    Sefaria.booksDict = { ...savedBooksDict, 'Mishnah Berakhot': 1, 'Bartenura on Mishnah Berakhot': 1 };
+    const vTitle = 'Vilna';
+    const hash = md5(vTitle).substring(0, 8);
+    try {
+      await FS.writeAsStringAsync(encodeURI(`${FS.documentDirectory}/Mishnah Berakhot_index.json`), JSON.stringify({
+        title: 'Mishnah Berakhot', versions: [{ language: 'he', versionTitle: vTitle, priority: 0, isSource: true }],
+      }));
+      await FS.writeAsStringAsync(encodeURI(`${FS.documentDirectory}/Bartenura on Mishnah Berakhot_index.json`), JSON.stringify({
+        title: 'Bartenura on Mishnah Berakhot', versions: [{ language: 'he', versionTitle: vTitle, priority: 0, isSource: true }],
+      }));
+      for (const ch of [1, 2, 3, 4]) {
+        const baseStem = `Mishnah Berakhot ${ch}`;
+        await FS.writeAsStringAsync(encodeURI(`${FS.documentDirectory}/${baseStem}.metadata.json`), JSON.stringify({
+          sections: {
+            [baseStem]: {
+              ref: baseStem, heRef: baseStem, indexTitle: 'Mishnah Berakhot', sectionRef: baseStem,
+              versions: [{ language: 'he', versionTitle: vTitle }], links: [[]],
+              next: ch < 4 ? `Mishnah Berakhot ${ch + 1}` : null,
+            },
+          },
+        }));
+        await FS.writeAsStringAsync(encodeURI(`${FS.documentDirectory}/${baseStem}.${hash}.he.json`), JSON.stringify({
+          sections: { [baseStem]: ['משנה קצרה'] },
+        }));
+
+        const commStem = `Bartenura on Mishnah Berakhot ${ch}`;
+        await FS.writeAsStringAsync(encodeURI(`${FS.documentDirectory}/${commStem}.metadata.json`), JSON.stringify({
+          sections: {
+            [`${commStem}:1`]: {
+              ref: `${commStem}:1`, heRef: commStem, indexTitle: 'Bartenura on Mishnah Berakhot', sectionRef: `${commStem}:1`,
+              versions: [{ language: 'he', versionTitle: vTitle }], links: [[]],
+              next: ch < 4 ? `Bartenura on Mishnah Berakhot ${ch + 1}:1` : null,
+            },
+          },
+        }));
+        await FS.writeAsStringAsync(encodeURI(`${FS.documentDirectory}/${commStem}.${hash}.he.json`), JSON.stringify({
+          sections: { [`${commStem}:1`]: ['ברטנורא קצר'] },
+        }));
+      }
+
+      Sefaria._jsonSectionData = {};
+      await prewarmSection('Mishnah Berakhot 1', 'Mishnah Berakhot 2');
+      for (const ch of [1, 2, 3, 4]) {
+        expect(Sefaria._jsonSectionData[`Mishnah Berakhot ${ch}|`]).toBeTruthy();
+        expect(Sefaria._jsonSectionData[`Bartenura on Mishnah Berakhot ${ch}:1|`]).toBeTruthy();
+      }
+    } finally {
+      Sefaria._index = savedIndex;
+      Sefaria.booksDict = savedBooksDict;
+    }
+  });
+
+  test('prewarmLinkedCommentaries warms short linked commentaries across chapters (including depth-1 stem files)', async () => {
+    const FS = require('expo-file-system/legacy');
+    const md5 = require('md5');
+    const { prewarmLinkedCommentaries, _resetPrewarm } = require('../reader/prewarm');
+    _resetPrewarm();
+    FS.clear();
+
+    const savedIndex = Sefaria._index;
+    const savedBooksDict = Sefaria.booksDict;
+    Sefaria._index = {
+      ...savedIndex,
+      'Pirkei Avot': { title: 'Pirkei Avot', categories: ['Mishnah', 'Seder Nezikin'] },
+      'Rabbeinu Yonah on Pirkei Avot': { title: 'Rabbeinu Yonah on Pirkei Avot', categories: ['Mishnah', 'Commentary'] },
+    };
+    Sefaria.booksDict = { ...savedBooksDict, 'Pirkei Avot': 1, 'Rabbeinu Yonah on Pirkei Avot': 1 };
+    const vTitle = 'Vilna';
+    const hash = md5(vTitle).substring(0, 8);
+    try {
+      await FS.writeAsStringAsync(encodeURI(`${FS.documentDirectory}/Rabbeinu Yonah on Pirkei Avot_index.json`), JSON.stringify({
+        title: 'Rabbeinu Yonah on Pirkei Avot', versions: [{ language: 'he', versionTitle: vTitle, priority: 0, isSource: true }],
+      }));
+      await FS.writeAsStringAsync(encodeURI(`${FS.documentDirectory}/Rabbeinu Yonah on Pirkei Avot.metadata.json`), JSON.stringify({
+        sections: {
+          'Rabbeinu Yonah on Pirkei Avot 1:1': {
+            ref: 'Rabbeinu Yonah on Pirkei Avot 1:1', heRef: 'רבינו יונה', indexTitle: 'Rabbeinu Yonah on Pirkei Avot',
+            sectionRef: 'Rabbeinu Yonah on Pirkei Avot 1:1',
+            versions: [{ language: 'he', versionTitle: vTitle }], links: [[]], next: 'Rabbeinu Yonah on Pirkei Avot 2:1',
+          },
+          'Rabbeinu Yonah on Pirkei Avot 2:1': {
+            ref: 'Rabbeinu Yonah on Pirkei Avot 2:1', heRef: 'רבינו יונה', indexTitle: 'Rabbeinu Yonah on Pirkei Avot',
+            sectionRef: 'Rabbeinu Yonah on Pirkei Avot 2:1',
+            versions: [{ language: 'he', versionTitle: vTitle }], links: [[]], next: 'Rabbeinu Yonah on Pirkei Avot 3:1',
+          },
+          'Rabbeinu Yonah on Pirkei Avot 3:1': {
+            ref: 'Rabbeinu Yonah on Pirkei Avot 3:1', heRef: 'רבינו יונה', indexTitle: 'Rabbeinu Yonah on Pirkei Avot',
+            sectionRef: 'Rabbeinu Yonah on Pirkei Avot 3:1',
+            versions: [{ language: 'he', versionTitle: vTitle }], links: [[]], next: null,
+          },
+        },
+      }));
+      await FS.writeAsStringAsync(encodeURI(`${FS.documentDirectory}/Rabbeinu Yonah on Pirkei Avot.${hash}.he.json`), JSON.stringify({
+        sections: {
+          'Rabbeinu Yonah on Pirkei Avot 1:1': ['פירוש פרק א'],
+          'Rabbeinu Yonah on Pirkei Avot 2:1': ['פירוש פרק ב'],
+          'Rabbeinu Yonah on Pirkei Avot 3:1': ['פירוש פרק ג'],
+        },
+      }));
+
+      Sefaria._jsonSectionData = {};
+      await prewarmLinkedCommentaries('Pirkei Avot 1', 'Pirkei Avot 2', [
+        {
+          links: [
+            { category: 'Commentary', textTitle: 'Rabbeinu Yonah on Pirkei Avot', collectiveTitle: 'Rabbeinu Yonah', sourceRef: 'Rabbeinu Yonah on Pirkei Avot 1:1' },
+          ],
+        },
+      ]);
+      expect(Sefaria._jsonSectionData['Rabbeinu Yonah on Pirkei Avot 1:1|']).toBeTruthy();
+      expect(Sefaria._jsonSectionData['Rabbeinu Yonah on Pirkei Avot 2:1|']).toBeTruthy();
+      expect(Sefaria._jsonSectionData['Rabbeinu Yonah on Pirkei Avot 3:1|']).toBeTruthy();
+    } finally {
+      Sefaria._index = savedIndex;
+      Sefaria.booksDict = savedBooksDict;
+    }
+  });
 });

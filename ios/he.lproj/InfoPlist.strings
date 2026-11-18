@@ -6,3 +6,5 @@
   Copyright © 2021 Facebook. All rights reserved.
 */
 UILaunchStoryboardName = "Launch Screen_he";
+CFBundleDisplayName = "ספריית SoferBooks";
+CFBundleName = "ספריית SoferBooks";

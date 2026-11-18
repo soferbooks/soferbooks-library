@@ -631,6 +631,14 @@ const loadOfflineSectionMetadata = async function(ref) {
                 }
             }
         } else {
+            const depth1FilenameStem = fileNameStem.substring(0, fileNameStem.lastIndexOf(" "));
+            if (depth1FilenameStem) {
+                try {
+                    return [preResolve(await _loadJSON(_JSONMetadataPath(depth1FilenameStem)), depth1FilenameStem), depth1FilenameStem];
+                } catch (eDepth1) { /* fall through */ }
+            }
+            const found = await loadDefaultNodeMetadata(ref, bookRefStem, [fileNameStem, depth1FilenameStem].filter(Boolean));
+            if (found) { return found; }
             throw ERRORS.MISSING_OFFLINE_DATA;
         }
     }
@@ -646,11 +654,22 @@ export async function warmOfflineCommentaryChapter(commSectionRef) {
     const countContentChars = content => (Array.isArray(content)
         ? content.reduce((sum, seg) => sum + ((seg && typeof seg.he === 'string' ? seg.he.length : 0) + (seg && typeof seg.text === 'string' ? seg.text.length : 0)), 0)
         : 0);
+    const getStemMeta = () => {
+        if (!Sefaria._jsonSectionData) { return null; }
+        const direct = Sefaria._jsonSectionData[`${commSectionRef}|stemMetadata`];
+        if (direct) { return direct; }
+        const title = Sefaria.textTitleForRef && Sefaria.textTitleForRef(commSectionRef);
+        const byTitle = title && Sefaria._jsonSectionData[`${title}|stemMetadata`];
+        if (!byTitle) { return null; }
+        const prefix = `${commSectionRef}:`;
+        const entries = Object.entries(byTitle).filter(([k]) => k === commSectionRef || k.startsWith(prefix));
+        return entries.length ? Object.fromEntries(entries) : null;
+    };
     let firstResult = null;
     try {
         firstResult = await loadTextOffline(`${commSectionRef}:1`, {}, true);
     } catch (e) {
-        const stemMeta = Sefaria._jsonSectionData && Sefaria._jsonSectionData[`${commSectionRef}|stemMetadata`];
+        const stemMeta = getStemMeta();
         const firstKey = stemMeta && Object.keys(stemMeta)[0];
         if (firstKey) {
             try { firstResult = await loadTextOffline(firstKey, {}, true); } catch (e2) { firstResult = null; }
@@ -658,7 +677,7 @@ export async function warmOfflineCommentaryChapter(commSectionRef) {
             try { firstResult = await loadTextOffline(commSectionRef, {}, true); } catch (e3) { firstResult = null; }
         }
     }
-    const stemMeta = Sefaria._jsonSectionData && Sefaria._jsonSectionData[`${commSectionRef}|stemMetadata`];
+    const stemMeta = getStemMeta();
     if (!stemMeta) {
         if (!firstResult || !firstResult.textContent) { return { chars: 0, nextRef: null }; }
         const rawNext = firstResult.textContent.next || null;

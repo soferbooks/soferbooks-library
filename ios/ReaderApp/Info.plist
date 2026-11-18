@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>Sefaria</string>
+	<string>SoferBooks Library</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -13,7 +13,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>Sefaria</string>
+	<string>SoferBooks Library</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -50,9 +50,9 @@
 		<true/>
 	</dict>
 	<key>NSLocationAlwaysUsageDescription</key>
-	<string>Sefaria does not use your location.</string>
+	<string>SoferBooks Library does not use your location.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Sefaria does not use your location.</string>
+	<string>SoferBooks Library does not use your location.</string>
 	<key>RCTNewArchEnabled</key>
 	<true/>
 	<key>UIAppFonts</key>
@@ -62,6 +62,13 @@
 		<string>Heebo-Regular.ttf</string>
 		<string>FrankSofer.ttf</string>
 		<string>FrankSofer_bold.ttf</string>
+		<string>Drugulin.ttf</string>
+		<string>Drugulin_bold.ttf</string>
+		<string>Hadassah.ttf</string>
+		<string>Hadassah_bold.ttf</string>
+		<string>MekorotRashi.ttf</string>
+		<string>MekorotRashi_bold.ttf</string>
+		<string>Cinzel.ttf</string>
 		<string>OpenSans-Regular.ttf</string>
 		<string>OpenSans-Light.ttf</string>
 		<string>Amiri-Slanted.ttf</string>

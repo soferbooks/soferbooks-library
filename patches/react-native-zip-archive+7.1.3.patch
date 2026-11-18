@@ -194,3 +194,162 @@ index f1e46b0..594654b 100644
  export const isPasswordProtected = (source) => {
    return RNZipArchive.isPasswordProtected(normalizeFilePath(source)).then(
      (isEncrypted) => !!isEncrypted
+diff --git a/node_modules/react-native-zip-archive/ios/RNZipArchive.mm b/node_modules/react-native-zip-archive/ios/RNZipArchive.mm
+index 3f0a71a..d8cda78 100644
+--- a/node_modules/react-native-zip-archive/ios/RNZipArchive.mm
++++ b/node_modules/react-native-zip-archive/ios/RNZipArchive.mm
+@@ -70,6 +70,154 @@ RCT_EXPORT_METHOD(unzipWithPassword:(NSString *)from
+     [self extractZipArchive:from destinationPath:destinationPath password:password resolve:resolve reject:reject];
+ }
+ 
++RCT_EXPORT_METHOD(extractPrefix:(NSString *)from
++                  destinationPath:(NSString *)destinationPath
++                  prefix:(NSString *)prefix
++                  resolver:(RCTPromiseResolveBlock)resolve
++                  rejecter:(RCTPromiseRejectBlock)reject) {
++    if (prefix.length == 0) {
++        resolve(@0);
++        return;
++    }
++
++    NSFileManager *fileManager = [NSFileManager defaultManager];
++    if (![fileManager fileExistsAtPath:destinationPath]) {
++        [fileManager createDirectoryAtPath:destinationPath
++               withIntermediateDirectories:YES
++                                attributes:nil
++                                     error:nil];
++    }
++
++    zipFile zip = unzOpen(from.fileSystemRepresentation);
++    if (zip == NULL) {
++        reject(@"unzip_error", @"failed to open zip file", nil);
++        return;
++    }
++
++    NSInteger extractedCount = 0;
++    BOOL success = YES;
++    NSError *extractError = nil;
++    int ret = unzGoToFirstFile(zip);
++    while (ret == UNZ_OK) {
++        NSString *strPath = nil;
++        unsigned long long uncompressedSize = 0;
++        BOOL isDirectory = NO;
++        uLong version = 0;
++        uLong externalFa = 0;
++        NSString *entryError = nil;
++        if (![self readCurrentZipEntry:zip
++                                  path:&strPath
++                                  size:&uncompressedSize
++                           isDirectory:&isDirectory
++                               version:&version
++                            externalFa:&externalFa
++                                 error:&entryError]) {
++            success = NO;
++            extractError = [NSError errorWithDomain:@"RNZipArchive"
++                                               code:-1
++                                           userInfo:@{NSLocalizedDescriptionKey: entryError ?: @"failed to retrieve info for zip entry"}];
++            break;
++        }
++        (void)uncompressedSize;
++
++        if (![strPath hasPrefix:prefix] ||
++            [self shouldSkipZipEntry:strPath version:version externalFa:externalFa]) {
++            ret = unzGoToNextFile(zip);
++            continue;
++        }
++
++        if (![self isSafeExtractPath:strPath intoDestination:destinationPath]) {
++            success = NO;
++            extractError = [NSError errorWithDomain:@"RNZipArchive"
++                                               code:-1
++                                           userInfo:@{NSLocalizedDescriptionKey:
++                                                          [NSString stringWithFormat:@"Found Zip Path Traversal Vulnerability with %@", strPath]}];
++            break;
++        }
++
++        NSString *fullPath = [destinationPath stringByAppendingPathComponent:strPath];
++        if (isDirectory) {
++            [fileManager createDirectoryAtPath:fullPath
++                   withIntermediateDirectories:YES
++                                    attributes:nil
++                                         error:nil];
++            ret = unzGoToNextFile(zip);
++            continue;
++        }
++
++        [fileManager createDirectoryAtPath:[fullPath stringByDeletingLastPathComponent]
++               withIntermediateDirectories:YES
++                                attributes:nil
++                                     error:nil];
++
++        ret = unzOpenCurrentFile(zip);
++        if (ret != UNZ_OK) {
++            success = NO;
++            extractError = [NSError errorWithDomain:@"RNZipArchive"
++                                               code:-1
++                                           userInfo:@{NSLocalizedDescriptionKey: @"failed to open file in zip archive"}];
++            break;
++        }
++
++        FILE *out = fopen(fullPath.fileSystemRepresentation, "wb");
++        if (out == NULL) {
++            unzCloseCurrentFile(zip);
++            success = NO;
++            extractError = [NSError errorWithDomain:@"RNZipArchive"
++                                               code:-1
++                                           userInfo:@{NSLocalizedDescriptionKey: @"failed to write extracted file"}];
++            break;
++        }
++
++        unsigned char buffer[4096];
++        int readBytes;
++        do {
++            readBytes = unzReadCurrentFile(zip, buffer, sizeof(buffer));
++            if (readBytes < 0) {
++                success = NO;
++                extractError = [NSError errorWithDomain:@"RNZipArchive"
++                                                   code:-1
++                                               userInfo:@{NSLocalizedDescriptionKey: @"failed to read zip entry"}];
++                break;
++            }
++            if (readBytes > 0) {
++                if (fwrite(buffer, 1, (size_t)readBytes, out) != (size_t)readBytes) {
++                    success = NO;
++                    extractError = [NSError errorWithDomain:@"RNZipArchive"
++                                                       code:-1
++                                                   userInfo:@{NSLocalizedDescriptionKey: @"failed to write extracted file"}];
++                    break;
++                }
++            }
++        } while (readBytes > 0);
++
++        fclose(out);
++        int closeRet = unzCloseCurrentFile(zip);
++        if (success && closeRet != UNZ_OK) {
++            success = NO;
++            extractError = [NSError errorWithDomain:@"RNZipArchive"
++                                               code:-1
++                                           userInfo:@{NSLocalizedDescriptionKey: @"failed to extract zip entry"}];
++        }
++
++        if (!success) {
++            break;
++        }
++
++        extractedCount += 1;
++        ret = unzGoToNextFile(zip);
++    }
++
++    unzClose(zip);
++
++    if (success) {
++        resolve(@(extractedCount));
++    } else {
++        NSString *message = extractError ? extractError.localizedDescription : @"unable to extract prefix";
++        reject(@"unzip_error", message, extractError);
++    }
++}
++
+ RCT_EXPORT_METHOD(zipFolder:(NSString *)from
+                   destinationPath:(NSString *)destinationPath
+                   compressionLevel:(double)compressionLevel

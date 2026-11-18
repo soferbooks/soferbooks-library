@@ -22,6 +22,13 @@
 		0761D1BE207DD6200011FE47 /* Amiri-BoldSlanted.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 0761D1B1207DD6200011FE47 /* Amiri-BoldSlanted.ttf */; };
 		0761D1BF207DD6200011FE47 /* Heebo-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 0761D1B2207DD6200011FE47 /* Heebo-Regular.ttf */; };
 		0761D1C0207DD6200011FE47 /* FrankSofer_bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 0761D1B3207DD6200011FE47 /* FrankSofer_bold.ttf */; };
+		A20000012EE1000000000001 /* Drugulin.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A10000012EE1000000000001 /* Drugulin.ttf */; };
+		A20000022EE1000000000002 /* Drugulin_bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A10000022EE1000000000002 /* Drugulin_bold.ttf */; };
+		A20000032EE1000000000003 /* Hadassah.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A10000032EE1000000000003 /* Hadassah.ttf */; };
+		A20000042EE1000000000004 /* Hadassah_bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A10000042EE1000000000004 /* Hadassah_bold.ttf */; };
+		A20000052EE1000000000005 /* MekorotRashi.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A10000052EE1000000000005 /* MekorotRashi.ttf */; };
+		A20000062EE1000000000006 /* MekorotRashi_bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A10000062EE1000000000006 /* MekorotRashi_bold.ttf */; };
+		A20000072EE1000000000007 /* Cinzel.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A10000072EE1000000000007 /* Cinzel.ttf */; };
 		0761D1C2207DD6200011FE47 /* OpenSans-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 0761D1B5207DD6200011FE47 /* OpenSans-Regular.ttf */; };
 		0761D1C4207F9CDD0011FE47 /* LaunchScreen.xib in Resources */ = {isa = PBXBuildFile; fileRef = 0761D1C3207F9CDD0011FE47 /* LaunchScreen.xib */; };
 		0761D1C6207F9D000011FE47 /* two1536x2048.png in Resources */ = {isa = PBXBuildFile; fileRef = 0761D1C5207F9D000011FE47 /* two1536x2048.png */; };
@@ -1253,6 +1260,13 @@
 		0761D1B1207DD6200011FE47 /* Amiri-BoldSlanted.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Amiri-BoldSlanted.ttf"; sourceTree = "<group>"; };
 		0761D1B2207DD6200011FE47 /* Heebo-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Heebo-Regular.ttf"; sourceTree = "<group>"; };
 		0761D1B3207DD6200011FE47 /* FrankSofer_bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = FrankSofer_bold.ttf; sourceTree = "<group>"; };
+		A10000012EE1000000000001 /* Drugulin.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Drugulin.ttf; sourceTree = "<group>"; };
+		A10000022EE1000000000002 /* Drugulin_bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Drugulin_bold.ttf; sourceTree = "<group>"; };
+		A10000032EE1000000000003 /* Hadassah.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Hadassah.ttf; sourceTree = "<group>"; };
+		A10000042EE1000000000004 /* Hadassah_bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Hadassah_bold.ttf; sourceTree = "<group>"; };
+		A10000052EE1000000000005 /* MekorotRashi.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = MekorotRashi.ttf; sourceTree = "<group>"; };
+		A10000062EE1000000000006 /* MekorotRashi_bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = MekorotRashi_bold.ttf; sourceTree = "<group>"; };
+		A10000072EE1000000000007 /* Cinzel.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Cinzel.ttf; sourceTree = "<group>"; };
 		0761D1B5207DD6200011FE47 /* OpenSans-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "OpenSans-Regular.ttf"; sourceTree = "<group>"; };
 		0761D1C3207F9CDD0011FE47 /* LaunchScreen.xib */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.xib; path = LaunchScreen.xib; sourceTree = "<group>"; };
 		0761D1C5207F9D000011FE47 /* two1536x2048.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = two1536x2048.png; sourceTree = "<group>"; };
@@ -19180,6 +19194,13 @@
 				0761D1B5207DD6200011FE47 /* OpenSans-Regular.ttf */,
 				0761D1B3207DD6200011FE47 /* FrankSofer_bold.ttf */,
 				0761D1A9207DD61F0011FE47 /* FrankSofer.ttf */,
+				A10000012EE1000000000001 /* Drugulin.ttf */,
+				A10000022EE1000000000002 /* Drugulin_bold.ttf */,
+				A10000032EE1000000000003 /* Hadassah.ttf */,
+				A10000042EE1000000000004 /* Hadassah_bold.ttf */,
+				A10000052EE1000000000005 /* MekorotRashi.ttf */,
+				A10000062EE1000000000006 /* MekorotRashi_bold.ttf */,
+				A10000072EE1000000000007 /* Cinzel.ttf */,
 			);
 			name = "Recovered References";
 			sourceTree = "<group>";
@@ -51869,6 +51890,13 @@
 				0761D1B7207DD6200011FE47 /* Amiri-Bold.ttf in Resources */,
 				0761D1C0207DD6200011FE47 /* FrankSofer_bold.ttf in Resources */,
 				0761D1B6207DD6200011FE47 /* FrankSofer.ttf in Resources */,
+				A20000012EE1000000000001 /* Drugulin.ttf in Resources */,
+				A20000022EE1000000000002 /* Drugulin_bold.ttf in Resources */,
+				A20000032EE1000000000003 /* Hadassah.ttf in Resources */,
+				A20000042EE1000000000004 /* Hadassah_bold.ttf in Resources */,
+				A20000052EE1000000000005 /* MekorotRashi.ttf in Resources */,
+				A20000062EE1000000000006 /* MekorotRashi_bold.ttf in Resources */,
+				A20000072EE1000000000007 /* Cinzel.ttf in Resources */,
 				075C8DAF2706044C0042325D /* Launch Screen_he.storyboard in Resources */,
 				0761D1C6207F9D000011FE47 /* two1536x2048.png in Resources */,
 			);
@@ -52341,10 +52369,11 @@
 					"-lc++",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
-				PRODUCT_BUNDLE_IDENTIFIER = org.sefaria.sefariaApp;
+				PRODUCT_BUNDLE_IDENTIFIER = org.soferbooks.library;
 				PRODUCT_NAME = ReaderApp;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
 				SWIFT_OBJC_BRIDGING_HEADER = "ReaderApp-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -52440,10 +52469,11 @@
 					"-lc++",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
-				PRODUCT_BUNDLE_IDENTIFIER = org.sefaria.sefariaApp;
+				PRODUCT_BUNDLE_IDENTIFIER = org.soferbooks.library;
 				PRODUCT_NAME = ReaderApp;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
 				SWIFT_OBJC_BRIDGING_HEADER = "ReaderApp-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -52692,7 +52722,7 @@
 					"-DFOLLY_HAVE_CLOCK_GETTIME=1",
 				);
 				OTHER_LDFLAGS = "$(inherited)";
-				PRODUCT_BUNDLE_IDENTIFIER = org.sefaria.sefariaApp;
+				PRODUCT_BUNDLE_IDENTIFIER = org.soferbooks.library;
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
@@ -52770,7 +52800,7 @@
 					"-DFOLLY_HAVE_CLOCK_GETTIME=1",
 				);
 				OTHER_LDFLAGS = "$(inherited)";
-				PRODUCT_BUNDLE_IDENTIFIER = org.sefaria.sefariaApp;
+				PRODUCT_BUNDLE_IDENTIFIER = org.soferbooks.library;
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;

@@ -1,11 +1,14 @@
 /**
- * Background pre-warming for offline commentaries:
+ * Background pre-warming for offline texts and commentaries:
  * - Always prewarms Rashi (`Rashi on <Book>`) everywhere as soon as a book opens.
  * - On Shas (`Talmud`), also prewarms Steinsaltz (`Steinsaltz on <Masechta>`).
  * - On Tanakh, also prewarms Ibn Ezra, Ramban, and Sforno.
- * - Warms the current daf/chapter first, then the next daf/chapter, and for short
- *   commentaries (< SHORT_COMMENTARY_CHAR_TARGET), continues advancing through subsequent
- *   chapters up to MAX_PREWARM_SECTIONS.
+ * - On Mishnah, Halakhah, and Midrash, also prewarms their classic commentaries.
+ * - When links load for any section (`prewarmLinkedCommentaries`), also warms the top
+ *   linked commentaries/targumim for that section.
+ * - Warms the current daf/chapter first, then the next daf/chapter, and for ANY short
+ *   section/commentary (< SHORT_COMMENTARY_CHAR_TARGET), continues advancing through
+ *   subsequent sections up to MAX_PREWARM_SECTIONS (for both commentaries and the base book).
  * Never hits the network: checks `offlineTitleExists` before loading.
  */
 import { offlineTitleExists, warmOfflineCommentaryChapter } from '../offline';
@@ -13,20 +16,44 @@ import { offlineTitleExists, warmOfflineCommentaryChapter } from '../offline';
 export const SHORT_COMMENTARY_CHAR_TARGET = 25000;
 export const MAX_PREWARM_SECTIONS = 8;
 
+const PREFERRED_INLINE = [
+  'Onkelos', 'Targum Jonathan', 'Rashi', 'Bartenura', 'Tosafot',
+  'Ibn Ezra', 'Ramban', 'Sforno', 'Steinsaltz', 'Mishnah Berurah',
+];
+
 const _warmed = new Set();
 const _warmedMeta = new Map();
 const _inFlight = new Set();
 
 export function commentariesToPrewarm(title, categories) {
-  if (!title || /^(?:Rashi|Steinsaltz|Tosafot|Ibn Ezra|Ramban|Sforno)\s+on\s+/i.test(title)) {
+  if (
+    !title ||
+    /^(?:Rashi|Steinsaltz|Tosafot|Tosafot Yom Tov|Ibn Ezra|Ramban|Sforno|Bartenura|Be'er Heitev|Siftei Kohen|Turei Zahav|Kesef Mishneh|Maggid Mishneh|Matnot Kehunah|Etz Yosef)\s+on\s+|^Mishnah Berurah$/i.test(title)
+  ) {
     return [];
   }
   const out = [`Rashi on ${title}`];
-  if (Array.isArray(categories) && categories.some(c => /^Talmud$/i.test(c))) {
+  const cats = Array.isArray(categories) ? categories : [];
+  if (cats.some(c => /^Talmud$/i.test(c))) {
     out.push(`Steinsaltz on ${title}`);
   }
-  if (Array.isArray(categories) && categories.some(c => /^Tanakh$/i.test(c))) {
+  if (cats.some(c => /^Tanakh$/i.test(c))) {
     out.push(`Ibn Ezra on ${title}`, `Ramban on ${title}`, `Sforno on ${title}`);
+  }
+  if (cats.some(c => /^Mishnah$/i.test(c))) {
+    out.push(`Bartenura on ${title}`, `Tosafot Yom Tov on ${title}`, `Rambam on ${title}`);
+  }
+  if (cats.some(c => /^Halakhah$/i.test(c))) {
+    if (title === 'Shulchan Arukh, Orach Chayim') {
+      out.push('Mishnah Berurah', `Be'er Heitev on ${title}`);
+    } else if (title.startsWith('Shulchan Arukh,')) {
+      out.push(`Siftei Kohen on ${title}`, `Turei Zahav on ${title}`, `Be'er Heitev on ${title}`);
+    } else if (title.startsWith('Mishneh Torah,')) {
+      out.push(`Kesef Mishneh on ${title}`, `Maggid Mishneh on ${title}`);
+    }
+  }
+  if (cats.some(c => /^Midrash$/i.test(c))) {
+    out.push(`Matnot Kehunah on ${title}`, `Etz Yosef on ${title}`);
   }
   return out;
 }
@@ -131,7 +158,6 @@ export async function prewarmSection(sectionRef, nextSectionRef = null) {
   let categories = null;
   try { categories = Sefaria.categoriesForTitle ? Sefaria.categoriesForTitle(baseTitle) : null; } catch (e) { categories = null; }
   const comms = commentariesToPrewarm(baseTitle, categories);
-  if (!comms.length) { return; }
   await new Promise(resolve => setTimeout(resolve, 0));
 
   const states = [];
@@ -150,10 +176,26 @@ export async function prewarmSection(sectionRef, nextSectionRef = null) {
     });
   }
 
+  // Also warm the base book's own sections ahead when sections are short.
+  const baseRes1 = await warmSingleCommSection(baseTitle, sectionRef);
+  if (!baseRes1.missingTitle) {
+    states.push({
+      commTitle: baseTitle,
+      totalChars: baseRes1.chars,
+      warmedCount: 1,
+      lastSection: sectionRef,
+      lastNextRef: baseRes1.nextRef,
+      missingTitle: false,
+      exhausted: baseRes1.chars === 0 && !baseRes1.nextRef && !nextSectionRef,
+    });
+  }
+
   if (nextSectionRef && nextSectionRef !== sectionRef) {
     for (const st of states) {
       if (st.missingTitle) { continue; }
-      const nextComm = commentaryRefForSection(nextSectionRef, st.commTitle, baseTitle);
+      const nextComm = st.commTitle === baseTitle
+        ? nextSectionRef
+        : commentaryRefForSection(nextSectionRef, st.commTitle, baseTitle);
       if (nextComm && nextComm !== st.lastSection) {
         const res2 = await warmSingleCommSection(st.commTitle, nextComm);
         st.totalChars += res2.chars;
@@ -167,6 +209,40 @@ export async function prewarmSection(sectionRef, nextSectionRef = null) {
 
   for (const st of states) {
     await warmShortContinuation(st);
+  }
+}
+
+export async function prewarmLinkedCommentaries(sectionRef, nextSectionRef = null, relatedObj = null) {
+  if (!sectionRef || !Array.isArray(relatedObj) || !relatedObj.length) { return; }
+  const counts = new Map();
+  for (const seg of relatedObj) {
+    for (const link of (seg && seg.links) || []) {
+      if (link.category !== 'Commentary' && link.category !== 'Targum') { continue; }
+      const title = link.textTitle;
+      if (!title) { continue; }
+      const existing = counts.get(title);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        counts.set(title, {
+          title,
+          key: link.collectiveTitle || title,
+          count: 1,
+        });
+      }
+    }
+  }
+  if (!counts.size) { return; }
+  const preferredRank = entry => {
+    const idx = PREFERRED_INLINE.findIndex(p => p === entry.key || entry.title === p || entry.title.startsWith(`${p} `));
+    return idx === -1 ? PREFERRED_INLINE.length : idx;
+  };
+  const topTitles = [...counts.values()]
+    .sort((a, b) => (preferredRank(a) - preferredRank(b)) || (b.count - a.count))
+    .slice(0, 5)
+    .map(entry => entry.title);
+  for (const commTitle of topTitles) {
+    await prewarmCommentary(commTitle, sectionRef, nextSectionRef);
   }
 }
 

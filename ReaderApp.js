@@ -67,7 +67,7 @@ import {partLines} from "./FullLibraryPanel";
 import {fullLibraryParts, formatSize, knownBookSize, bookSizeText} from "./fullLibrary";
 import {downloadNeedsConnection} from "./connectivity";
 import ActionToast from "./tabs/ActionToast";
-import { prewarmSection, prewarmCommentary } from "./reader/prewarm";
+import { prewarmSection, prewarmCommentary, prewarmLinkedCommentaries } from "./reader/prewarm";
 import * as extrasQueue from "./extrasQueue";
 import ReaderTabBar, { READER_TAB_BAR_HEIGHT } from "./tabs/ReaderTabBar";
 import {
@@ -1178,6 +1178,9 @@ class ReaderApp extends React.PureComponent {
             relatedObj = Sefaria.links.postProcessRelatedResponse(response, offset, currSection.length);
           }
           Sefaria.cacheCommentatorListBySection(ref, relatedObj);
+          if (!isSheet) {
+            prewarmLinkedCommentaries(currSectionRef, this.state.next, relatedObj);
+          }
 
           // Update linksLoaded immutably
           let newLinksLoaded = prevState.linksLoaded;
