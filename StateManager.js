@@ -10,6 +10,10 @@ import * as shomer from './shomer';
 import { defaultConfig, withDefault } from './shomer/presets';
 import { guessCalendarLocation, validCalendarLocation } from './learningSchedules/calendarLocation';
 
+const HEBREW_FONTS = ['FrankSofer', 'Drugulin', 'Hadassah'];
+const COMMENTARY_FONTS = ['FrankSofer', 'MekorotRashi', 'Drugulin', 'Hadassah'];
+const normalizeFont = (value, allowed) => (allowed.includes(value) ? value : 'FrankSofer');
+
 const STATE_ACTIONS = {
   setTheme: "SET_THEME",
   setTextLanguage: "SET_TEXT_LANGUAGE",
@@ -17,6 +21,8 @@ const STATE_ACTIONS = {
   setPreferredCustom: "SET_PREFERRED_CUSTOM",
   setFontSize: "SET_FONT_SIZE",
   setCommentaryFontScale: "SET_COMMENTARY_FONT_SCALE",
+  setHebrewFont: "SET_HEBREW_FONT",
+  setCommentaryFont: "SET_COMMENTARY_FONT",
   setAliyot: "SET_ALIYOT",
   setVocalization: "SET_VOCALIZATION",
   setBiLayout: "SET_BI_LAYOUT",
@@ -69,6 +75,16 @@ const ACTION_CREATORS = {
   setCommentaryFontScale: (scale, fromAsync) => ({
     type: STATE_ACTIONS.setCommentaryFontScale,
     value: scale,
+    fromAsync,
+  }),
+  setHebrewFont: (font, fromAsync) => ({
+    type: STATE_ACTIONS.setHebrewFont,
+    value: font,
+    fromAsync,
+  }),
+  setCommentaryFont: (font, fromAsync) => ({
+    type: STATE_ACTIONS.setCommentaryFont,
+    value: font,
     fromAsync,
   }),
   setAliyot: show => ({
@@ -137,6 +153,14 @@ const ASYNC_STORAGE_DEFAULTS = {
     default: 1,
     action: ACTION_CREATORS.setCommentaryFontScale,
   },
+  hebrewFont: {
+    default: 'FrankSofer',
+    action: ACTION_CREATORS.setHebrewFont,
+  },
+  commentaryFont: {
+    default: 'FrankSofer',
+    action: ACTION_CREATORS.setCommentaryFont,
+  },
   color: {
     default: "white",
     action: ACTION_CREATORS.setTheme,
@@ -180,6 +204,8 @@ const DEFAULT_STATE = {
   preferredCustom: ASYNC_STORAGE_DEFAULTS.preferredCustom.default,
   fontSize: ASYNC_STORAGE_DEFAULTS.fontSize.default,
   commentaryFontScale: ASYNC_STORAGE_DEFAULTS.commentaryFontScale.default,
+  hebrewFont: ASYNC_STORAGE_DEFAULTS.hebrewFont.default,
+  commentaryFont: ASYNC_STORAGE_DEFAULTS.commentaryFont.default,
   showAliyot: ASYNC_STORAGE_DEFAULTS.showAliyot.default,
   vocalization: ASYNC_STORAGE_DEFAULTS.vocalization.default,
   biLayout: ASYNC_STORAGE_DEFAULTS.biLayout.default,
@@ -264,6 +290,24 @@ const reducer = function (state, action) {
       newState = {
         ...state,
         commentaryFontScale: value,
+      };
+      break;
+    }
+    case STATE_ACTIONS.setHebrewFont: {
+      const value = normalizeFont(action.value, HEBREW_FONTS);
+      if (!action.fromAsync) { saveFieldToAsync('hebrewFont', value); }
+      newState = {
+        ...state,
+        hebrewFont: value,
+      };
+      break;
+    }
+    case STATE_ACTIONS.setCommentaryFont: {
+      const value = normalizeFont(action.value, COMMENTARY_FONTS);
+      if (!action.fromAsync) { saveFieldToAsync('commentaryFont', value); }
+      newState = {
+        ...state,
+        commentaryFont: value,
       };
       break;
     }
@@ -357,6 +401,8 @@ const getTheme = themeStr => (themeStr === 'white' ? themeWhite : themeBlack);
 
 export {
   DEFAULT_STATE,
+  HEBREW_FONTS,
+  COMMENTARY_FONTS,
   STATE_ACTIONS,
   reducer,
   initAsyncStorage,

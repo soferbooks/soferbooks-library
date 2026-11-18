@@ -34,6 +34,7 @@ import {
   LoadingView,
   HebrewInEnglishText,
 } from './Misc.js';
+import { GlobalStateContext } from './StateManager';
 import { ErrorBoundary } from "react-error-boundary";
 
 const ROW_TYPES = {
@@ -47,6 +48,7 @@ const ROW_TYPES = {
 };
 
 class TextColumn extends React.PureComponent {
+  static contextType = GlobalStateContext;
   static whyDidYouRender = true;
   static propTypes = {
     showToast:          PropTypes.func,
@@ -1035,7 +1037,7 @@ class TextColumn extends React.PureComponent {
               onScrollEndDrag={this.handleScrollEnd}
               onMomentumScrollEnd={this.handleScrollEnd}
               onContentSizeChange={this._scheduleReanchor}
-              extraData={`${this.props.fontSize}|${this.props.inlineCommentary}|${!!this.props.nakdan}`}
+              extraData={`${this.props.fontSize}|${this.props.inlineCommentary}|${!!this.props.nakdan}|${this.context && this.context.hebrewFont}|${this.context && this.context.commentaryFont}`}
               scrollEventThrottle={100}
               onViewableItemsChanged={this.onViewableItemsChanged}
               onScrollToIndexFailed={this.onScrollToIndexFailed}

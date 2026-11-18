@@ -100,10 +100,10 @@ export const continueReadingItems = (lastPlace, tabs, count = CONTINUE_READING_C
 };
 
 const ContinueReading = ({ openRef, openHistory }) => {
-    const { theme, readingHistory, interfaceLanguage } = useGlobalState();
+    const { theme, readingHistory, menuLanguage } = useGlobalState();
     const { width } = useWindowDimensions();
     const isTablet = width >= 600;
-    const isHeb = interfaceLanguage === 'hebrew';
+    const isHeb = menuLanguage === 'hebrew';
     const { readerTabs } = useContext(ReaderAppContext);
     const items = readingHistory ? continueReadingItems(Sefaria.history.lastPlace, readerTabs?.tabs) : [];
     if (!items.length) { return null; }
@@ -117,6 +117,7 @@ const ContinueReading = ({ openRef, openHistory }) => {
                             <View style={[styles.homeContinueRow, theme.lighterGreyBorder]}>
                                 <CategoryColorLine category={Sefaria.primaryCategoryForTitle(bookOfPlace(item))} thickness={4}/>
                                 <ContentTextWithFallback
+                                    lang={menuLanguage}
                                     en={displayRef(item.ref, item.he_ref || item.heRef)}
                                     he={(item.he_ref || item.heRef) ? Sefaria.normHebrewRef(displayHeRef(item.ref, item.he_ref || item.heRef)) : item.ref}
                                     extraStyles={[styles.homeContinueText, theme.text]}
@@ -199,10 +200,10 @@ const HomePageFooter = ({ openAbout, openRef, openLearningSchedules }) => {
 };
 
 export const TextsPage = ({categories, setCategories, openRef, openLearningSchedules, onBack, openAbout, openHistory}) => {
-    const { theme, interfaceLanguage } = useGlobalState();
+    const { theme, menuLanguage } = useGlobalState();
     const { width } = useWindowDimensions();
     const isTablet = width >= 600;
-    const isHeb = interfaceLanguage === 'hebrew';
+    const isHeb = menuLanguage === 'hebrew';
 
     if (categories.length) {
         return (

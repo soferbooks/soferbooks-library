@@ -237,7 +237,7 @@ class TextList extends React.Component {
         key={this.state.updateScrollPosKey}
         style={styles.scrollViewPaddingInOrderToScroll}
         data={this.state.dataSource}
-        extraData={`${this.props.fontSize}|${this.props.themeStr}|${this.context && this.context.commentaryFontScale}|${this.props.inlineCommentary}`}
+        extraData={`${this.props.fontSize}|${this.props.themeStr}|${this.context && this.context.commentaryFontScale}|${this.context && this.context.hebrewFont}|${this.context && this.context.commentaryFont}|${this.props.inlineCommentary}`}
         renderItem={this.renderItem}
         contentContainerStyle={[{justifyContent: "center"}, { paddingBottom: this.state.scrollViewHeight * SCROLL_PADDING_BOTTOM_FRACTION }]}
         onLayout={this._onScrollViewLayout}
@@ -286,7 +286,7 @@ const ListItem = ({
   displayRef,
   noAutoDibbur,
 }) => {
-  const { themeStr, fontSize: readerFontSize, commentaryFontScale, interfaceLanguage, textLanguage } = useContext(GlobalStateContext);
+  const { themeStr, fontSize: readerFontSize, commentaryFontScale, interfaceLanguage, textLanguage, hebrewFont, commentaryFont } = useContext(GlobalStateContext);
   // (the commentary's own text size: the Aa menu's "Commentary Size")
   const fontSize = commentaryFontSize(readerFontSize, commentaryFontScale);
   const theme = getTheme(themeStr);
@@ -294,8 +294,10 @@ const ListItem = ({
   const lco = linkContentObj;
   const lang = Sefaria.util.getTextLanguageWithContent(textLanguage,lco.en,lco.he);
   const bilingual = lang === 'bilingual';
+  const isComm = isCommentaryItem(category, refStr);
+  const hebFont = isComm ? commentaryFont : hebrewFont;
   const { classesStyles:enClasses, textStyle:enStyle, tagsStyles:enTags } = useHTMLViewStyles(bilingual, 'english', fontSize);
-  const { classesStyles:heClasses, textStyle:heStyle, tagsStyles:heTags } = useHTMLViewStyles(bilingual, 'hebrew', fontSize);
+  const { classesStyles:heClasses, textStyle:heStyle, tagsStyles:heTags } = useHTMLViewStyles(bilingual, 'hebrew', fontSize, hebFont);
 
   const versions = (versionLanguage) ? {[versionLanguage]: versionTitle} : null;
   // a translation (the versions list) is opened as before; a connection offers three ways to read it

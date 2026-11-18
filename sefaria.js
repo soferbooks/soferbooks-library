@@ -1211,9 +1211,12 @@ Sefaria.util = {
     }
   },
   get_menu_language: function(interfaceLanguage, textLanguage) {
-    //menu language is no longer set explicitly
-    //Instead, it is set like this
-    return interfaceLanguage == 'hebrew' || textLanguage == 'hebrew' ? 'hebrew' : 'english';
+    // Menu / book names follow textLanguage (bilingual shows Hebrew book names),
+    // falling back to interfaceLanguage only when textLanguage is unset.
+    if (textLanguage) {
+      return textLanguage === 'english' ? 'english' : 'hebrew';
+    }
+    return interfaceLanguage == 'hebrew' ? 'hebrew' : 'english';
   },
   objectHasNonNullValues: function(obj) {
     return !!obj && Object.keys(obj).length !== 0 && Object.values(obj).reduce((accum, curr) => accum || !!curr, false);
@@ -1366,6 +1369,9 @@ Sefaria.util = {
     if (isSheet) { text = Sefaria.util.cleanSheetHTML(text); }
     text = Sefaria.util.filterOutItags(text);
     text = text.replace(/\u200e/g, '');  // remove invisible LTR mark that can ruin display
+    if (lang === 'hebrew') {
+      text = text.replace(/\u05c8/g, '\u05b0').replace(/\u05c9/g, '\u05bc');
+    }
     text = text.trim();
     let html;
     if (lang === 'english') {

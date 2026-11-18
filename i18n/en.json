@@ -392,6 +392,12 @@
     "connections.show_underneath": "Show underneath",
     "connections.stop_showing_underneath": "Stop showing underneath",
     "reader.commentary_font_size": "Commentary Size",
+    "reader.commentary_font": "Commentary Font",
+    "reader.font": "Font",
+    "reader.font_drugulin": "Drugulin",
+    "reader.font_frank_sofer": "Frank Sofer",
+    "reader.font_hadassah": "Hadassah",
+    "reader.font_rashi": "Rashi",
     "storage.low_space_message": "This download needs about {needed}, and the phone has {free} free. Make room on the phone, or choose less to download.",
     "storage.low_space_title": "Not enough space"
 }

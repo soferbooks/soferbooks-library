@@ -77,12 +77,15 @@ export const _clearInlineCommentaryCache = () => { _cache.clear(); _inFlight.cle
  * chosen source (see reader/inlineCommentaryPrefs.js); `nakdan`: add Dicta's nikud to Hebrew
  * without it (reader/nakdanPrefs.js).
  */
+const plainShvaDagesh = s => (typeof s === 'string' ? s.replace(/\u05c8/g, '\u05b0').replace(/\u05c9/g, '\u05bc') : s);
+
 /** The Hebrew of a comment as runs of bold and plain text: [{text, bold}] */
 export const commentRuns = (t, he, dibbur) => {
-  if (!he) { return []; }
-  if (!t || !dibbur || !t.heDibburBold) { return [{ text: he, bold: false }]; }
+  const displayHe = plainShvaDagesh(he);
+  if (!displayHe) { return []; }
+  if (!t || !dibbur || !t.heDibburBold) { return [{ text: displayHe, bold: false }]; }
   // (he: the text shown, with nikud Dicta added or not; its words are the stored text's)
-  return boldRuns(he, t.heDibburBold);
+  return boldRuns(displayHe, t.heDibburBold);
 };
 
 const BoldRunsText = ({ runs, style }) => (
@@ -92,12 +95,13 @@ const BoldRunsText = ({ runs, style }) => (
 );
 
 const InlineCommentaryHe = ({ t, he, dibbur, nakdan, style }) => {
+  const displayHe = plainShvaDagesh(he);
   // (bold only in a commentary's comment, as before for a targum or a connection's text)
   const flags = t && dibbur ? t.heDibburBold : null;
   if (!flags || !flags.some(Boolean)) {
-    return <NakdanText text={he} on={!!nakdan} style={style} />;
+    return <NakdanText text={displayHe} on={!!nakdan} style={style} />;
   }
-  return <NakdanBoldText t={t} he={he} dibbur={dibbur} nakdan={nakdan} style={style} />;
+  return <NakdanBoldText t={t} he={displayHe} dibbur={dibbur} nakdan={nakdan} style={style} />;
 };
 
 const NakdanBoldText = ({ t, he, dibbur, nakdan, style }) => {
@@ -106,9 +110,11 @@ const NakdanBoldText = ({ t, he, dibbur, nakdan, style }) => {
 };
 
 const InlineCommentary = ({ links, sourceKey, nakdan = false }) => {
-  const { theme, textLanguage, fontSize: readerFontSize, commentaryFontScale } = useGlobalState();
+  const { theme, textLanguage, fontSize: readerFontSize, commentaryFontScale, commentaryFont } = useGlobalState();
   // (the commentary's own text size: the Aa menu's "Commentary Size")
   const scale = commentaryFontSize(1, commentaryFontScale);
+  const hebFont = commentaryFont || CSS_CLASS_STYLES.hebrew.fontFamily;
+  const hebScale = hebFont === 'MekorotRashi' ? 1.03 : 1;
   const items = useMemo(() => itemsForSource(links, sourceKey), [links, sourceKey]);
   const refs = useMemo(() => items.map(x => x.ref), [items]);
   const refsKey = refs.join('|');
@@ -146,7 +152,7 @@ const InlineCommentary = ({ links, sourceKey, nakdan = false }) => {
       parts.push(<Text key={`name${i}`} style={[heName ? localStyles.nameHe : localStyles.nameEn, theme.tertiaryText, { fontSize: size * 0.85 }]}>{heName ? name : items[i].ref}</Text>);
     }
     // (a commentary's comment: its dibbur hamaschil in bold, as SoferBooks prints it)
-    if (he) { parts.push(<InlineCommentaryHe key={`he${i}`} t={activeT} he={he} dibbur={dibbur} nakdan={nakdan} style={[localStyles.he, theme.tertiaryText, { fontSize: size * 1.1, lineHeight: size * 1.6 }]} />); }
+    if (he) { parts.push(<InlineCommentaryHe key={`he${i}`} t={activeT} he={he} dibbur={dibbur} nakdan={nakdan} style={[localStyles.he, { fontFamily: hebFont }, theme.tertiaryText, { fontSize: size * 1.1 * hebScale, lineHeight: size * 1.6 }]} />); }
     // (LRM first: English Rashi opens with the Hebrew words it explains, and Android then laid the
     // whole paragraph out right to left - its closing period at the start of the line, ".daytime")
     if (en) { parts.push(<Text key={`en${i}`} style={[localStyles.en, theme.tertiaryText, { fontSize: size, lineHeight: size * 1.45 }]}>{LRM + en}</Text>); }

@@ -449,7 +449,7 @@ describe('Tablet sw600dp detection and 2-column grid layouts', () => {
     try {
       act(() => {
         tree = renderer.create(
-          <GlobalStateContext.Provider value={{ ...DEFAULT_STATE, interfaceLanguage: 'english', menuLanguage: 'english' }}>
+          <GlobalStateContext.Provider value={{ ...DEFAULT_STATE, interfaceLanguage: 'english', textLanguage: 'english', menuLanguage: 'english' }}>
             <ReaderAppContext.Provider value={{ readerTabs: { tabs: [] }, openScheduleItem: jest.fn() }}>
               <TextsPage categories={[]} setCategories={jest.fn()} openRef={jest.fn()} openLearningSchedules={jest.fn()} onBack={jest.fn()} openAbout={jest.fn()} openHistory={jest.fn()} />
             </ReaderAppContext.Provider>
@@ -475,7 +475,7 @@ describe('Tablet sw600dp detection and 2-column grid layouts', () => {
 
       act(() => {
         tree = renderer.create(
-          <GlobalStateContext.Provider value={{ ...DEFAULT_STATE, interfaceLanguage: 'english', menuLanguage: 'english' }}>
+          <GlobalStateContext.Provider value={{ ...DEFAULT_STATE, interfaceLanguage: 'english', textLanguage: 'english', menuLanguage: 'english' }}>
             <TextCategoryPage categories={['Tanakh']} setCategories={jest.fn()} openRef={jest.fn()} onBack={jest.fn()} />
           </GlobalStateContext.Provider>
         );
@@ -486,7 +486,7 @@ describe('Tablet sw600dp detection and 2-column grid layouts', () => {
 
       act(() => {
         tree = renderer.create(
-          <GlobalStateContext.Provider value={{ ...DEFAULT_STATE, interfaceLanguage: 'english', menuLanguage: 'english' }}>
+          <GlobalStateContext.Provider value={{ ...DEFAULT_STATE, interfaceLanguage: 'english', textLanguage: 'english', menuLanguage: 'english' }}>
             <ReaderTextTableOfContents
               title="Sample Book"
               textToc={{ schema: { nodes: [{ depth: 1, title: 'Part 1', heTitle: 'חלק א' }, { depth: 1, title: 'Part 2', heTitle: 'חלק ב' }] } }}
@@ -568,7 +568,7 @@ describe('Extra commentary collectiveTitle strings and depth-3 1D content_counts
     try {
       act(() => {
         tree = renderer.create(
-          <GlobalStateContext.Provider value={{ ...DEFAULT_STATE, interfaceLanguage: 'english', menuLanguage: 'english' }}>
+          <GlobalStateContext.Provider value={{ ...DEFAULT_STATE, interfaceLanguage: 'english', textLanguage: 'english', menuLanguage: 'english' }}>
             <ReaderTextTableOfContents
               title="Derech HaShlemut on Proverbs"
               textToc={{
@@ -658,7 +658,9 @@ describe('Extra commentary collectiveTitle strings and depth-3 1D content_counts
     const { prewarmSection, _resetPrewarm, commentariesToPrewarm } = require('../reader/prewarm');
     _resetPrewarm();
     FS.clear();
-    expect(commentariesToPrewarm('Genesis', ['Tanakh', 'Torah'])).toEqual(['Rashi on Genesis']);
+    expect(commentariesToPrewarm('Genesis', ['Tanakh', 'Torah'])).toEqual([
+      'Rashi on Genesis', 'Ibn Ezra on Genesis', 'Ramban on Genesis', 'Sforno on Genesis',
+    ]);
     expect(commentariesToPrewarm('Niddah', ['Talmud', 'Bavli'])).toEqual(['Rashi on Niddah', 'Steinsaltz on Niddah']);
     expect(commentariesToPrewarm('Rashi on Niddah', ['Talmud'])).toEqual([]);
 
@@ -702,6 +704,173 @@ describe('Extra commentary collectiveTitle strings and depth-3 1D content_counts
     } finally {
       Sefaria._index = savedIndex;
       Sefaria.booksDict = savedBooksDict;
+    }
+  });
+
+  test('font options: defaults, state actions, Aa menu buttons, useHTMLViewStyles, and U+05C8/U+05C9 normalization', () => {
+    const {
+      HEBREW_FONTS, COMMENTARY_FONTS,
+    } = require('../StateManager');
+    expect(DEFAULT_STATE.hebrewFont).toBe('FrankSofer');
+    expect(DEFAULT_STATE.commentaryFont).toBe('FrankSofer');
+    expect(HEBREW_FONTS).toEqual(['FrankSofer', 'Drugulin', 'Hadassah']);
+    expect(COMMENTARY_FONTS).toEqual(['FrankSofer', 'MekorotRashi', 'Drugulin', 'Hadassah']);
+
+    let state = reducer(DEFAULT_STATE, { type: STATE_ACTIONS.setHebrewFont, value: 'Drugulin', fromAsync: true });
+    expect(state.hebrewFont).toBe('Drugulin');
+    state = reducer(state, { type: STATE_ACTIONS.setHebrewFont, value: 'UnknownFont', fromAsync: true });
+    expect(state.hebrewFont).toBe('FrankSofer');
+    state = reducer(state, { type: STATE_ACTIONS.setCommentaryFont, value: 'MekorotRashi', fromAsync: true });
+    expect(state.commentaryFont).toBe('MekorotRashi');
+
+    const ReaderDisplayOptionsMenu = require('../ReaderDisplayOptionsMenu').default;
+    const { getTheme } = require('../StateManager');
+    const setHebrewFont = jest.fn();
+    const setCommentaryFont = jest.fn();
+    strings.setLanguage('en');
+    let tree;
+    act(() => {
+      tree = renderer.create(
+        <ReaderDisplayOptionsMenu
+          theme={getTheme('white')} themeStr="white" interfaceLanguage="english"
+          textLanguage="hebrew" canHaveAliyot={false} canBeContinuous={false} showAliyot={false}
+          hebrewFont="Hadassah" setHebrewFont={setHebrewFont}
+          commentaryFont="MekorotRashi" setCommentaryFont={setCommentaryFont}
+        />
+      );
+    });
+    const fontSet = tree.root.findAll(n => n.props && n.props.label === 'Font')[0];
+    expect(fontSet.props.content.map(b => b.props.option)).toEqual(['FrankSofer', 'Drugulin', 'Hadassah']);
+    const commFontSet = tree.root.findAll(n => n.props && n.props.label === 'Commentary Font')[0];
+    expect(commFontSet.props.content.map(b => b.props.option)).toEqual(['FrankSofer', 'MekorotRashi', 'Drugulin', 'Hadassah']);
+    act(() => { tree.unmount(); });
+
+    const { useHTMLViewStyles } = require('../useHTMLViewStyles');
+    let stylesOut;
+    const Probe = ({ fontOverride }) => {
+      stylesOut = useHTMLViewStyles(false, 'hebrew', 20, fontOverride);
+      return null;
+    };
+    act(() => {
+      tree = renderer.create(
+        <GlobalStateContext.Provider value={{ ...DEFAULT_STATE, themeStr: 'white', fontSize: 20, hebrewFont: 'Hadassah' }}>
+          <Probe />
+        </GlobalStateContext.Provider>
+      );
+    });
+    expect(stylesOut.classesStyles.hebrew.fontFamily).toBe('Hadassah');
+    expect(stylesOut.classesStyles.hebrew.fontSize).toBe(20);
+    act(() => {
+      tree.update(
+        <GlobalStateContext.Provider value={{ ...DEFAULT_STATE, themeStr: 'white', fontSize: 20, hebrewFont: 'Hadassah' }}>
+          <Probe fontOverride="MekorotRashi" />
+        </GlobalStateContext.Provider>
+      );
+    });
+    expect(stylesOut.classesStyles.hebrew.fontFamily).toBe('MekorotRashi');
+    expect(stylesOut.classesStyles.hebrew.fontSize).toBeCloseTo(20 * 1.03, 5);
+    act(() => { tree.unmount(); });
+
+    expect(Sefaria.util.getDisplayableHTML('בְּ\u05c8רֵאשִׁית\u05c9', 'hebrew', false, false)).toContain('\u05b0');
+    expect(Sefaria.util.getDisplayableHTML('בְּ\u05c8רֵאשִׁית\u05c9', 'hebrew', false, false)).toContain('\u05bc');
+    expect(Sefaria.util.getDisplayableHTML('בְּ\u05c8רֵאשִׁית\u05c9', 'hebrew', false, false)).not.toMatch(/[\u05c8\u05c9]/);
+    const { commentRuns } = require('../reader/InlineCommentary');
+    expect(commentRuns(null, 'ש\u05c8ב\u05c9', false)[0].text).toBe('ש\u05b0ב\u05bc');
+  });
+
+  test('short Tanakh commentaries prewarm multiple chapters and all verses in each chapter', async () => {
+    const FS = require('expo-file-system/legacy');
+    const md5 = require('md5');
+    const { prewarmSection, _resetPrewarm } = require('../reader/prewarm');
+    _resetPrewarm();
+    FS.clear();
+
+    const savedIndex = Sefaria._index;
+    const savedBooksDict = Sefaria.booksDict;
+    Sefaria._index = {
+      ...savedIndex,
+      Genesis: { title: 'Genesis', categories: ['Tanakh', 'Torah'] },
+      'Rashi on Genesis': { title: 'Rashi on Genesis', categories: ['Tanakh', 'Torah', 'Rashi'] },
+    };
+    Sefaria.booksDict = { ...savedBooksDict, Genesis: 1, 'Rashi on Genesis': 1 };
+    const vTitle = 'Miqra';
+    const hash = md5(vTitle).substring(0, 8);
+    try {
+      await FS.writeAsStringAsync(encodeURI(`${FS.documentDirectory}/Rashi on Genesis_index.json`), JSON.stringify({
+        title: 'Rashi on Genesis', versions: [{ language: 'he', versionTitle: vTitle, priority: 0, isSource: true }],
+      }));
+      for (const ch of [1, 2, 3, 4]) {
+        const stem = `Rashi on Genesis ${ch}`;
+        await FS.writeAsStringAsync(encodeURI(`${FS.documentDirectory}/${stem}.metadata.json`), JSON.stringify({
+          sections: {
+            [`${stem}:1`]: {
+              ref: `${stem}:1`, heRef: stem, indexTitle: 'Rashi on Genesis', sectionRef: `${stem}:1`,
+              versions: [{ language: 'he', versionTitle: vTitle }], links: [[]],
+              next: `${stem}:2`,
+            },
+            [`${stem}:2`]: {
+              ref: `${stem}:2`, heRef: stem, indexTitle: 'Rashi on Genesis', sectionRef: `${stem}:2`,
+              versions: [{ language: 'he', versionTitle: vTitle }], links: [[]],
+              next: ch < 4 ? `Rashi on Genesis ${ch + 1}:1` : null,
+            },
+          },
+        }));
+        await FS.writeAsStringAsync(encodeURI(`${FS.documentDirectory}/${stem}.${hash}.he.json`), JSON.stringify({
+          sections: { [`${stem}:1`]: ['פירוש א'], [`${stem}:2`]: ['פירוש ב'] },
+        }));
+      }
+      Sefaria._jsonSectionData = {};
+      await prewarmSection('Genesis 1', 'Genesis 2');
+      for (const ch of [1, 2, 3, 4]) {
+        expect(Sefaria._jsonSectionData[`Rashi on Genesis ${ch}:1|`]).toBeTruthy();
+        expect(Sefaria._jsonSectionData[`Rashi on Genesis ${ch}:2|`]).toBeTruthy();
+      }
+    } finally {
+      Sefaria._index = savedIndex;
+      Sefaria.booksDict = savedBooksDict;
+    }
+  });
+
+  test('menuLanguage follows textLanguage (bilingual -> hebrew) and tablet Browse the Library lays out RTL when Hebrew', () => {
+    expect(Sefaria.util.get_menu_language('english', 'bilingual')).toBe('hebrew');
+    expect(Sefaria.util.get_menu_language('english', 'hebrew')).toBe('hebrew');
+    expect(Sefaria.util.get_menu_language('english', 'english')).toBe('english');
+    expect(Sefaria.util.get_menu_language('hebrew', 'english')).toBe('english');
+
+    const RN = require('react-native');
+    const { FlatList } = RN;
+    const ReaderAppContext = require('../context').default;
+    const { TextsPage } = require('../TextsPage');
+    const widthSpy = jest.spyOn(RN, 'useWindowDimensions').mockReturnValue({ width: 800, height: 1280, scale: 2, fontScale: 1 });
+    const savedToc = Sefaria.toc;
+    const savedCalendar = Sefaria.calendar;
+    const savedGetCalendars = Sefaria.getCalendars;
+    Sefaria.toc = [
+      { category: 'Tanakh', heCategory: 'תנ"ך', contents: [{ title: 'Genesis', heTitle: 'בראשית', categories: ['Tanakh', 'Torah'] }] },
+      { category: 'Talmud', heCategory: 'תלמוד', contents: [{ title: 'Berakhot', heTitle: 'ברכות', categories: ['Talmud', 'Bavli'] }] },
+    ];
+    Sefaria.calendar = {};
+    Sefaria.getCalendars = jest.fn(() => []);
+    let tree;
+    try {
+      act(() => {
+        tree = renderer.create(
+          <GlobalStateContext.Provider value={{ ...DEFAULT_STATE, interfaceLanguage: 'english', textLanguage: 'bilingual', menuLanguage: 'hebrew' }}>
+            <ReaderAppContext.Provider value={{ readerTabs: { tabs: [] }, openScheduleItem: jest.fn() }}>
+              <TextsPage categories={[]} setCategories={jest.fn()} openRef={jest.fn()} openLearningSchedules={jest.fn()} onBack={jest.fn()} openAbout={jest.fn()} openHistory={jest.fn()} />
+            </ReaderAppContext.Provider>
+          </GlobalStateContext.Provider>
+        );
+      });
+      const flatList = tree.root.findByType(FlatList);
+      expect(flatList.props.numColumns).toBe(2);
+      expect(flatList.props.columnWrapperStyle).toMatchObject({ flexDirection: 'row-reverse' });
+      act(() => { tree.unmount(); });
+    } finally {
+      Sefaria.toc = savedToc;
+      Sefaria.calendar = savedCalendar;
+      Sefaria.getCalendars = savedGetCalendars;
+      widthSpy.mockRestore();
     }
   });
 });

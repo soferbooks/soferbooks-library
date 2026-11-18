@@ -392,6 +392,12 @@
     "connections.show_underneath": "הציגו מתחת לכל קטע",
     "connections.stop_showing_underneath": "הפסיקו להציג מתחת לכל קטע",
     "reader.commentary_font_size": "גודל המפרשים",
+    "reader.commentary_font": "גופן המפרשים",
+    "reader.font": "גופן",
+    "reader.font_drugulin": "דרוגולין",
+    "reader.font_frank_sofer": "פרנק סופר",
+    "reader.font_hadassah": "הדסה",
+    "reader.font_rashi": "כתב רש״י",
     "storage.low_space_message": "ההורדה הזאת צריכה כ-{needed}, ובטלפון פנויים {free}. פנו מקום בטלפון, או בחרו פחות להורדה.",
     "storage.low_space_title": "אין מספיק מקום"
 }

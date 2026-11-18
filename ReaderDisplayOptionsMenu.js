@@ -37,6 +37,10 @@ class ReaderDisplayOptionsMenu extends React.Component {
     incrementFont:                   PropTypes.func,
     // the commentary's own text size (the connections panel, "Under each passage")
     incrementCommentaryFont:         PropTypes.func,
+    hebrewFont:                      PropTypes.string,
+    setHebrewFont:                   PropTypes.func,
+    commentaryFont:                  PropTypes.string,
+    setCommentaryFont:               PropTypes.func,
     setTheme:                        PropTypes.func,
     // "Under each passage": commentaries/targumim available for this sefer ([{key, en, he}])
     inlineSources:                   PropTypes.array,
@@ -199,6 +203,28 @@ class ReaderDisplayOptionsMenu extends React.Component {
         parametrized: true
       },
       {
+        condition: !!this.props.setHebrewFont,
+        label: strings.reader.font,
+        onPress: this.props.setHebrewFont,
+        buttons: ["FrankSofer", "Drugulin", "Hadassah"],
+        text: [strings.reader.font_frank_sofer, strings.reader.font_drugulin, strings.reader.font_hadassah],
+        textStyle: [{fontSize: 13, textAlign: 'center'}],
+        currVal: this.props.hebrewFont || "FrankSofer",
+        parametrized: true,
+        fullRow: true,
+      },
+      {
+        condition: !!this.props.setCommentaryFont,
+        label: strings.reader.commentary_font,
+        onPress: this.props.setCommentaryFont,
+        buttons: ["FrankSofer", "MekorotRashi", "Drugulin", "Hadassah"],
+        text: [strings.reader.font_frank_sofer, strings.reader.font_rashi, strings.reader.font_drugulin, strings.reader.font_hadassah],
+        textStyle: [{fontSize: 13, textAlign: 'center'}],
+        currVal: this.props.commentaryFont || "FrankSofer",
+        parametrized: true,
+        fullRow: true,
+      },
+      {
         condition: this.props.vowelToggleAvailable < VOCALIZATION.NONE,
         label: this.props.vowelToggleAvailable === VOCALIZATION.TAAMIM_AND_NIKKUD ? strings.reader.vocalization : strings.reader.vowels,
         onPress: this.props.setVocalization,
@@ -235,16 +261,24 @@ class ReaderDisplayOptionsMenu extends React.Component {
     const rows = [];
     for (let j = 0; j < options.length; j++) {
       let optionRow = options[j];
-      let row = [];
-      let isColor = "colors" in optionRow;
-      if (typeof optionRow.condition == 'undefined' || optionRow.condition) {
+      const enabled = typeof optionRow.condition == 'undefined' || optionRow.condition;
+      if (enabled) {
+        if (optionRow.fullRow && toggleSets.length > 0) {
+          rows.push(<ReaderDisplayOptionsMenuRow key={optionRow.label + "|flushRow"} content={toggleSets.slice(0)} />);
+          toggleSets = [];
+        }
+        let row = [];
+        let isColor = "colors" in optionRow;
         for (let i = 0; i < optionRow.buttons.length; i++) {
           let option = optionRow.buttons[i];
           let selected = optionRow.currVal === option;
           // what a screen reader says: "Font Size: Larger" (an icon alone says nothing)
           const name = optionRow.names ? optionRow.names[i] : (optionRow.text ? optionRow.text[i] : null);
           const a11yLabel = name ? strings.formatString(strings.a11y.setting_option, {setting: optionRow.label, option: name}) : optionRow.label;
-  
+          const align = optionRow.buttons.length <= 3
+            ? alignments[optionRow.buttons.length - 2][i]
+            : (i === 0 ? "left" : (i === optionRow.buttons.length - 1 ? "right" : "center"));
+
           if (isColor) {
             let color = optionRow.colors[i];
             row.push(
@@ -256,7 +290,7 @@ class ReaderDisplayOptionsMenu extends React.Component {
                 parametrized={optionRow.parametrized}
                 color={color}
                 accessibilityLabel={a11yLabel}
-                align={alignments[optionRow.buttons.length-2][i]}
+                align={align}
                 selected={selected} />
             );
           } else {
@@ -274,15 +308,15 @@ class ReaderDisplayOptionsMenu extends React.Component {
                 text={text}
                 textStyle={optionRow.textStyle}
                 accessibilityLabel={a11yLabel}
-                align={alignments[optionRow.buttons.length-2][i]}
+                align={align}
                 selected={selected}
                 interfaceLanguage={this.props.interfaceLanguage} />
             );
           }
         }
-        toggleSets.push(<ReaderDisplayOptionsMenuToggleSet key={optionRow.label + "|toggleSet"} label={optionRow.label} content={row} colorRow={isColor} theme={this.props.theme} interfaceLanguage={this.props.interfaceLanguage}/>);
+        toggleSets.push(<ReaderDisplayOptionsMenuToggleSet key={optionRow.label + "|toggleSet"} label={optionRow.label} content={row} colorRow={isColor} fullRow={optionRow.fullRow} theme={this.props.theme} interfaceLanguage={this.props.interfaceLanguage}/>);
       }
-      if (toggleSets.length % 2 === 0 || j === options.length - 1) {
+      if (toggleSets.length === 2 || (toggleSets.length > 0 && (optionRow.fullRow || j === options.length - 1))) {
         rows.push(<ReaderDisplayOptionsMenuRow key={optionRow.label + "|row"} content={toggleSets.slice(0)} />);
         toggleSets = [];
       }
@@ -331,7 +365,7 @@ class ReaderDisplayOptionsMenuToggleSet extends React.Component {
     const tempStyles = this.props.colorRow ? [styles.readerDisplayOptionsMenuToggleSet] : [styles.readerDisplayOptionsMenuToggleSet,styles.readerDisplayOptionMenuToggleSetNotColor,this.props.theme.readerDisplayOptionsMenuDivider];
     const langStyle = this.props.interfaceLanguage === "hebrew" ? styles.heInt : styles.enInt;
     return (
-      <View style={styles.readerDisplayOptionsMenuToggleSetOuter}>
+      <View style={[styles.readerDisplayOptionsMenuToggleSetOuter, this.props.fullRow ? {maxWidth: '100%'} : null]}>
         <Text style={[langStyle, {textAlign: "center"}, this.props.theme.secondaryText]}>{this.props.label}</Text>
         <View style={tempStyles}>
           {this.props.content}

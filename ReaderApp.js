@@ -67,7 +67,7 @@ import {partLines} from "./FullLibraryPanel";
 import {fullLibraryParts, formatSize, knownBookSize, bookSizeText} from "./fullLibrary";
 import {downloadNeedsConnection} from "./connectivity";
 import ActionToast from "./tabs/ActionToast";
-import { prewarmSection } from "./reader/prewarm";
+import { prewarmSection, prewarmCommentary } from "./reader/prewarm";
 import * as extrasQueue from "./extrasQueue";
 import ReaderTabBar, { READER_TAB_BAR_HEIGHT } from "./tabs/ReaderTabBar";
 import {
@@ -761,6 +761,20 @@ class ReaderApp extends React.PureComponent {
     this.props.dispatch({
       type: STATE_ACTIONS.setCommentaryFontScale,
       value: scale,
+    });
+  };
+
+  setHebrewFont = (font) => {
+    this.props.dispatch({
+      type: STATE_ACTIONS.setHebrewFont,
+      value: font,
+    });
+  };
+
+  setCommentaryFont = (font) => {
+    this.props.dispatch({
+      type: STATE_ACTIONS.setCommentaryFont,
+      value: font,
     });
   };
 
@@ -1805,10 +1819,12 @@ ${strings.formatString(strings.extras.download_size, size)}` : '';
       const { name, heName, category, collectiveTitle, heCollectiveTitle } = this.state.linkRecentFilters[filterIndex];
       let nextRefList = [];
       let nextHeRefList = [];
+      let isCategoryFilter = false;
       for (let cat of linkSummary) {
           if (cat.category == name) {
             nextRefList = cat.refList;
             nextHeRefList = cat.heRefList;
+            isCategoryFilter = true;
             break;
           }
           for (let book of cat.books) {
@@ -1818,6 +1834,13 @@ ${strings.formatString(strings.extras.download_size, size)}` : '';
               break;
             }
           }
+      }
+      if (!isCategoryFilter && nextRefList.length > 0 && Sefaria.textTitleForRef) {
+        const commTitle = Sefaria.textTitleForRef(nextRefList[0]);
+        const curSection = (this.state.sectionArray && this.state.sectionArray[this.state.sectionIndexRef]) || this.state.textReference;
+        if (commTitle && curSection) {
+          prewarmCommentary(commTitle, curSection, this.state.next);
+        }
       }
       const nextFilter = new LinkFilter(name, heName, collectiveTitle, heCollectiveTitle, nextRefList, nextHeRefList, category);
 
@@ -2826,6 +2849,19 @@ ${strings.formatString(strings.extras.download_size, size)}` : '';
     this.setState({ inlineCommentaryPrefs });
     saveInlineCommentaryPrefs(inlineCommentaryPrefs);
     this.closeReaderDisplayOptionsMenu();
+    if (key && !key.startsWith('@') && this.state.textTitle) {
+      const curSection = (this.state.sectionArray && this.state.sectionArray[this.state.sectionIndexRef]) || this.state.textReference;
+      let commTitle = null;
+      const related = curSection && this.state.relatedBySectionRef && this.state.relatedBySectionRef[curSection];
+      if (Array.isArray(related)) {
+        for (const seg of related) {
+          const hit = (seg && seg.links || []).find(l => l && (l.collectiveTitle || l.textTitle) === key);
+          if (hit) { commTitle = hit.textTitle || (hit.sourceRef && Sefaria.textTitleForRef(hit.sourceRef)); break; }
+        }
+      }
+      if (!commTitle) { commTitle = `${key} on ${this.state.textTitle}`; }
+      if (curSection) { prewarmCommentary(commTitle, curSection, this.state.next); }
+    }
   };
 
   _getContextValue = () => {
@@ -3160,6 +3196,10 @@ ${strings.formatString(strings.extras.download_size, size)}` : '';
                 setVocalization={this.setVocalization}
                 incrementFont={this.incrementFont}
                 incrementCommentaryFont={this.incrementCommentaryFont}
+                hebrewFont={this.props.hebrewFont}
+                setHebrewFont={this.setHebrewFont}
+                commentaryFont={this.props.commentaryFont}
+                setCommentaryFont={this.setCommentaryFont}
                 setTheme={this.setTheme}
                 canBeContinuous={Sefaria.canBeContinuous(this.state.textTitle)}
                 canHaveAliyot={Sefaria.canHaveAliyot(this.state.textTitle)}

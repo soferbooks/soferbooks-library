@@ -32,7 +32,7 @@ import ActionSheet from "react-native-action-sheet";
 import Markdown from "react-native-markdown-display";
 import ReaderAppContext from "./context";
 
-const SYSTEM_FONTS = ["FrankSofer", "Amiri", "Heebo", "OpenSans", "SertoBatnan", "MiriamLibre-Regular"];  // list of system fonts. needed for RenderHTML
+const SYSTEM_FONTS = ["FrankSofer", "Drugulin", "Hadassah", "MekorotRashi", "Amiri", "Heebo", "OpenSans", "SertoBatnan", "MiriamLibre-Regular"];  // list of system fonts. needed for RenderHTML
 const CSS_CLASS_STYLES = {
   hebrew: {
     fontFamily: "FrankSofer",
@@ -728,11 +728,11 @@ LibraryNavButtonText.proptypes = {
 
 const LanguageToggleButton = () => {
   // button for toggling b/w he and en for menu and text lang (both controlled by `textLanguage`)
-  const { theme, textLanguage, interfaceLanguage } = useGlobalState();
+  const { theme, menuLanguage } = useGlobalState();
   const dispatch = useContext(DispatchContext);
-  const isHeb = textLanguage === 'hebrew';
+  const isHeb = menuLanguage === 'hebrew';
   const iconName = isHeb ? "a_icon" : "aleph";
-  const enabled = interfaceLanguage !== 'hebrew';
+  const enabled = true;
 
   const toggle = () => {
     const language = !isHeb ? "hebrew" : 'english';

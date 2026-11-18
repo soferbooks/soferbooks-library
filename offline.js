@@ -573,12 +573,22 @@ const loadOfflineSectionMetadataWithCache = async function(ref) {
     return metadata;
 };
 
+const cacheStemSections = (jsonData, stem) => {
+    if (jsonData && jsonData.sections && stem) {
+        Sefaria._jsonSectionData[`${stem}|stemMetadata`] = jsonData.sections;
+        for (const [secKey, secVal] of Object.entries(jsonData.sections)) {
+            Sefaria._jsonSectionData[`${secKey}|metadata`] = [secVal, stem];
+        }
+    }
+};
+
 const loadOfflineSectionMetadata = async function(ref) {
     const fileNameStem = ref.split(":")[0];
     const bookRefStem  = Sefaria.textTitleForRef(ref);
     const jsonPath = _JSONMetadataPath(fileNameStem);
     const zipPath  = _zipSourcePath(bookRefStem);
-    const preResolve = jsonData => {
+    const preResolve = (jsonData, stem = fileNameStem) => {
+        cacheStemSections(jsonData, stem);
         const sectionData = getSectionFromJsonData(ref, jsonData);
         if (!sectionData) { throw ERRORS.CANT_GET_SECTION_FROM_DATA; }
         return sectionData;
@@ -601,7 +611,7 @@ const loadOfflineSectionMetadata = async function(ref) {
                 try {
                     const count1 = await _extractPrefix(zipPath, `${depth1FilenameStem}.`);
                     if (count1 && count1 > 0) {
-                        return [preResolve(await _loadJSON(depth1JSONPath)), depth1FilenameStem];
+                        return [preResolve(await _loadJSON(depth1JSONPath), depth1FilenameStem), depth1FilenameStem];
                     }
                 } catch (eSel1) { /* fall back below */ }
             }
@@ -611,7 +621,7 @@ const loadOfflineSectionMetadata = async function(ref) {
             } catch (e2) {
                 // Now that the file is unzipped, if there was an error assume we have a depth 1 or 3 text
                 try {
-                    return [preResolve(await _loadJSON(depth1JSONPath)), depth1FilenameStem];
+                    return [preResolve(await _loadJSON(depth1JSONPath), depth1FilenameStem), depth1FilenameStem];
                 } catch (e3) {
                     // a book whose default node's files say "<title>, default 1" for "<title> 1"
                     // (the Sofer Library's Beit Yosef, Orach Chayim: QA round 14)
@@ -625,6 +635,56 @@ const loadOfflineSectionMetadata = async function(ref) {
         }
     }
 };
+
+/**
+ * Warm all sections belonging to a commentary chapter/daf (`commSectionRef`, e.g.
+ * "Rashi on Genesis 1" or "Rashi on Niddah 2a") into Sefaria._jsonSectionData so every verse
+ * in the chapter opens immediately, and return `{ chars, nextRef }`.
+ */
+export async function warmOfflineCommentaryChapter(commSectionRef) {
+    if (!commSectionRef) { return { chars: 0, nextRef: null }; }
+    const countContentChars = content => (Array.isArray(content)
+        ? content.reduce((sum, seg) => sum + ((seg && typeof seg.he === 'string' ? seg.he.length : 0) + (seg && typeof seg.text === 'string' ? seg.text.length : 0)), 0)
+        : 0);
+    let firstResult = null;
+    try {
+        firstResult = await loadTextOffline(`${commSectionRef}:1`, {}, true);
+    } catch (e) {
+        const stemMeta = Sefaria._jsonSectionData && Sefaria._jsonSectionData[`${commSectionRef}|stemMetadata`];
+        const firstKey = stemMeta && Object.keys(stemMeta)[0];
+        if (firstKey) {
+            try { firstResult = await loadTextOffline(firstKey, {}, true); } catch (e2) { firstResult = null; }
+        } else {
+            try { firstResult = await loadTextOffline(commSectionRef, {}, true); } catch (e3) { firstResult = null; }
+        }
+    }
+    const stemMeta = Sefaria._jsonSectionData && Sefaria._jsonSectionData[`${commSectionRef}|stemMetadata`];
+    if (!stemMeta) {
+        if (!firstResult || !firstResult.textContent) { return { chars: 0, nextRef: null }; }
+        const rawNext = firstResult.textContent.next || null;
+        const nextSection = rawNext && rawNext.includes(':') ? rawNext.split(':')[0] : rawNext;
+        return {
+            chars: countContentChars(firstResult.textContent.content),
+            nextRef: nextSection && nextSection !== commSectionRef ? nextSection : null,
+        };
+    }
+    let chars = 0;
+    let lastNext = null;
+    for (const secKey of Object.keys(stemMeta)) {
+        const meta = stemMeta[secKey];
+        if (meta && meta.next) { lastNext = meta.next; }
+        try {
+            const res = await loadTextOffline(secKey, {}, true);
+            if (res && res.textContent) {
+                chars += countContentChars(res.textContent.content);
+                if (res.textContent.next) { lastNext = res.textContent.next; }
+            }
+        } catch (e) { /* skip missing/empty verse */ }
+    }
+    const nextSection = lastNext && lastNext.includes(':') ? lastNext.split(':')[0] : lastNext;
+    const nextRef = nextSection && nextSection !== commSectionRef ? nextSection : null;
+    return { chars, nextRef };
+}
 
 /**
  * The section `ref` from the files of the book's default node named "<title>, default ..." -

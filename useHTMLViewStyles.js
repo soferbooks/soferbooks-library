@@ -4,17 +4,18 @@ import { GlobalStateContext, getTheme } from './StateManager';
 import { CSS_CLASS_STYLES } from './Misc';
 import styles from './Styles.js';
 
-export function useHTMLViewStyles(bilingual, textType, fontSizeOverride = null) {
+export function useHTMLViewStyles(bilingual, textType, fontSizeOverride = null, fontFamilyOverride = null) {
     // (fontSizeOverride: the commentary's own size, in the connections panel - commentaryFontScale)
-    const { themeStr, fontSize: readerFontSize, biLayout } = useContext(GlobalStateContext);
+    const { themeStr, fontSize: readerFontSize, biLayout, hebrewFont } = useContext(GlobalStateContext);
     const fontSize = fontSizeOverride || readerFontSize;
     const theme = getTheme(themeStr);
     const isStacked = biLayout === 'stacked';
+    const activeHebFont = fontFamilyOverride || hebrewFont || CSS_CLASS_STYLES.hebrew.fontFamily;
 
     const getHTMLViewStyles = useCallback((bilingual, textType) => {
       const isHeb = textType === "hebrew";
       const lineHeightMultiplier = isHeb ? (Platform.OS === 'android' ? 1.333 : 1.25) : 1.15;
-      const fontSizeMultiplier = isHeb ? 1 : 0.8;
+      const fontSizeMultiplier = isHeb ? (activeHebFont === 'MekorotRashi' ? 1.03 : 1) : 0.8;
       // Removed justification for iOS since RN 0.77 no longer justifies Hebrew text to the right. The decision was made that no justification is better than incorrect justification.
       const justifyStyle = {textAlign: (isStacked && Platform.OS === 'android') ? 'justify' : (isHeb ? 'right' : 'left'), direction: (isHeb && Platform.OS === 'android' && isStacked) ? 'rtl' : 'ltr'};
       const lineHeight = fontSize * lineHeightMultiplier;
@@ -69,6 +70,7 @@ export function useHTMLViewStyles(bilingual, textType, fontSizeOverride = null) 
       const classesStyles = {
         hebrew: {
           ...CSS_CLASS_STYLES.hebrew,
+          fontFamily: activeHebFont,
           fontSize: fontSizeScaled,
         },
         english: {
@@ -86,6 +88,6 @@ export function useHTMLViewStyles(bilingual, textType, fontSizeOverride = null) 
         tagsStyles,
         textStyle: {style: textStyle},
       }
-    }, [isStacked, bilingual, textType, fontSize, theme]);
+    }, [isStacked, bilingual, textType, fontSize, theme, activeHebFont]);
     return getHTMLViewStyles(bilingual, textType);
   };

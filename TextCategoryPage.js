@@ -210,10 +210,10 @@ const getSections = (displayCategories, nestLevel, textLanguage) => {
 }
 
 const useSectionsAndDisplayCategories = (categories) => {
-    const { textLanguage } = useGlobalState();
+    const { menuLanguage } = useGlobalState();
     const displayCategories = getDisplayCategories(categories);
     const nestLevel   = displayCategories.slice(-1)[0] === "Commentary" ? 1 : 0;
-    const sections = getSections(displayCategories, nestLevel, textLanguage);
+    const sections = getSections(displayCategories, nestLevel, menuLanguage);
 
     return { sections, displayCategories };
 }

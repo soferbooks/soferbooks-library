@@ -373,6 +373,7 @@ const wrapInRenderLanguage = (child, childProps, stateOverrides) => () => (
       ...DEFAULT_STATE,
       theme: {},
       interfaceLanguage: strings.getLanguage() === 'he' ? 'hebrew' : 'english',
+      textLanguage: (childProps && childProps.textLanguage) || (strings.getLanguage() === 'he' ? 'hebrew' : 'english'),
       ...stateOverrides,
     }}>
       {React.createElement(child, childProps)}
@@ -456,6 +457,8 @@ describe('Settings screen', () => {
         'library_sources.always_on', 'extras.source_detail',
         'settings.nakdan_header', 'settings.nakdan_always', 'settings.nakdan_always_detail',
         'settings.nakdan_credit',
+        'reader.font', 'reader.commentary_font', 'reader.font_frank_sofer',
+        'reader.font_drugulin', 'reader.font_hadassah', 'reader.font_rashi',
       ]
     );
   });
@@ -706,7 +709,7 @@ describe('Reader display options menu', () => {
     canBeContinuous: true, canHaveAliyot: true, showAliyot: false,
     vowelToggleAvailable, vocalization: VOCALIZATION.NIKKUD,
     setTextFlow: noop, setTextLanguage: noop, setAliyot: noop, setBiLayout: noop,
-    incrementFont: noop, incrementCommentaryFont: noop, setTheme: noop, setVocalization: noop,
+    incrementFont: noop, incrementCommentaryFont: noop, setHebrewFont: noop, setCommentaryFont: noop, setTheme: noop, setVocalization: noop,
   });
 
   test('renders its labels in both languages', () => {
@@ -716,6 +719,8 @@ describe('Reader display options menu', () => {
         'reader.language', 'reader.layout', 'reader.bilingual_layout', 'reader.color',
         'reader.aliyot', 'common.on', 'common.off', 'reader.font_size', 'reader.vocalization',
         'reader.commentary_font_size',
+        'reader.font', 'reader.commentary_font', 'reader.font_frank_sofer',
+        'reader.font_drugulin', 'reader.font_hadassah', 'reader.font_rashi',
         // the screen-reader labels of its buttons, most of them icons ("Font Size: Larger")
         'a11y.setting_option', 'languages.english', 'languages.hebrew', 'settings.bilingual',
         'a11y.layout_segmented', 'a11y.layout_continuous', 'a11y.layout_stacked',

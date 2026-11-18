@@ -510,6 +510,18 @@ const ButtonToggleSection = ({ langStyle }) => {
       value: isActive,
     });
   };
+  const setHebrewFont = font => {
+    dispatch({
+      type: STATE_ACTIONS.setHebrewFont,
+      value: font,
+    });
+  };
+  const setCommentaryFont = font => {
+    dispatch({
+      type: STATE_ACTIONS.setCommentaryFont,
+      value: font,
+    });
+  };
   const options = {
     interfaceLanguageOptions: generateOptions(['english', 'hebrew'], setInterfaceLanguage),
     textLanguageOptions: generateOptions(['english', 'bilingual', 'hebrew'], setTextLanguage),
@@ -519,6 +531,17 @@ const ButtonToggleSection = ({ langStyle }) => {
     readingHistoryOptions: generateOptions(['onFem', 'offFem'], setReadingHistory, [true, false]),
     groggerActiveOptions: generateOptions(['on', 'off'], setGroggerActive),
   };
+  const hebrewFontOptions = [
+    { name: 'FrankSofer', text: strings.reader.font_frank_sofer, onPress: () => setHebrewFont('FrankSofer') },
+    { name: 'Drugulin', text: strings.reader.font_drugulin, onPress: () => setHebrewFont('Drugulin') },
+    { name: 'Hadassah', text: strings.reader.font_hadassah, onPress: () => setHebrewFont('Hadassah') },
+  ];
+  const commentaryFontOptions = [
+    { name: 'FrankSofer', text: strings.reader.font_frank_sofer, onPress: () => setCommentaryFont('FrankSofer') },
+    { name: 'MekorotRashi', text: strings.reader.font_rashi, onPress: () => setCommentaryFont('MekorotRashi') },
+    { name: 'Drugulin', text: strings.reader.font_drugulin, onPress: () => setCommentaryFont('Drugulin') },
+    { name: 'Hadassah', text: strings.reader.font_hadassah, onPress: () => setCommentaryFont('Hadassah') },
+  ];
   /* stateKey prop is used for testing */
   const toggleButtons = ['textLanguage', 'interfaceLanguage', 'readingHistory', 'preferredCustom', 'calendarLocation', 'downloadNetworkSetting'];
   if (Sefaria.isGettinToBePurimTime()) { toggleButtons.push('groggerActive'); }
@@ -534,6 +557,24 @@ const ButtonToggleSection = ({ langStyle }) => {
             lang={globalState.interfaceLanguage}
             active={globalState[s]} />
         </View>))}
+      <View style={styles.settingsSection} key="hebrewFont">
+        <View>
+          <Text style={[langStyle, styles.settingsSectionHeader, theme.tertiaryText]}>{strings.reader.font}</Text>
+        </View>
+        <ButtonToggleSet
+          options={hebrewFontOptions}
+          lang={globalState.interfaceLanguage}
+          active={globalState.hebrewFont || 'FrankSofer'} />
+      </View>
+      <View style={styles.settingsSection} key="commentaryFont">
+        <View>
+          <Text style={[langStyle, styles.settingsSectionHeader, theme.tertiaryText]}>{strings.reader.commentary_font}</Text>
+        </View>
+        <ButtonToggleSet
+          options={commentaryFontOptions}
+          lang={globalState.interfaceLanguage}
+          active={globalState.commentaryFont || 'FrankSofer'} />
+      </View>
     </View>
   );
 };
