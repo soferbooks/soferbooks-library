@@ -2329,9 +2329,14 @@ ${strings.formatString(strings.extras.download_size, size)}` : '';
     Sefaria.util.openComposedEmail(to, subject, body);
   };
 
-  copyCurrentSegment = (sectionIndex, segmentIndex, segmentRef) => {
-    Clipboard.setString(this.getDisplayedText(false, sectionIndex, segmentIndex, segmentRef));
+  copyTextToClipboard = (text) => {
+    if (!text) { return; }
+    Clipboard.setString(text);
     this.showToast(strings.common.copied_to_clipboard);
+  }
+
+  copyCurrentSegment = (sectionIndex, segmentIndex, segmentRef) => {
+    this.copyTextToClipboard(this.getDisplayedText(false, sectionIndex, segmentIndex, segmentRef));
   }
 
   shareCurrentSegment = (sectionIndex, segmentIndex, segmentRef) => {
@@ -3186,6 +3191,11 @@ ${strings.formatString(strings.extras.download_size, size)}` : '';
                 handleOpenURL={this.handleOpenURL}
                 dictLookup={this.state.dictLookup}
                 copyCurrentSegment={this.copyCurrentSegment}
+                copyTextToClipboard={this.copyTextToClipboard}
+                getDisplayedText={this.getDisplayedText}
+                sectionSegments={this.state.data && this.state.data[this.state.sectionIndexRef]}
+                sectionIndexRef={this.state.sectionIndexRef}
+                segmentIndexRef={this.state.segmentIndexRef}
                 shareCurrentSegment={this.shareCurrentSegment}
                 viewOnSite={this.viewOnSite}
                 reportError={this.reportError}

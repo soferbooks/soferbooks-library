@@ -1207,17 +1207,18 @@ describe('single-word Hebrew alignment, copy support, and Great Neck Kollel cred
     }
   });
 
-  test('ConnectionsPanel exposes Copy button that copies current segment', () => {
+  test('ConnectionsPanel exposes Copy button that copies current segment and opens copy mode', () => {
     strings.setLanguage('en');
     const ConnectionsPanel = require('../ConnectionsPanel').default;
     const copyCurrentSegment = jest.fn();
+    const setConnectionsMode = jest.fn();
     let inst;
     act(() => {
       inst = renderer.create(
         <GlobalStateContext.Provider value={{ ...DEFAULT_STATE, textLanguage: 'hebrew' }}>
           <ConnectionsPanel
             theme={{}} themeStr="white" interfaceLanguage="english" textLanguage="hebrew"
-            fontSize={16} openRef={jest.fn()} setConnectionsMode={jest.fn()}
+            fontSize={16} openRef={jest.fn()} setConnectionsMode={setConnectionsMode}
             openFilter={jest.fn()} closeCat={jest.fn()} updateLinkCat={jest.fn()}
             updateVersionCat={jest.fn()} loadLinkContent={jest.fn()} loadVersionContent={jest.fn()}
             linkSummary={[]} loading={false} relatedHasError={false}
@@ -1235,8 +1236,60 @@ describe('single-word Hebrew alignment, copy support, and Great Neck Kollel cred
       );
     });
     const copyBtn = inst.root.findAll(n => typeof n.props?.onPress === 'function' && n.findAll(c => typeof c.children?.[0] === 'string' && c.children.includes('Copy')).length > 0).pop();
-    copyBtn.props.onPress();
+    act(() => { copyBtn.props.onPress(); });
     expect(copyCurrentSegment).toHaveBeenCalledTimes(1);
+    expect(setConnectionsMode).toHaveBeenCalledWith('copy');
+    act(() => { inst.unmount(); });
+  });
+
+  test('CopyTextBox supports both partial substring selection and multi-segment ranges', () => {
+    strings.setLanguage('en');
+    const CopyTextBox = require('../reader/CopyTextBox').default;
+    const onCopyText = jest.fn();
+    const sectionSegments = [
+      { segmentNumber: 1, he: 'ראשון א ב', text: 'First segment' },
+      { segmentNumber: 2, he: 'שני ג ד', text: 'Second segment' },
+      { segmentNumber: 3, he: 'שלישי ה ו', text: 'Third segment' },
+    ];
+    const getDisplayedText = (withUrl, sIdx, segIdx) => sectionSegments[segIdx]?.he || '';
+    let inst;
+    act(() => {
+      inst = renderer.create(
+        <GlobalStateContext.Provider value={{ ...DEFAULT_STATE, textLanguage: 'hebrew' }}>
+          <CopyTextBox
+            sectionSegments={sectionSegments}
+            sectionRef="Yoma 37b"
+            sectionIndex={0}
+            initialSegmentIndex={1}
+            segmentRef="Yoma 37b:2"
+            getDisplayedText={getDisplayedText}
+            onCopyText={onCopyText}
+          />
+        </GlobalStateContext.Provider>
+      );
+    });
+    const input = () => inst.root.findByProps({ testID: 'copyTextInput' });
+    const primary = () => inst.root.findByProps({ testID: 'copyPrimaryButton' });
+
+    // Initial: single active segment (segment 2)
+    expect(input().props.value).toBe('שני ג ד');
+
+    // Partial selection ("less than a segment")
+    act(() => { input().props.onSelectionChange({ nativeEvent: { selection: { start: 0, end: 3 } } }); });
+    act(() => { primary().props.onPress(); });
+    expect(onCopyText).toHaveBeenLastCalledWith('שני');
+
+    // Expand to Whole Section ("more than a segment")
+    act(() => { inst.root.findByProps({ testID: 'copyWholeSection' }).props.onPress(); });
+    expect(input().props.value).toBe('ראשון א ב\n\nשני ג ד\n\nשלישי ה ו');
+    act(() => { primary().props.onPress(); });
+    expect(onCopyText).toHaveBeenLastCalledWith('ראשון א ב\n\nשני ג ד\n\nשלישי ה ו');
+
+    // Reset back to current segment and expand down 1 via To (+)
+    act(() => { inst.root.findByProps({ testID: 'copySingleSegment' }).props.onPress(); });
+    expect(input().props.value).toBe('שני ג ד');
+    act(() => { inst.root.findByProps({ testID: 'copyEndPlus' }).props.onPress(); });
+    expect(input().props.value).toBe('שני ג ד\n\nשלישי ה ו');
     act(() => { inst.unmount(); });
   });
 });

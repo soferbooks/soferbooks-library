@@ -615,6 +615,26 @@ describe('Connections panel on Ezra 1:1', () => {
     ]);
   });
 
+  test('copy text panel renders its labels in both languages', () => {
+    const copyProps = {
+      ...ezraProps('copy'),
+      sectionSegments: [{ segmentNumber: 1, he: 'בְּרֵאשִׁית בָּרָא', text: 'In the beginning' }],
+      sectionIndexRef: 0,
+      segmentIndexRef: 0,
+      getDisplayedText: () => 'בְּרֵאשִׁית בָּרָא',
+    };
+    expectScreenLocalizes(wrap(ConnectionsPanel, copyProps), [
+      'copy.hint', 'copy.start_passage', 'copy.end_passage',
+      'copy.single_segment', 'copy.whole_section', 'copy.copy_range',
+    ]);
+    expectScreenLocalizes(wrap(ConnectionsPanel, copyProps), ['copy.copy_selected'], {
+      interact: (inst) => {
+        const ti = inst.root.findByProps({ testID: 'copyTextInput' });
+        ti.props.onSelectionChange({ nativeEvent: { selection: { start: 0, end: 5 } } });
+      },
+    });
+  });
+
   test('about-this-text renders its labels in both languages', () => {
     expectScreenLocalizes(wrapInRenderLanguage(ConnectionsPanel, ezraProps('about')), [
       'versions.about_this_text',
