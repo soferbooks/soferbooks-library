@@ -80,11 +80,14 @@ jobs:
             echo "GOOGLE_SSO_IOS_CLIENT_ID=${{ secrets.GOOGLE_SSO_IOS_CLIENT_ID }}"
           } > .env
 
+      - name: Configure Xcode Node path
+        run: echo "export NODE_BINARY=$(command -v node)" > ios/.xcode.env
+
       - name: Install CocoaPods
         working-directory: ios
         run: |
-          rm -rf Pods
-          LANG=en_US.UTF-8 bundle exec pod install --deployment
+          rm -rf Pods Podfile.lock
+          LANG=en_US.UTF-8 bundle exec pod install --repo-update
 
       - name: Install distribution certificate
         run: |
@@ -111,20 +114,13 @@ jobs:
         run: |
           echo "${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}" | base64 --decode > /tmp/AuthKey.p8
 
-      - name: Decode GoogleService-Info.plist
-        run: |
-          echo "${{ secrets.IOS_GOOGLE_SERVICES_PLIST_BASE64 }}" | base64 --decode > ios/GoogleService-Info.plist
-
-      - name: Create envvars.sh
-        run: |
-          echo "export SOURCE_SERVER=\"https://readonly.sefaria.org/\"" >> scripts/envvars.sh
-          echo "export SOURCE_UNIX_PATH=\"static/ios-export/\""         >> scripts/envvars.sh
-
       - name: Run Fastlane
         run: bundle exec fastlane ios beta version_name:${{ steps.version.outputs.version_name }}
         env:
           APP_STORE_CONNECT_API_KEY_ID:    ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
           APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+          FASTLANE_TEAM_ID:                ${{ secrets.APPLE_TEAM_ID }}
+          IOS_PROVISIONING_PROFILE_NAME:   ${{ secrets.IOS_PROVISIONING_PROFILE_NAME }}
 
       - name: Print build log on failure
         if: failure()
@@ -170,6 +166,5 @@ jobs:
         if: always()
         run: |
           rm -f /tmp/dist.p12 /tmp/profile.mobileprovision /tmp/AuthKey.p8
-          rm -f ios/GoogleService-Info.plist
           security delete-keychain build.keychain 2>/dev/null || true
           security list-keychains -d user -s login.keychain-db 2>/dev/null || true

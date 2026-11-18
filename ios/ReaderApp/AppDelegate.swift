@@ -4,8 +4,6 @@ import React
 import React_RCTAppDelegate
 import ReactAppDependencyProvider
 
-import FirebaseCore
-import TSBackgroundFetch
 import RNBootSplash
 
 @main
@@ -37,8 +35,6 @@ class AppDelegate: ExpoAppDelegate {
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
-    FirebaseApp.configure()
-
     let delegate = ReactNativeDelegate()
     let factory = ExpoReactNativeFactory(delegate: delegate)
     delegate.dependencyProvider = RCTAppDependencyProvider()
@@ -54,8 +50,6 @@ class AppDelegate: ExpoAppDelegate {
       in: window,
       launchOptions: launchOptions
     )
-
-    TSBackgroundFetch.sharedInstance().didFinishLaunching()
 
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }

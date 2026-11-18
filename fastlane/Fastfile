@@ -15,7 +15,61 @@
 
 default_platform(:ios)
 
+BUNDLE_ID = "org.soferbooks.library"
+
 platform :ios do
+  desc "Build unsigned iOS device .app/.ipa and Simulator .app into build/apple/"
+  lane :build_ios_archive do
+    sh("cd .. && npm install") unless ENV["CI"]
+    profile = ENV["IOS_PROVISIONING_PROFILE_NAME"] || "#{BUNDLE_ID} AppStore"
+
+    if ENV["IOS_SIGNED"] == "1"
+      build_app(
+        scheme:           "ReaderApp",
+        workspace:        "./ios/ReaderApp.xcworkspace",
+        output_directory: "./build/apple",
+        output_name:      "SoferBooks-Library-iOS",
+        export_method:    "app-store",
+        disable_xcpretty: true,
+        xcargs:           "CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY='Apple Distribution' PROVISIONING_PROFILE_SPECIFIER='#{profile}'",
+        export_options:   {
+          method:               "app-store",
+          signingStyle:         "manual",
+          provisioningProfiles: {
+            BUNDLE_ID => profile
+          }
+        }
+      )
+    else
+      sh(
+        "cd .. && xcodebuild " \
+        "-workspace ios/ReaderApp.xcworkspace " \
+        "-scheme ReaderApp " \
+        "-configuration Release " \
+        "-sdk iphoneos " \
+        "-derivedDataPath build/ios-device " \
+        "CODE_SIGN_IDENTITY='' CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO DEVELOPMENT_TEAM='' " \
+        "build"
+      )
+    end
+  end
+
+  desc "Build Apple Silicon Mac app wrapper / DMG (Designed for iPad) into build/apple/"
+  lane :build_mac do
+    build_ios_archive unless File.directory?("../build/ios-device/Build/Products/Release-iphoneos/ReaderApp.app")
+    sh(<<~BASH)
+      set -euo pipefail
+      cd ..
+      mkdir -p build/apple build/mac-stage/Payload
+      rm -rf "build/mac-stage/SoferBooks Library.app" "build/apple/SoferBooks-Library-macOS-AppleSilicon.dmg" "build/apple/SoferBooks-Library-macOS.app.zip"
+      mkdir -p "build/mac-stage/SoferBooks Library.app/Wrapper"
+      cp -R build/ios-device/Build/Products/Release-iphoneos/ReaderApp.app "build/mac-stage/SoferBooks Library.app/Wrapper/ReaderApp.app"
+      ln -s Wrapper/ReaderApp.app "build/mac-stage/SoferBooks Library.app/WrappedBundle"
+      ditto -c -k --sequesterRsrc --keepParent "build/mac-stage/SoferBooks Library.app" build/apple/SoferBooks-Library-macOS.app.zip
+      hdiutil create -volname "SoferBooks Library" -srcfolder "build/mac-stage/SoferBooks Library.app" -ov -format UDZO build/apple/SoferBooks-Library-macOS-AppleSilicon.dmg
+    BASH
+  end
+
   desc "Build and upload to TestFlight.
         Called by both deploy-ios.yml (QA, version from build.gradle) and
         deploy-ios-release.yml (prod, version_name provided or from build.gradle).
@@ -47,31 +101,33 @@ platform :ios do
     # GITHUB_REF_NAME is set in CI; git fallback is empty on detached HEAD.
     branch = (ENV["GITHUB_REF_NAME"] || sh("git branch --show-current").strip).strip
 
-    sh("../scripts/update_sources.sh")
     sh("cd .. && npm install") unless ENV["CI"]
+
+    profile = ENV["IOS_PROVISIONING_PROFILE_NAME"] || "#{BUNDLE_ID} AppStore"
+    team = ENV["FASTLANE_TEAM_ID"] || ""
+    team_arg = team.empty? ? "" : " DEVELOPMENT_TEAM='#{team}'"
 
     build_app(
       scheme:           "ReaderApp",
       workspace:        "./ios/ReaderApp.xcworkspace",
       export_method:    "app-store",
       disable_xcpretty: true,
-      xcargs:           "CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY='Apple Distribution' PROVISIONING_PROFILE_SPECIFIER='org.sefaria.sefariaApp AppStore'",
+      xcargs:           "CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY='Apple Distribution' PROVISIONING_PROFILE_SPECIFIER='#{profile}'#{team_arg}",
       export_options:   {
         method:               "app-store",
         signingStyle:         "manual",
         provisioningProfiles: {
-          "org.sefaria.sefariaApp" => "org.sefaria.sefariaApp AppStore"
+          BUNDLE_ID => profile
         }
       }
     )
 
     # changelog populates TestFlight's "What to Test", mirroring the Android
     # lane's "Branch: <branch>" note. Only set it for QA builds (story branches
-    # carry the sc-NNNNN id); skip on master, where "Branch: master" is just
-    # noise on prod builds. Attaches only after build processing, which
-    # upload_to_testflight waits for by default.
+    # carry the sc-NNNNN id); skip on master/main. Attaches only after build
+    # processing, which upload_to_testflight waits for by default.
     testflight_options = { api_key: api_key }
-    unless branch.empty? || branch == "master"
+    unless branch.empty? || branch == "master" || branch == "main"
       testflight_options[:changelog] = "Branch: #{branch}"
     end
     upload_to_testflight(testflight_options)

@@ -1,0 +1,117 @@
+name: Build iOS & Mac Apps
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'ios/**'
+      - 'fastlane/**'
+      - '.github/workflows/build-ios-mac.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build-ios-and-mac:
+    runs-on: macos-15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Ruby + CocoaPods + Fastlane
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: true
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.19.4'
+          cache: 'npm'
+
+      - name: Install npm dependencies
+        run: npm install
+
+      - name: Write .env and Xcode environment
+        run: |
+          {
+            echo "GOOGLE_SSO_CLIENT_ID=${{ secrets.GOOGLE_SSO_CLIENT_ID }}"
+            echo "GOOGLE_SSO_IOS_CLIENT_ID=${{ secrets.GOOGLE_SSO_IOS_CLIENT_ID }}"
+          } > .env
+          echo "export NODE_BINARY=$(command -v node)" > ios/.xcode.env
+
+      - name: Install CocoaPods
+        working-directory: ios
+        run: |
+          rm -rf Pods Podfile.lock
+          LANG=en_US.UTF-8 bundle exec pod install --repo-update
+
+      - name: Build iOS Device app (iphoneos Release)
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -workspace ios/ReaderApp.xcworkspace \
+            -scheme ReaderApp \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build/ios-device \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            DEVELOPMENT_TEAM="" \
+            build
+
+      - name: Build iOS Simulator app (iphonesimulator Release)
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -workspace ios/ReaderApp.xcworkspace \
+            -scheme ReaderApp \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -derivedDataPath build/ios-sim \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            DEVELOPMENT_TEAM="" \
+            build
+
+      - name: Package iOS IPA, Simulator .app, and Mac (Designed for iPad) .dmg/.zip
+        run: |
+          set -euo pipefail
+          mkdir -p build/apple build/ipa-stage/Payload build/mac-stage
+
+          # 1. iOS IPA (unsigned device build; re-sign with Apple cert/profile or sideload)
+          cp -R build/ios-device/Build/Products/Release-iphoneos/ReaderApp.app build/ipa-stage/Payload/
+          (cd build/ipa-stage && zip -qry ../apple/SoferBooks-Library-iOS.ipa Payload)
+
+          # 2. iOS Simulator .app.zip (drag & drop onto Xcode Simulator)
+          ditto -c -k --sequesterRsrc --keepParent \
+            build/ios-sim/Build/Products/Release-iphonesimulator/ReaderApp.app \
+            build/apple/SoferBooks-Library-iOS-Simulator.app.zip
+
+          # 3. Mac App (Apple Silicon Designed-for-iPad WrappedBundle + DMG)
+          MAC_APP="build/mac-stage/SoferBooks Library.app"
+          mkdir -p "$MAC_APP/Wrapper"
+          cp -R build/ios-device/Build/Products/Release-iphoneos/ReaderApp.app "$MAC_APP/Wrapper/ReaderApp.app"
+          ln -s Wrapper/ReaderApp.app "$MAC_APP/WrappedBundle"
+          ditto -c -k --sequesterRsrc --keepParent \
+            "$MAC_APP" \
+            build/apple/SoferBooks-Library-macOS.app.zip
+          hdiutil create \
+            -volname "SoferBooks Library" \
+            -srcfolder "$MAC_APP" \
+            -ov -format UDZO \
+            build/apple/SoferBooks-Library-macOS-AppleSilicon.dmg
+
+          ls -lh build/apple/
+
+      - name: Upload built iOS & Mac artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: soferbooks-ios-mac-builds
+          path: build/apple/*
+          if-no-files-found: error

@@ -13,7 +13,6 @@ if Gem::Version.new(MIN_IOS_OVERRIDE) > Gem::Version.new(min_ios_version_support
 end
 platform :ios, min_ios_version_supported
 prepare_react_native_project!
-$RNFirebaseAnalyticsWithoutAdIdSupport=true
 production = ENV["PRODUCTION"] == "1"
 linkage = ENV['USE_FRAMEWORKS']
 if linkage != nil
@@ -22,20 +21,6 @@ if linkage != nil
 end
 
 target 'ReaderApp' do
-  pod 'Firebase', :modular_headers => true
-  pod 'FirebaseCoreInternal', :modular_headers => true
-  pod 'GoogleUtilities', :modular_headers => true
-  pod 'FirebaseCrashlytics', :modular_headers => true
-  pod 'FirebaseCore', :modular_headers => true
-  pod 'FirebaseInstallations', :modular_headers => true
-  pod 'GoogleDataTransport', :modular_headers => true
-  pod 'nanopb', :modular_headers => true
-  pod 'FirebaseRemoteConfig', :modular_headers => true
-  pod 'FirebaseABTesting', :modular_headers => true
-  pod 'FirebaseSessions', :modular_headers => true
-  pod 'FirebaseCoreExtension', :modular_headers => true
-  pod 'RecaptchaInterop', :modular_headers => true
-  pod 'AppCheckCore', :modular_headers => true
   use_expo_modules!
 	post_integrate do |installer|
 	  begin
@@ -64,6 +49,17 @@ post_install do |installer|
     :mac_catalyst_enabled => false,
     # :ccache_enabled => true
   )
+
+  installer.pods_project.targets.each do |target|
+    if target.respond_to?(:product_type) && target.product_type == "com.apple.product-type.bundle"
+      target.build_configurations.each do |config|
+        config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
+      end
+    end
+    target.build_configurations.each do |config|
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.5'
+    end
+  end
 end
 
 # post_install do |installer|
