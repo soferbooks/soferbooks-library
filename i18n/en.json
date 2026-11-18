@@ -23,6 +23,7 @@
     "about.about_soferbooks": "About SoferBooks Library",
     "about.built_on": "This app is built on Sefaria's open-source mobile app, used under the GNU General Public License, version 3.",
     "about.feedback": "Feedback",
+    "about.kollel": "SoferBooks Library is a project of the Great Neck Kollel (Ohr HaEmet), a 501(c)(3) Torah learning organization in Great Neck, New York.",
     "about.licences": "Each text keeps its own licence (for example public domain, CC0, CC BY or CC BY-SA). Open \"About this text\" while reading to see the source and licence of what you are reading.",
     "about.soferbooks_intro": "SoferBooks Library is a free app for reading the classic Jewish texts on your phone. No account is needed: your reading history and saved texts stay on this device.",
     "about.source_code": "SoferBooks Library source code (GPL-3.0, based on Sefaria's app)",

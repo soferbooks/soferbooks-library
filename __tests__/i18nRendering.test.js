@@ -611,7 +611,7 @@ describe('Connections panel on Ezra 1:1', () => {
     expectScreenLocalizes(wrap(ConnectionsPanel, ezraProps(null)), [
       'connections.resources', 'connections.related_texts', 'connections.tools',
       'versions.about_this_text', 'versions.translations',
-      'common.more', 'common.share', 'connections.report_error', 'connections.view_on_site',
+      'common.more', 'common.copy', 'common.share', 'connections.report_error', 'connections.view_on_site',
     ]);
   });
 
@@ -891,7 +891,7 @@ describe('Home page', () => {
 describe('About page', () => {
   test('renders its text in both languages', () => {
     expectScreenLocalizes(wrap(AboutPage, { close: noop, openUri: noop }), [
-      'about.soferbooks_intro', 'about.texts_courtesy', 'about.licences', 'about.built_on',
+      'about.soferbooks_intro', 'about.kollel', 'about.texts_courtesy', 'about.licences', 'about.built_on',
       'about.source_code', 'about.about_soferbooks', 'a11y.soferbooks_logo',
     ]);
   });
@@ -2107,13 +2107,9 @@ const NOT_YET_COVERED = [
   // leftover rather than a gap in this file — the id resolves, so `i18n.test.js` counts it as
   // used, but nothing ever puts it on a screen.
 
-  // TextSegment.js:71 builds an action sheet offering Copy / Share / Cancel, but the
-  // `onLongPress` callback it defines is never passed to the TouchableOpacity below it, so
-  // the sheet never opens. `common.share` and `common.cancel` are covered elsewhere;
-  // `common.copy` appears nowhere else. `common.copied_to_clipboard` is the toast that same
-  // dead sheet raises on its Copy button, so it goes the same way — wire the sheet up and
-  // both of these come back together.
-  'common.copy', 'common.copied_to_clipboard',
+  // `common.copied_to_clipboard` is the toast raised on Copy (`ReaderApp.copyCurrentSegment` / `TextSegment`),
+  // not rendered inside ConnectionsPanel itself. `common.copy` is now covered in ConnectionsPanel.
+  'common.copied_to_clipboard',
 
   // Misc.js:845 MenuButton carries this label, and the only thing that renders MenuButton is
   // SystemHeader (Misc.js:107), on Android alone. Nothing renders SystemHeader (TopicPage,

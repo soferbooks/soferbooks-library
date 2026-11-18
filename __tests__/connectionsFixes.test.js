@@ -200,8 +200,9 @@ describe('a source tapped in the panel: three ways to read it', () => {
       const item = tree.root.findAllByType(TouchableOpacity)[0];
       act(() => { item.props.onPress(); });
       const [opts] = ActionSheet.showActionSheetWithOptions.mock.calls[0];
-      expect(opts.options.length).toBe(4);
+      expect(opts.options.length).toBe(5);
       expect(opts.options[2]).toBe(strings.connections.stop_showing_underneath);
+      expect(opts.options[3]).toBe(strings.common.copy);
       choose(2);
       expect(showInline).toHaveBeenCalledWith('Rashi on Niddah 2a:1:1');
       act(() => { item.props.onLongPress(); });
@@ -1132,5 +1133,110 @@ describe('Extra commentary collectiveTitle strings and depth-3 1D content_counts
       Sefaria._index = savedIndex;
       Sefaria.booksDict = savedBooksDict;
     }
+  });
+});
+
+describe('single-word Hebrew alignment, copy support, and Great Neck Kollel credit', () => {
+  test('useHTMLViewStyles enforces RTL writingDirection and selectable text', () => {
+    const { useHTMLViewStyles } = require('../useHTMLViewStyles');
+    let result;
+    const Probe = () => {
+      result = useHTMLViewStyles(false, 'hebrew');
+      return null;
+    };
+    act(() => {
+      renderer.create(
+        <GlobalStateContext.Provider value={{ ...DEFAULT_STATE, textLanguage: 'hebrew' }}>
+          <Probe />
+        </GlobalStateContext.Provider>
+      );
+    });
+    expect(result.textStyle.selectable).toBe(true);
+    expect(result.textStyle.style).toEqual(expect.arrayContaining([
+      expect.objectContaining({ writingDirection: 'rtl' }),
+    ]));
+  });
+
+  test('TextSegment disables bypassAnonymousTPhrasingNodes so 1-word Hebrew segments stay right-aligned', () => {
+    const TextSegment = require('../TextSegment').default;
+    let inst;
+    act(() => {
+      inst = renderer.create(
+        <GlobalStateContext.Provider value={{ ...DEFAULT_STATE, textLanguage: 'hebrew' }}>
+          <TextSegment
+            segmentRef="Yoma 48b:13"
+            segmentKey="0:12"
+            data='<div class="hebrew"><span class="clickableWord">בָּעֵי</span></div>'
+            textType="hebrew"
+            onTextPress={jest.fn()}
+            showToast={jest.fn()}
+            handleOpenURL={jest.fn()}
+            setDictionaryLookup={jest.fn()}
+            shareCurrentSegment={jest.fn()}
+            getDisplayedText={jest.fn()}
+            setHighlightedWord={jest.fn()}
+          />
+        </GlobalStateContext.Provider>
+      );
+    });
+    const rhNodes = inst.root.findAll(n => n.props && 'bypassAnonymousTPhrasingNodes' in n.props);
+    expect(rhNodes.length).toBeGreaterThan(0);
+    expect(rhNodes[0].props.bypassAnonymousTPhrasingNodes).toBe(false);
+    expect(rhNodes[0].props.defaultTextProps.selectable).toBe(true);
+    act(() => { inst.unmount(); });
+  });
+
+  test('openLinkActionSheet includes Copy when copyText is provided', () => {
+    strings.setLanguage('en');
+    const spy = jest.spyOn(ActionSheet, 'showActionSheetWithOptions').mockImplementation(() => {});
+    try {
+      const copyText = jest.fn();
+      openLinkActionSheet({
+        refStr: 'Rashi on Yoma 37b:1',
+        heRefStr: 'רש"י על יומא לז.',
+        interfaceLanguage: 'english',
+        openHere: jest.fn(),
+        copyText,
+      });
+      const [opts, cb] = spy.mock.calls[0];
+      expect(opts.options).toEqual(['Open here', 'Copy', 'Cancel']);
+      cb(1);
+      expect(copyText).toHaveBeenCalledTimes(1);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  test('ConnectionsPanel exposes Copy button that copies current segment', () => {
+    strings.setLanguage('en');
+    const ConnectionsPanel = require('../ConnectionsPanel').default;
+    const copyCurrentSegment = jest.fn();
+    let inst;
+    act(() => {
+      inst = renderer.create(
+        <GlobalStateContext.Provider value={{ ...DEFAULT_STATE, textLanguage: 'hebrew' }}>
+          <ConnectionsPanel
+            theme={{}} themeStr="white" interfaceLanguage="english" textLanguage="hebrew"
+            fontSize={16} openRef={jest.fn()} setConnectionsMode={jest.fn()}
+            openFilter={jest.fn()} closeCat={jest.fn()} updateLinkCat={jest.fn()}
+            updateVersionCat={jest.fn()} loadLinkContent={jest.fn()} loadVersionContent={jest.fn()}
+            linkSummary={[]} loading={false} relatedHasError={false}
+            sectionRef="Yoma 37b" segmentRef="Yoma 37b:13" heSegmentRef="יומא לז:"
+            connectionsMode={null} recentFilters={[]} versionRecentFilters={[]}
+            currVersionObjects={{}} versions={[]} versionsApiError={false}
+            onDragStart={jest.fn()} onDragMove={jest.fn()} onDragEnd={jest.fn()}
+            textTitle="Yoma" categories={['Talmud']} openUri={jest.fn()}
+            handleOpenURL={jest.fn()} textListFlex={0.5} onStartShouldSetResponderCapture={jest.fn()}
+            copyCurrentSegment={copyCurrentSegment} shareCurrentSegment={jest.fn()} viewOnSite={jest.fn()}
+            reportError={jest.fn()} loadRelated={jest.fn()} relatedData={{}}
+            translations={{ versions: [] }}
+          />
+        </GlobalStateContext.Provider>
+      );
+    });
+    const copyBtn = inst.root.findAll(n => typeof n.props?.onPress === 'function' && n.findAll(c => typeof c.children?.[0] === 'string' && c.children.includes('Copy')).length > 0).pop();
+    copyBtn.props.onPress();
+    expect(copyCurrentSegment).toHaveBeenCalledTimes(1);
+    act(() => { inst.unmount(); });
   });
 });

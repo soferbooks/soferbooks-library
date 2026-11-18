@@ -20,7 +20,7 @@ import { notNowNakdan, setNakdanForBook, setNakdanSettings, useNakdanPrefs } fro
 
 export const NakdanText = ({ text, on, style }) => {
   const vowelled = useNakdan(text, on);
-  return <Text style={style}>{vowelled || text}</Text>;
+  return <Text selectable style={style}>{vowelled || text}</Text>;
 };
 NakdanText.propTypes = { text: PropTypes.string, on: PropTypes.bool, style: PropTypes.any };
 

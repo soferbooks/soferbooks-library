@@ -9,6 +9,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import ActionSheet from 'react-native-action-sheet';
+import Clipboard from '@react-native-clipboard/clipboard';
 
 import {
   openActionSheet,
@@ -300,14 +301,23 @@ const ListItem = ({
   const { classesStyles:heClasses, textStyle:heStyle, tagsStyles:heTags } = useHTMLViewStyles(bilingual, 'hebrew', fontSize, hebFont);
 
   const versions = (versionLanguage) ? {[versionLanguage]: versionTitle} : null;
-  // a translation (the versions list) is opened as before; a connection offers three ways to read it
+  // a translation (the versions list) is opened as before; a connection offers three ways to read it + copy
   const asLink = !versions && !!openRefHere;
+  const copyItemText = !loading ? () => {
+    const hePlain = Sefaria.util.htmlToTextCanonical(typeof lco.he === 'string' ? lco.he : '') || '';
+    const enPlain = Sefaria.util.htmlToTextCanonical(typeof lco.en === 'string' ? lco.en : '') || '';
+    const parts = [];
+    if ((lang === 'hebrew' || lang === 'bilingual') && hePlain) { parts.push(hePlain); }
+    if ((lang === 'english' || lang === 'bilingual') && enPlain) { parts.push(enPlain); }
+    Clipboard.setString(parts.join('\n'));
+  } : null;
   const onPress = asLink ? () => openLinkActionSheet({
     refStr, heRefStr, interfaceLanguage,
     openHere: () => openRefHere(refStr),
     openInNewTab: openRefInNewTab ? () => openRefInNewTab(refStr) : null,
     showUnderneath: showInline ? () => showInline(refStr) : null,
     shownUnderneath: !!showInline && !!inlineCommentary && !!inlineKeyFor && inlineKeyFor(refStr) === inlineCommentary,
+    copyText: copyItemText,
   }) : () => openActionSheet(refStr, versions, openRef, interfaceLanguage, heRefStr, category);
   // (a long press: straight to a new tab, what a tap did before)
   const onLongPress = asLink && openRefInNewTab ? () => openRefInNewTab(refStr) : undefined;
@@ -341,6 +351,7 @@ const ListItem = ({
       classesStyles={heClasses}
       tagsStyles={heTags}
       systemFonts={SYSTEM_FONTS}
+      bypassAnonymousTPhrasingNodes={false}
     />
   );
   const englishElem = (
@@ -352,6 +363,7 @@ const ListItem = ({
       classesStyles={enClasses}
       tagsStyles={enTags}
       systemFonts={SYSTEM_FONTS}
+      bypassAnonymousTPhrasingNodes={false}
     />
   );
 

@@ -86,6 +86,7 @@ class ConnectionsPanel extends React.PureComponent {
     textListFlex:         PropTypes.number.isRequired,
     onStartShouldSetResponderCapture: PropTypes.func.isRequired,
     dictLookup:           PropTypes.string,
+    copyCurrentSegment:   PropTypes.func,
     shareCurrentSegment:  PropTypes.func.isRequired,
     viewOnSite:           PropTypes.func.isRequired,
     reportError:          PropTypes.func.isRequired,
@@ -227,6 +228,7 @@ class ConnectionsPanel extends React.PureComponent {
                 setConnectionsMode={this.props.setConnectionsMode}
                 reloadRelated={this.reloadRelated}
                 relatedData={this.props.relatedData}
+                copyCurrentSegment={this.props.copyCurrentSegment}
                 shareCurrentSegment={this.props.shareCurrentSegment}
                 viewOnSite={this.props.viewOnSite}
                 reportError={this.props.reportError}
@@ -356,6 +358,7 @@ const MainMenuButtons = ({linkSummary,
                            setConnectionsMode,
                            reloadRelated,
                            relatedData,
+                           copyCurrentSegment,
                            shareCurrentSegment,
                            viewOnSite,
                            reportError}) => {
@@ -393,6 +396,7 @@ const MainMenuButtons = ({linkSummary,
     <ToolsList
       themeStr={themeStr}
       sheet={sheet}
+      copyCurrentSegment={copyCurrentSegment}
       shareCurrentSegment={shareCurrentSegment}
       viewOnSite={viewOnSite}
       reportError={reportError}
@@ -410,6 +414,7 @@ MainMenuButtons.propTypes = {
   setConnectionsMode: PropTypes.func.isRequired,
   reloadRelated: PropTypes.func.isRequired,
   relatedData: PropTypes.object.isRequired,
+  copyCurrentSegment: PropTypes.func,
   shareCurrentSegment: PropTypes.func.isRequired,
   viewOnSite: PropTypes.func.isRequired,
   reportError: PropTypes.func.isRequired,
@@ -493,9 +498,14 @@ TopButtons.propTypes = {
     sheet:              PropTypes.object,
 };
 
-const ToolsList = ({themeStr, shareCurrentSegment, sheet, reportError, viewOnSite}) => {
+const ToolsList = ({themeStr, copyCurrentSegment, shareCurrentSegment, sheet, reportError, viewOnSite}) => {
   return (
       <ConnectionsPanelSection title={strings.connections.tools}>
+        <ToolsButton
+          text={strings.common.copy}
+          icon={iconData.get('sheet', themeStr)}
+          onPress={() => copyCurrentSegment && copyCurrentSegment()}
+        />
         <ToolsButton
           text={strings.common.share}
           icon={iconData.get('share-full', themeStr)}
@@ -516,6 +526,7 @@ const ToolsList = ({themeStr, shareCurrentSegment, sheet, reportError, viewOnSit
 };
 ToolsList.propTypes = {
   themeStr:           PropTypes.string.isRequired,
+  copyCurrentSegment: PropTypes.func,
   shareCurrentSegment:PropTypes.func.isRequired,
   viewOnSite:         PropTypes.func.isRequired,
   reportError:        PropTypes.func.isRequired,

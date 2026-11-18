@@ -103,6 +103,7 @@ const TextSegment = React.memo(({
         tagsStyles={tagsStyles}
         systemFonts={SYSTEM_FONTS}
         renderersProps={renderersProps}
+        bypassAnonymousTPhrasingNodes={false}
         dangerouslyDisableWhitespaceCollapsing
         renderers={{span: ({ TDefaultRenderer, ...props }) => {
           if (props.tnode.classes.indexOf('clickableWord') > -1) {

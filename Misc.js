@@ -1294,6 +1294,7 @@ const SimpleHTMLView = ({text, lang, extraStyles=[], onPressATag, ...renderHTMLP
       tagsStyles={tagsStyles}
       systemFonts={SYSTEM_FONTS}
       renderersProps={renderersProps}
+      bypassAnonymousTPhrasingNodes={false}
       dangerouslyDisableWhitespaceCollapsing
       {...renderHTMLProps}
     />
@@ -1644,13 +1645,14 @@ const openActionSheet = (refStr, versions, openRef, interfaceLanguage, heRefStr,
  * missing its handler is not offered.
  */
 const openLinkActionSheet = ({refStr, heRefStr, interfaceLanguage, openHere, openInNewTab,
-                              showUnderneath, shownUnderneath}) => {
+                              showUnderneath, shownUnderneath, copyText}) => {
   const choices = [];
   if (openHere) { choices.push([strings.connections.open_here, openHere]); }
   if (openInNewTab) { choices.push([strings.connections.open_in_new_tab, openInNewTab]); }
   if (showUnderneath) {
     choices.push([shownUnderneath ? strings.connections.stop_showing_underneath : strings.connections.show_underneath, showUnderneath]);
   }
+  if (copyText) { choices.push([strings.common.copy, copyText]); }
   const title = interfaceLanguage === "hebrew" ? (heRefStr || refStr) : refStr;   // (which source: its ref)
   ActionSheet.showActionSheetWithOptions({
     title,

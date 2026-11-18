@@ -19,6 +19,7 @@ import {
 } from 'react-native';
 import NetInfo from "@react-native-community/netinfo";
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Clipboard from '@react-native-clipboard/clipboard';
 //import --- from 'react-native-gesture-handler';
 import { InAppBrowser } from 'react-native-inappbrowser-reborn';
 import BootSplash from "react-native-bootsplash";
@@ -2328,6 +2329,11 @@ ${strings.formatString(strings.extras.download_size, size)}` : '';
     Sefaria.util.openComposedEmail(to, subject, body);
   };
 
+  copyCurrentSegment = (sectionIndex, segmentIndex, segmentRef) => {
+    Clipboard.setString(this.getDisplayedText(false, sectionIndex, segmentIndex, segmentRef));
+    this.showToast(strings.common.copied_to_clipboard);
+  }
+
   shareCurrentSegment = (sectionIndex, segmentIndex, segmentRef) => {
     segmentRef = segmentRef || this.state.segmentRef;
     Share.share({
@@ -3179,6 +3185,7 @@ ${strings.formatString(strings.extras.download_size, size)}` : '';
                 openUri={this.openUri}
                 handleOpenURL={this.handleOpenURL}
                 dictLookup={this.state.dictLookup}
+                copyCurrentSegment={this.copyCurrentSegment}
                 shareCurrentSegment={this.shareCurrentSegment}
                 viewOnSite={this.viewOnSite}
                 reportError={this.reportError}

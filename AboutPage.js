@@ -9,6 +9,7 @@ import strings from './LocalizedStrings';
 import SoferBooksLogo from './SoferBooksLogo';
 
 const SOFERBOOKS_URL = 'https://soferbooks.com';
+const KOLLEL_URL = 'https://greatneckkollel.org';
 const SEFARIA_URL = 'https://www.sefaria.org';
 const SOURCE_CODE_URL = 'https://github.com/soferbooks/soferbooks-library';
 
@@ -27,11 +28,15 @@ export const AboutPage = ({ close, openUri }) => {
                 <Header titleKey={'about.about_soferbooks'} />
                 <SoferBooksLogo size={'large'} dark={themeStr !== 'white'} hebrew={interfaceLanguage === 'hebrew'} style={styles.aboutLogo} />
                 <InterfaceText stringKey={'about.soferbooks_intro'} extraStyles={body} />
+                <InterfaceText stringKey={'about.kollel'} extraStyles={body} />
                 <InterfaceText stringKey={'about.texts_courtesy'} extraStyles={body} />
                 <InterfaceText stringKey={'about.licences'} extraStyles={body} />
                 <InterfaceText stringKey={'about.built_on'} extraStyles={body} />
                 <SefariaPressable onPress={() => openUri(SOFERBOOKS_URL)}>
                     <Text style={link}>soferbooks.com</Text>
+                </SefariaPressable>
+                <SefariaPressable onPress={() => openUri(KOLLEL_URL)}>
+                    <Text style={link}>greatneckkollel.org</Text>
                 </SefariaPressable>
                 <SefariaPressable onPress={() => openUri(SEFARIA_URL)}>
                     <Text style={link}>sefaria.org</Text>
