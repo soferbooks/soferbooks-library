@@ -99,9 +99,9 @@ android {
     // installed applicationId is SoferBooks'. Renaming the namespace is a separate refactor.
     namespace "org.sefaria.sefaria"
     defaultConfig {
-        // qaApplicationId is passed by Fastlane/CI for QA builds (e.g. "org.soferbooks.library.my_branch").
+        // qaApplicationId is passed by Fastlane/CI for QA builds (e.g. "com.soferbooks.library.my_branch").
         // Falls back to the production ID when not set, so production builds are unaffected.
-        applicationId project.findProperty("qaApplicationId") ?: "org.soferbooks.library"
+        applicationId project.findProperty("qaApplicationId") ?: "com.soferbooks.library"
 
         // qaAppName is passed by Fastlane/CI so each QA build shows its own label on the home screen.
         // Falls back to "SoferBooks Library" for production builds.

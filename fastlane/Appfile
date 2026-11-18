@@ -1,4 +1,4 @@
-app_identifier("org.soferbooks.library") # The bundle identifier of your app
+app_identifier("com.soferbooks.library") # The bundle identifier of your app
 # Set APPLE_ID, ITC_TEAM_ID, and FASTLANE_TEAM_ID via environment variables / CI secrets.
 apple_id(ENV["APPLE_ID"]) if ENV["APPLE_ID"] && !ENV["APPLE_ID"].empty?
 itc_team_id(ENV["ITC_TEAM_ID"]) if ENV["ITC_TEAM_ID"] && !ENV["ITC_TEAM_ID"].empty?

@@ -15,7 +15,7 @@
 
 default_platform(:ios)
 
-BUNDLE_ID = "org.soferbooks.library"
+BUNDLE_ID = "com.soferbooks.library"
 
 platform :ios do
   desc "Build unsigned iOS device .app/.ipa and Simulator .app into build/apple/"
