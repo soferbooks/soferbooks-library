@@ -458,7 +458,7 @@ describe('Settings screen', () => {
         'settings.nakdan_header', 'settings.nakdan_always', 'settings.nakdan_always_detail',
         'settings.nakdan_credit',
         'reader.font', 'reader.commentary_font', 'reader.font_frank_sofer',
-        'reader.font_drugulin', 'reader.font_hadassah', 'reader.font_rashi',
+        'reader.font_vilna_sofer', 'reader.font_hadassah', 'reader.font_rashi',
       ]
     );
   });
@@ -720,7 +720,7 @@ describe('Reader display options menu', () => {
         'reader.aliyot', 'common.on', 'common.off', 'reader.font_size', 'reader.vocalization',
         'reader.commentary_font_size',
         'reader.font', 'reader.commentary_font', 'reader.font_frank_sofer',
-        'reader.font_drugulin', 'reader.font_hadassah', 'reader.font_rashi',
+        'reader.font_vilna_sofer', 'reader.font_hadassah', 'reader.font_rashi',
         // the screen-reader labels of its buttons, most of them icons ("Font Size: Larger")
         'a11y.setting_option', 'languages.english', 'languages.hebrew', 'settings.bilingual',
         'a11y.layout_segmented', 'a11y.layout_continuous', 'a11y.layout_stacked',

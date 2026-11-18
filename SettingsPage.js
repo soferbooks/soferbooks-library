@@ -533,13 +533,13 @@ const ButtonToggleSection = ({ langStyle }) => {
   };
   const hebrewFontOptions = [
     { name: 'FrankSofer', text: strings.reader.font_frank_sofer, onPress: () => setHebrewFont('FrankSofer') },
-    { name: 'Drugulin', text: strings.reader.font_drugulin, onPress: () => setHebrewFont('Drugulin') },
+    { name: 'VilnaSofer', text: strings.reader.font_vilna_sofer, onPress: () => setHebrewFont('VilnaSofer') },
     { name: 'Hadassah', text: strings.reader.font_hadassah, onPress: () => setHebrewFont('Hadassah') },
   ];
   const commentaryFontOptions = [
     { name: 'FrankSofer', text: strings.reader.font_frank_sofer, onPress: () => setCommentaryFont('FrankSofer') },
     { name: 'MekorotRashi', text: strings.reader.font_rashi, onPress: () => setCommentaryFont('MekorotRashi') },
-    { name: 'Drugulin', text: strings.reader.font_drugulin, onPress: () => setCommentaryFont('Drugulin') },
+    { name: 'VilnaSofer', text: strings.reader.font_vilna_sofer, onPress: () => setCommentaryFont('VilnaSofer') },
     { name: 'Hadassah', text: strings.reader.font_hadassah, onPress: () => setCommentaryFont('Hadassah') },
   ];
   /* stateKey prop is used for testing */

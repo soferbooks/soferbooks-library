@@ -10,9 +10,12 @@ import * as shomer from './shomer';
 import { defaultConfig, withDefault } from './shomer/presets';
 import { guessCalendarLocation, validCalendarLocation } from './learningSchedules/calendarLocation';
 
-const HEBREW_FONTS = ['FrankSofer', 'Drugulin', 'Hadassah'];
-const COMMENTARY_FONTS = ['FrankSofer', 'MekorotRashi', 'Drugulin', 'Hadassah'];
-const normalizeFont = (value, allowed) => (allowed.includes(value) ? value : 'FrankSofer');
+const HEBREW_FONTS = ['FrankSofer', 'VilnaSofer', 'Hadassah'];
+const COMMENTARY_FONTS = ['FrankSofer', 'MekorotRashi', 'VilnaSofer', 'Hadassah'];
+const normalizeFont = (value, allowed) => {
+  const mapped = value === 'Drugulin' ? 'VilnaSofer' : value;
+  return allowed.includes(mapped) ? mapped : 'FrankSofer';
+};
 
 const STATE_ACTIONS = {
   setTheme: "SET_THEME",

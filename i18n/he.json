@@ -394,10 +394,10 @@
     "reader.commentary_font_size": "גודל המפרשים",
     "reader.commentary_font": "גופן המפרשים",
     "reader.font": "גופן",
-    "reader.font_drugulin": "דרוגולין",
     "reader.font_frank_sofer": "פרנק סופר",
     "reader.font_hadassah": "הדסה",
     "reader.font_rashi": "כתב רש״י",
+    "reader.font_vilna_sofer": "וילנא סופר",
     "storage.low_space_message": "ההורדה הזאת צריכה כ-{needed}, ובטלפון פנויים {free}. פנו מקום בטלפון, או בחרו פחות להורדה.",
     "storage.low_space_title": "אין מספיק מקום"
 }

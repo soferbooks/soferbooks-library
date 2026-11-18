@@ -713,11 +713,13 @@ describe('Extra commentary collectiveTitle strings and depth-3 1D content_counts
     } = require('../StateManager');
     expect(DEFAULT_STATE.hebrewFont).toBe('FrankSofer');
     expect(DEFAULT_STATE.commentaryFont).toBe('FrankSofer');
-    expect(HEBREW_FONTS).toEqual(['FrankSofer', 'Drugulin', 'Hadassah']);
-    expect(COMMENTARY_FONTS).toEqual(['FrankSofer', 'MekorotRashi', 'Drugulin', 'Hadassah']);
+    expect(HEBREW_FONTS).toEqual(['FrankSofer', 'VilnaSofer', 'Hadassah']);
+    expect(COMMENTARY_FONTS).toEqual(['FrankSofer', 'MekorotRashi', 'VilnaSofer', 'Hadassah']);
 
-    let state = reducer(DEFAULT_STATE, { type: STATE_ACTIONS.setHebrewFont, value: 'Drugulin', fromAsync: true });
-    expect(state.hebrewFont).toBe('Drugulin');
+    let state = reducer(DEFAULT_STATE, { type: STATE_ACTIONS.setHebrewFont, value: 'VilnaSofer', fromAsync: true });
+    expect(state.hebrewFont).toBe('VilnaSofer');
+    state = reducer(state, { type: STATE_ACTIONS.setHebrewFont, value: 'Drugulin', fromAsync: true });
+    expect(state.hebrewFont).toBe('VilnaSofer');
     state = reducer(state, { type: STATE_ACTIONS.setHebrewFont, value: 'UnknownFont', fromAsync: true });
     expect(state.hebrewFont).toBe('FrankSofer');
     state = reducer(state, { type: STATE_ACTIONS.setCommentaryFont, value: 'MekorotRashi', fromAsync: true });
@@ -740,9 +742,9 @@ describe('Extra commentary collectiveTitle strings and depth-3 1D content_counts
       );
     });
     const fontSet = tree.root.findAll(n => n.props && n.props.label === 'Font')[0];
-    expect(fontSet.props.content.map(b => b.props.option)).toEqual(['FrankSofer', 'Drugulin', 'Hadassah']);
+    expect(fontSet.props.content.map(b => b.props.option)).toEqual(['FrankSofer', 'VilnaSofer', 'Hadassah']);
     const commFontSet = tree.root.findAll(n => n.props && n.props.label === 'Commentary Font')[0];
-    expect(commFontSet.props.content.map(b => b.props.option)).toEqual(['FrankSofer', 'MekorotRashi', 'Drugulin', 'Hadassah']);
+    expect(commFontSet.props.content.map(b => b.props.option)).toEqual(['FrankSofer', 'MekorotRashi', 'VilnaSofer', 'Hadassah']);
     act(() => { tree.unmount(); });
 
     const { useHTMLViewStyles } = require('../useHTMLViewStyles');

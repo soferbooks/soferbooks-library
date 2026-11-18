@@ -32,7 +32,7 @@ import ActionSheet from "react-native-action-sheet";
 import Markdown from "react-native-markdown-display";
 import ReaderAppContext from "./context";
 
-const SYSTEM_FONTS = ["FrankSofer", "Drugulin", "Hadassah", "MekorotRashi", "Amiri", "Heebo", "OpenSans", "SertoBatnan", "MiriamLibre-Regular"];  // list of system fonts. needed for RenderHTML
+const SYSTEM_FONTS = ["FrankSofer", "VilnaSofer", "Hadassah", "MekorotRashi", "Amiri", "Heebo", "OpenSans", "SertoBatnan", "MiriamLibre-Regular"];  // list of system fonts. needed for RenderHTML
 const CSS_CLASS_STYLES = {
   hebrew: {
     fontFamily: "FrankSofer",
