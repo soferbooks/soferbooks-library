@@ -27,6 +27,8 @@ import { stringPair } from './LocalizedStrings';
 import ScheduleEndMarker from './learningSchedules/ScheduleEndMarker';
 import EditionNote from './reader/EditionNote';
 import { editionNotesFor, editionNotesKey, sectionsAreChapters } from './reader/editionNotes';
+import isMac from './isMac';
+import MacTextColumn from './reader/MacTextColumn';
 const ViewPort  = Dimensions.get('window');
 const COMMENTARY_LINE_THRESHOLD = 100;
 
@@ -102,8 +104,11 @@ class TextColumn extends React.PureComponent {
     this.dataSourceHash = {};
     this.backupItemLayoutList = []; // backup for race condition when itemLayoutList is set to null but SectionList still thinks it exists so it tries to call getItemLayout()
     this.onTopReaching = false; // true when measuring heights for infinite scroll up
-    let {dataSource, componentsToMeasure, jumpInfoMap} = this.generateDataSource(props, !!props.offsetRef);
-    this.measuringHeights = !!props.offsetRef;
+    const macMode = isMac() && !props.isSheet;
+    let {dataSource, componentsToMeasure, jumpInfoMap} = macMode
+      ? { dataSource: [], componentsToMeasure: [], jumpInfoMap: new Map() }
+      : this.generateDataSource(props, !!props.offsetRef);
+    this.measuringHeights = !macMode && !!props.offsetRef;
     this.state = {
       nextDataSource: dataSource,
       dataSource: !!props.offsetRef ? [] : dataSource,
@@ -128,7 +133,7 @@ class TextColumn extends React.PureComponent {
   }
   componentDidMount() {
     this._isMounted = true;
-    if (this.props.data.length > 0 && this.state.dataSource.length === 0) {
+    if (!(isMac() && !this.props.isSheet) && this.props.data.length > 0 && this.state.dataSource.length === 0) {
       // sometimes when going back to textcolumn, constructor isn't run and props.data is not in sync with state.dataSource
       // manually perform update
       this.performUpdate(this.props);
@@ -152,7 +157,11 @@ class TextColumn extends React.PureComponent {
    * passage, long commentary under it and all, started above the screen). Null if not known.
    */
   getScrollPlace = () => {
-    if (!this._isMounted || this.state.jumpState.jumping) { return null; }
+    if (!this._isMounted) { return null; }
+    if (isMac() && !this.props.isSheet) {
+      return this._macColumnRef ? this._macColumnRef.getScrollPlace() : null;
+    }
+    if (this.state.jumpState.jumping) { return null; }
     const cells = [];
     for (const ref of this._mountedCells) {
       if (typeof this._cellY[ref] === 'number') { cells.push({ ref, y: this._cellY[ref] }); }
@@ -473,6 +482,7 @@ class TextColumn extends React.PureComponent {
   };
 
   componentDidUpdate(prevProps, prevState) {
+    if (isMac() && !this.props.isSheet) { return; }
     if (this.props.textLanguage !== prevProps.textLanguage ||
         this.props.inlineCommentary !== prevProps.inlineCommentary ||
         this.props.nakdan !== prevProps.nakdan ||
@@ -988,6 +998,10 @@ class TextColumn extends React.PureComponent {
     this.sectionListRef = ref;
   }
 
+  _getMacColumnRef = (ref) => {
+    this._macColumnRef = ref;
+  }
+
   _getTextHeightMeasurerRef = (ref) => {
     this.textHeightMeasurerRef = ref;
   }
@@ -1027,6 +1041,55 @@ class TextColumn extends React.PureComponent {
   };
 
   render() {
+    if (isMac() && !this.props.isSheet) {
+      const canHaveAliyot = Sefaria.canHaveAliyot(this.props.textTitle);
+      const nodes = this.props.textToc?.alts?.Parasha?.nodes;
+      const parashaDict = (canHaveAliyot && Array.isArray(nodes)) ? this._getParashaDict(nodes) : {};
+      return (
+        <View style={styles.textColumn}>
+          <ErrorBoundary FallbackComponent={ErrorBoundaryFallbackComponent} onError={this._textErrorBoundaryAlert}>
+            <MacTextColumn
+              ref={this._getMacColumnRef}
+              fontSize={this.props.fontSize}
+              themeStr={this.props.themeStr}
+              data={this.props.data}
+              relatedBySectionRef={this.props.relatedBySectionRef}
+              sectionArray={this.props.sectionArray}
+              sectionHeArray={this.props.sectionHeArray}
+              offsetRef={this.props.offsetRef}
+              offsetPlace={this.props.offsetPlace}
+              segmentRef={this.props.segmentRef}
+              textTitle={this.props.textTitle}
+              textReference={this.props.textReference}
+              textFlow={this.props.textFlow}
+              textLanguage={this.props.textLanguage}
+              interfaceLanguage={this.props.interfaceLanguage}
+              textListVisible={this.props.textListVisible}
+              next={this.props.next}
+              prev={this.props.prev}
+              loadingTextTail={this.props.loadingTextTail}
+              loadingTextHead={this.props.loadingTextHead}
+              showAliyot={this.props.showAliyot}
+              biLayout={this.props.biLayout}
+              vowelToggleAvailable={this.props.vowelToggleAvailable}
+              inlineCommentary={this.props.inlineCommentary}
+              nakdan={!!this.props.nakdan}
+              readingEditions={this.props.readingEditions}
+              textToc={this.props.textToc}
+              scheduleEnd={this.props.scheduleEnd}
+              isCommentary={this.isCommentary()}
+              parashaDict={parashaDict}
+              inlineSectionHeader={this.inlineSectionHeader}
+              updateData={this.props.updateData}
+              updateTitle={this.props.updateTitle}
+              textSegmentPressed={this.props.textSegmentPressed}
+              handleOpenURL={this.props.handleOpenURL}
+              textUnavailableAlert={this.props.textUnavailableAlert}
+            />
+          </ErrorBoundary>
+        </View>
+      );
+    }
     return (
         <View style={styles.textColumn}>
           <ErrorBoundary FallbackComponent={ErrorBoundaryFallbackComponent} onError={this._textErrorBoundaryAlert}>

@@ -23,6 +23,8 @@ import { RenderHTML } from 'react-native-render-html';
 import strings from './LocalizedStrings';
 import styles, { SCROLL_PADDING_BOTTOM_FRACTION, makeScrollViewLayoutHandler } from './Styles.js';
 import { useHTMLViewStyles } from './useHTMLViewStyles';
+import isMac from './isMac';
+import MacTextList from './reader/MacTextList';
 
 
 /*
@@ -232,7 +234,40 @@ class TextList extends React.Component {
     this._savedHistorySegments.add(history_item.ref);
   };
 
+  handleMacVisiblePositions = (positions) => {
+    if (!Array.isArray(positions)) { return; }
+    const posSet = new Set(positions);
+    this._visibleSegments = this.state.dataSource
+      .filter(item => posSet.has(item.pos))
+      .map(item => {
+        const visibleSeg = { item, loaded: item.content !== null };
+        if (visibleSeg.loaded) {
+          Sefaria.history.saveHistoryItem(this.getHistoryObject.bind(this, visibleSeg), true, this.onHistorySave);
+        }
+        return visibleSeg;
+      });
+  };
+
   render() {
+    if (isMac()) {
+      return (
+        <MacTextList
+          dataSource={this.state.dataSource}
+          loadContent={this.props.loadContent}
+          openRef={this.props.openRef}
+          openRefHere={this.props.openRefHere}
+          openRefInNewTab={this.props.openRefInNewTab}
+          showInline={this.props.showInline}
+          inlineCommentary={this.props.inlineCommentary}
+          inlineKeyFor={this.props.inlineKeyFor}
+          fontSize={this.props.fontSize}
+          themeStr={this.props.themeStr}
+          textLanguage={this.props.textLanguage}
+          interfaceLanguage={this.props.interfaceLanguage}
+          onVisiblePositions={this.handleMacVisiblePositions}
+        />
+      );
+    }
     return (
       <FlatList
         key={this.state.updateScrollPosKey}

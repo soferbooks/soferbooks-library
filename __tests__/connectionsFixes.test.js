@@ -1207,7 +1207,7 @@ describe('single-word Hebrew alignment, copy support, and Great Neck Kollel cred
     }
   });
 
-  test('ConnectionsPanel exposes Copy button that copies current segment and opens copy mode', () => {
+  test('ConnectionsPanel Copy button copies current segment directly without opening any word picker', () => {
     strings.setLanguage('en');
     const ConnectionsPanel = require('../ConnectionsPanel').default;
     const copyCurrentSegment = jest.fn();
@@ -1238,58 +1238,253 @@ describe('single-word Hebrew alignment, copy support, and Great Neck Kollel cred
     const copyBtn = inst.root.findAll(n => typeof n.props?.onPress === 'function' && n.findAll(c => typeof c.children?.[0] === 'string' && c.children.includes('Copy')).length > 0).pop();
     act(() => { copyBtn.props.onPress(); });
     expect(copyCurrentSegment).toHaveBeenCalledTimes(1);
-    expect(setConnectionsMode).toHaveBeenCalledWith('copy');
+    expect(setConnectionsMode).not.toHaveBeenCalledWith('copy');
     act(() => { inst.unmount(); });
   });
+});
 
-  test('CopyTextBox supports both partial substring selection and multi-segment ranges', () => {
-    strings.setLanguage('en');
-    const CopyTextBox = require('../reader/CopyTextBox').default;
-    const onCopyText = jest.fn();
-    const sectionSegments = [
-      { segmentNumber: 1, he: 'ראשון א ב', text: 'First segment' },
-      { segmentNumber: 2, he: 'שני ג ד', text: 'Second segment' },
-      { segmentNumber: 3, he: 'שלישי ה ו', text: 'Third segment' },
-    ];
-    const getDisplayedText = (withUrl, sIdx, segIdx) => sectionSegments[segIdx]?.he || '';
-    let inst;
-    act(() => {
-      inst = renderer.create(
-        <GlobalStateContext.Provider value={{ ...DEFAULT_STATE, textLanguage: 'hebrew' }}>
-          <CopyTextBox
-            sectionSegments={sectionSegments}
-            sectionRef="Yoma 37b"
-            sectionIndex={0}
-            initialSegmentIndex={1}
-            segmentRef="Yoma 37b:2"
-            getDisplayedText={getDisplayedText}
-            onCopyText={onCopyText}
+describe('Mac default freeform text selection (replacing Dictionary on Mac only)', () => {
+  const { initPlatformInfo, isMac, getBundleUrl, _setIsMacForTests } = require('../isMac');
+
+  afterEach(() => {
+    _setIsMacForTests(false);
+  });
+
+  test('isMac detects Mac via native initialProperties and resets cleanly', () => {
+    expect(isMac()).toBe(false);
+    initPlatformInfo({ isMac: true, bundleUrl: 'file:///App.app/' });
+    expect(isMac()).toBe(true);
+    expect(getBundleUrl()).toBe('file:///App.app/');
+    _setIsMacForTests(false);
+    expect(isMac()).toBe(false);
+  });
+
+  test('TextRange enables clickableWord dictionary on iOS/Android and disables it on Mac', () => {
+    const { getTheme } = require('../StateManager');
+    const TextRange = require('../TextRange').default;
+    const spy = jest.spyOn(Sefaria.util, 'getDisplayableHTML');
+    try {
+      const renderRange = () => renderer.create(
+        <GlobalStateContext.Provider value={{ ...DEFAULT_STATE, theme: getTheme('white'), textLanguage: 'hebrew' }}>
+          <TextRange
+            showToast={jest.fn()}
+            rowData={{ content: { segmentNumber: 1, he: 'בראשית ברא', text: 'In the beginning' }, sectionIndex: 0, rowIndex: 0 }}
+            segmentRef="Genesis 1:1"
+            showSegmentNumbers={true}
+            textSegmentPressed={jest.fn()}
+            setRowRef={jest.fn()}
+            setRowRefInitY={jest.fn()}
+            shareCurrentSegment={jest.fn()}
+            getDisplayedText={jest.fn()}
           />
         </GlobalStateContext.Provider>
       );
+
+      _setIsMacForTests(false);
+      let inst;
+      act(() => { inst = renderRange(); });
+      expect(spy.mock.calls.some(c => c[1] === 'hebrew' && c[3] === true)).toBe(true);
+      act(() => { inst.unmount(); });
+
+      spy.mockClear();
+      _setIsMacForTests(true);
+      act(() => { inst = renderRange(); });
+      expect(spy.mock.calls.some(c => c[1] === 'hebrew' && c[3] === false)).toBe(true);
+      expect(spy.mock.calls.some(c => c[1] === 'hebrew' && c[3] === true)).toBe(false);
+      act(() => { inst.unmount(); });
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  test('buildMacSectionsPayload builds multi-segment selectable HTML without clickableWord, with bold dibbur and right-aligned Hebrew', () => {
+    const { buildMacSectionsPayload } = require('../reader/MacTextColumn');
+    const payload = buildMacSectionsPayload({
+      data: [[
+        { segmentNumber: 1, he: 'ראש דבור. המשך פירוש', text: 'Opening. More' },
+        { segmentNumber: 2, he: 'הדרן', text: '' },
+      ]],
+      sectionArray: ['Yoma 37b'],
+      sectionHeArray: ['יומא לז:'],
+      relatedBySectionRef: { 'Yoma 37b': { 0: { links: new Array(25).fill({}) } } },
+      textTitle: 'Yoma',
+      textLanguage: 'bilingual',
+      interfaceLanguage: 'english',
+      textFlow: 'segmented',
+      biLayout: 'sidebyside',
+      isCommentary: true,
+      showAliyot: false,
+      showSegmentNumbers: true,
+      segmentRef: 'Yoma 37b:2',
+      textListVisible: true,
     });
-    const input = () => inst.root.findByProps({ testID: 'copyTextInput' });
-    const primary = () => inst.root.findByProps({ testID: 'copyPrimaryButton' });
+    expect(payload.sections).toHaveLength(1);
+    const { html } = payload.sections[0];
+    expect(html).not.toContain('clickableWord');
+    expect(html).toContain('<b>ראש דבור.</b>');
+    expect(html).toContain('data-seg-ref="Yoma 37b:1"');
+    expect(html).toContain('data-seg-ref="Yoma 37b:2"');
+    expect(html).toContain('bi-sidebyside');
+    expect(html).toContain('data-open-connections="1"');
+    expect(html).toContain('הדרן');
+    expect(payload.activeRef).toBe('Yoma 37b:2');
 
-    // Initial: single active segment (segment 2)
-    expect(input().props.value).toBe('שני ג ד');
+    const contSpy = jest.spyOn(Sefaria, 'canBeContinuous').mockReturnValue(true);
+    try {
+      const contPayload = buildMacSectionsPayload({
+        data: [[{ segmentNumber: 1, he: 'פסוק א', text: '' }, { segmentNumber: 2, he: 'פסוק ב', text: '' }]],
+        sectionArray: ['Genesis 1'],
+        sectionHeArray: ['בראשית א'],
+        textTitle: 'Genesis',
+        textLanguage: 'hebrew',
+        interfaceLanguage: 'hebrew',
+        textFlow: 'continuous',
+        biLayout: 'stacked',
+      });
+      expect(contPayload.sections[0].html).toContain('continuous-section');
+      expect(contPayload.sections[0].html).toContain('seg-inline');
+    } finally {
+      contSpy.mockRestore();
+    }
+  });
 
-    // Partial selection ("less than a segment")
-    act(() => { input().props.onSelectionChange({ nativeEvent: { selection: { start: 0, end: 3 } } }); });
-    act(() => { primary().props.onPress(); });
-    expect(onCopyText).toHaveBeenLastCalledWith('שני');
+  test('TextColumn renders WebView reader only on Mac and dispatches WebView messages cleanly', () => {
+    const { getTheme } = require('../StateManager');
+    const TextColumn = require('../TextColumn');
+    const { WebView } = require('react-native-webview');
+    const textSegmentPressed = jest.fn();
+    const handleOpenURL = jest.fn();
+    const updateData = jest.fn();
 
-    // Expand to Whole Section ("more than a segment")
-    act(() => { inst.root.findByProps({ testID: 'copyWholeSection' }).props.onPress(); });
-    expect(input().props.value).toBe('ראשון א ב\n\nשני ג ד\n\nשלישי ה ו');
-    act(() => { primary().props.onPress(); });
-    expect(onCopyText).toHaveBeenLastCalledWith('ראשון א ב\n\nשני ג ד\n\nשלישי ה ו');
+    const makeProps = () => ({
+      theme: getTheme('white'),
+      themeStr: 'white',
+      fontSize: 20,
+      data: [[{ segmentNumber: 1, he: 'אחד', text: 'One' }]],
+      sectionArray: ['Yoma 37b'],
+      sectionHeArray: ['יומא לז:'],
+      textTitle: 'Yoma',
+      textReference: 'Yoma 37b',
+      textFlow: 'segmented',
+      textLanguage: 'hebrew',
+      interfaceLanguage: 'english',
+      biLayout: 'stacked',
+      showAliyot: false,
+      isSheet: false,
+      handleOpenURL,
+      shareCurrentSegment: jest.fn(),
+      getDisplayedText: jest.fn(),
+      textUnavailableAlert: jest.fn(),
+      updateData,
+      updateTitle: jest.fn(),
+      textSegmentPressed,
+      setDictionaryLookup: jest.fn(),
+      setHighlightedWord: jest.fn(),
+      showToast: jest.fn(),
+      prev: 'Yoma 37a',
+      next: 'Yoma 38a',
+    });
 
-    // Reset back to current segment and expand down 1 via To (+)
-    act(() => { inst.root.findByProps({ testID: 'copySingleSegment' }).props.onPress(); });
-    expect(input().props.value).toBe('שני ג ד');
-    act(() => { inst.root.findByProps({ testID: 'copyEndPlus' }).props.onPress(); });
-    expect(input().props.value).toBe('שני ג ד\n\nשלישי ה ו');
+    // Non-Mac (iOS/Android): no Mac WebView
+    _setIsMacForTests(false);
+    let inst;
+    act(() => {
+      inst = renderer.create(
+        <GlobalStateContext.Provider value={{ ...DEFAULT_STATE, theme: getTheme('white'), textLanguage: 'hebrew' }}>
+          <TextColumn {...makeProps()} />
+        </GlobalStateContext.Provider>
+      );
+    });
+    expect(inst.root.findAllByType(WebView)).toHaveLength(0);
     act(() => { inst.unmount(); });
+
+    // Mac: single continuous WebView
+    _setIsMacForTests(true);
+    act(() => {
+      inst = renderer.create(
+        <GlobalStateContext.Provider value={{ ...DEFAULT_STATE, theme: getTheme('white'), textLanguage: 'hebrew' }}>
+          <TextColumn {...makeProps()} />
+        </GlobalStateContext.Provider>
+      );
+    });
+    const wvs = inst.root.findAllByType(WebView);
+    expect(wvs).toHaveLength(1);
+    const wv = wvs[0];
+    wv.instance && wv.instance.injectJavaScript; // ensure no ref crash
+    act(() => {
+      wv.props.onMessage({ nativeEvent: { data: JSON.stringify({ type: 'segmentPress', sectionIndex: 0, rowIndex: 0, segmentRef: 'Yoma 37b:1' }) } });
+      wv.props.onMessage({ nativeEvent: { data: JSON.stringify({ type: 'link', href: 'https://sefaria.org/Genesis.1.1' }) } });
+      wv.props.onMessage({ nativeEvent: { data: JSON.stringify({ type: 'loadNext' }) } });
+      wv.props.onMessage({ nativeEvent: { data: JSON.stringify({ type: 'loadPrev' }) } });
+    });
+    expect(textSegmentPressed).toHaveBeenCalledWith(0, 0, 'Yoma 37b:1', true);
+    expect(handleOpenURL).toHaveBeenCalledWith('https://sefaria.org/Genesis.1.1');
+    expect(updateData).toHaveBeenCalledWith('next');
+    expect(updateData).toHaveBeenCalledWith('prev');
+    act(() => { inst.unmount(); });
+  });
+
+  test('TextList uses MacTextList WebView on Mac and triggers loadContent & openLinkActionSheet', () => {
+    const { FlatList } = require('react-native');
+    const { WebView } = require('react-native-webview');
+    const spy = jest.spyOn(ActionSheet, 'showActionSheetWithOptions').mockImplementation(() => {});
+    try {
+      const loadContent = jest.fn();
+      const openRefHere = jest.fn();
+      const filter = {
+        refList: ['Rashi on Yoma 37b:1:1'],
+        heRefList: ['רש"י על יומא לז: א:א'],
+        category: 'Commentary',
+        displayRef: () => false,
+        listKey: i => `k${i}`,
+      };
+      const baseProps = {
+        recentFilters: [filter],
+        filterIndex: 0,
+        listContents: [{ he: 'דבור המתחיל. פירוש', en: 'Explanation' }],
+        openRef: jest.fn(),
+        openRefHere,
+        loadContent,
+        textLanguage: 'hebrew',
+        interfaceLanguage: 'english',
+        themeStr: 'white',
+        fontSize: 16,
+      };
+
+      _setIsMacForTests(false);
+      let inst;
+      act(() => {
+        inst = renderer.create(
+          <GlobalStateContext.Provider value={{ ...DEFAULT_STATE, textLanguage: 'hebrew' }}>
+            <TextList {...baseProps} />
+          </GlobalStateContext.Provider>
+        );
+      });
+      expect(inst.root.findAllByType(FlatList)).toHaveLength(1);
+      expect(inst.root.findAllByType(WebView)).toHaveLength(0);
+      act(() => { inst.unmount(); });
+
+      _setIsMacForTests(true);
+      act(() => {
+        inst = renderer.create(
+          <GlobalStateContext.Provider value={{ ...DEFAULT_STATE, textLanguage: 'hebrew' }}>
+            <TextList
+              {...baseProps}
+              listContents={[null]}
+            />
+          </GlobalStateContext.Provider>
+        );
+      });
+      expect(inst.root.findAllByType(FlatList)).toHaveLength(0);
+      const wv = inst.root.findByType(WebView);
+      expect(loadContent).toHaveBeenCalledWith('Rashi on Yoma 37b:1:1', 0, undefined, undefined);
+      act(() => {
+        wv.props.onMessage({ nativeEvent: { data: JSON.stringify({ type: 'itemPress', pos: 0 }) } });
+      });
+      expect(spy).toHaveBeenCalledTimes(1);
+      act(() => { inst.unmount(); });
+    } finally {
+      spy.mockRestore();
+    }
   });
 });

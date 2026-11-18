@@ -18,6 +18,7 @@ import { generalAppErrorAlert } from './errors';
 import {ErrorBoundary, useErrorBoundary} from "react-error-boundary";
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import ReaderApp from './ReaderApp';
+import { initPlatformInfo } from './isMac';
 
 if (process.env.NODE_ENV !== "production" && false) {
   const whyDidYouRender = require("@welldone-software/why-did-you-render");
@@ -57,7 +58,8 @@ const FunctionalReaderAppWrapper = () => {
   );
 };
 
-const Root = () => {
+const Root = (initialProps) => {
+  initPlatformInfo(initialProps);
   return (
       <ErrorBoundary FallbackComponent={ErrorBoundaryFallbackComponent} onError={generalAppErrorAlert}>
         <SafeAreaProvider>

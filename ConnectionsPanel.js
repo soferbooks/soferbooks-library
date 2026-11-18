@@ -15,7 +15,6 @@ import { LinkFilter } from './Filter';
 import TranslationsBox from './TranslationsBox';
 import AboutBox from './AboutBox';
 import LexiconBox from './LexiconBox';
-import CopyTextBox from './reader/CopyTextBox';
 import {iconData} from "./IconData";
 import {useGlobalState} from "./Hooks";
 
@@ -88,11 +87,6 @@ class ConnectionsPanel extends React.PureComponent {
     onStartShouldSetResponderCapture: PropTypes.func.isRequired,
     dictLookup:           PropTypes.string,
     copyCurrentSegment:   PropTypes.func,
-    copyTextToClipboard:  PropTypes.func,
-    getDisplayedText:     PropTypes.func,
-    sectionSegments:      PropTypes.array,
-    sectionIndexRef:      PropTypes.number,
-    segmentIndexRef:      PropTypes.number,
     shareCurrentSegment:  PropTypes.func.isRequired,
     viewOnSite:           PropTypes.func.isRequired,
     reportError:          PropTypes.func.isRequired,
@@ -214,21 +208,6 @@ class ConnectionsPanel extends React.PureComponent {
               openUri={this.props.openUri}
               segmentRef={this.props.segmentRef}
               versions={this.props.versions}
-            />
-          </View>
-        );
-      case 'copy':
-        return (
-          <View style={[styles.mainTextPanel, styles.textColumn, this.props.theme.textListContentOuter, {maxWidth: null, flex: this.props.textListFlex}]}>
-            {connectionsPanelHeader}
-            <CopyTextBox
-              sectionSegments={this.props.sectionSegments}
-              sectionRef={this.props.sectionRef}
-              sectionIndex={this.props.sectionIndexRef}
-              initialSegmentIndex={this.props.segmentIndexRef}
-              segmentRef={this.props.segmentRef}
-              getDisplayedText={this.props.getDisplayedText}
-              onCopyText={this.props.copyTextToClipboard}
             />
           </View>
         );
@@ -418,7 +397,6 @@ const MainMenuButtons = ({linkSummary,
       themeStr={themeStr}
       sheet={sheet}
       copyCurrentSegment={copyCurrentSegment}
-      setConnectionsMode={setConnectionsMode}
       shareCurrentSegment={shareCurrentSegment}
       viewOnSite={viewOnSite}
       reportError={reportError}
@@ -520,16 +498,13 @@ TopButtons.propTypes = {
     sheet:              PropTypes.object,
 };
 
-const ToolsList = ({themeStr, copyCurrentSegment, setConnectionsMode, shareCurrentSegment, sheet, reportError, viewOnSite}) => {
+const ToolsList = ({themeStr, copyCurrentSegment, shareCurrentSegment, sheet, reportError, viewOnSite}) => {
   return (
       <ConnectionsPanelSection title={strings.connections.tools}>
         <ToolsButton
           text={strings.common.copy}
           icon={iconData.get('sheet', themeStr)}
-          onPress={() => {
-            copyCurrentSegment && copyCurrentSegment();
-            setConnectionsMode && setConnectionsMode('copy');
-          }}
+          onPress={() => copyCurrentSegment && copyCurrentSegment()}
         />
         <ToolsButton
           text={strings.common.share}
@@ -552,7 +527,6 @@ const ToolsList = ({themeStr, copyCurrentSegment, setConnectionsMode, shareCurre
 ToolsList.propTypes = {
   themeStr:           PropTypes.string.isRequired,
   copyCurrentSegment: PropTypes.func,
-  setConnectionsMode: PropTypes.func,
   shareCurrentSegment:PropTypes.func.isRequired,
   viewOnSite:         PropTypes.func.isRequired,
   reportError:        PropTypes.func.isRequired,

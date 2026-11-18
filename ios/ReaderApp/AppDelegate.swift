@@ -45,9 +45,15 @@ class AppDelegate: ExpoAppDelegate {
 
     window = UIWindow(frame: UIScreen.main.bounds)
 
+    let isMac = ProcessInfo.processInfo.isiOSAppOnMac || ProcessInfo.processInfo.isMacCatalystApp
+    let bundleUrl = Bundle.main.bundleURL.absoluteString
     factory.startReactNative(
       withModuleName: "ReaderApp",
       in: window,
+      initialProperties: [
+        "isMac": isMac,
+        "bundleUrl": bundleUrl,
+      ],
       launchOptions: launchOptions
     )
 

@@ -11,6 +11,7 @@ import { GlobalStateContext, getTheme } from './StateManager';
 import TextSegment from './TextSegment';
 import styles from './Styles';
 import iPad from "./isIPad";
+import isMac from './isMac';
 import { useNakdan } from './reader/nakdan';
 import { boldDibbur as withBoldDibbur } from './reader/dibbur';
 
@@ -51,7 +52,7 @@ const TextRange = React.memo(({
     let he = Sefaria.util.applyVocalizationSettings(dictaHe || rowData.content.he, vocalization, vowelToggleAvailable) || "";
     // a commentary: its dibbur hamaschil in bold, as SoferBooks prints it (reader/dibbur.js; at display, not stored)
     if (boldDibbur && !isSheet) { he = withBoldDibbur(he); }
-    return Sefaria.util.getDisplayableHTML(he, 'hebrew', isSheet, true);
+    return Sefaria.util.getDisplayableHTML(he, 'hebrew', isSheet, !isMac());
   }, [dictaHe, rowData.content.he, vocalization, vowelToggleAvailable, boldDibbur, isSheet]);
   let numLinks = rowData.related?.links?.length || 0;
 
