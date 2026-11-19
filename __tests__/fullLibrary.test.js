@@ -231,10 +231,10 @@ describe('the Settings panel', () => {
   test('the free space is shown; a part that does not fit cannot be ticked; Download only for what fits', async () => {
     storage._setFreeBytes(400 * storage.MB);         // (Dicta's 3.4 GB and the Sofer Library's do not fit)
     const inst = await renderPanel();
-    expect(texts(inst).join('|')).toContain('Free on this phone: 400 MB');
+    expect(texts(inst).join('|')).toContain('Free space: 400 MB');
     const dicta = inst.root.findByProps({ testID: 'full-library-part-dicta' });
     expect(dicta.props.accessibilityState).toEqual({ checked: false, disabled: true });
-    expect(texts(inst).join('|')).toContain('not enough space on this phone');
+    expect(texts(inst).join('|')).toContain('not enough space');
     expect(inst.root.findByProps({ testID: 'full-library-part-wikisource' }).props.accessibilityState).toEqual({ checked: true, disabled: false });
     expect(inst.root.findAllByProps({ testID: 'full-library-download' }).length).toBeGreaterThan(0);
     act(() => inst.unmount());
@@ -253,7 +253,7 @@ describe('the Settings panel', () => {
     const inst = await renderPanel();
     const otz = inst.root.findByProps({ testID: 'full-library-part-otzaria' });
     expect(otz.props.accessibilityState).toEqual({ checked: false, disabled: true });
-    expect(texts(inst).join('|')).toMatch(/Downloaded, .* on the phone/);
+    expect(texts(inst).join('|')).toMatch(/Downloaded \(.*\)/);
     expect(inst.root.findAllByProps({ testID: 'full-library-download' })).toHaveLength(0);
     expect(inst.root.findAllByProps({ testID: 'full-library-pause' }).length).toBeGreaterThan(0);
     act(() => inst.unmount());
