@@ -512,7 +512,7 @@ const createFullSectionObject = (metadata, textByLang, requestedLangs, cacheKey)
         }
     });
     if (cacheKey) {
-        Sefaria._jsonSectionData[cacheKey] = fullSection;
+        setSectionCache(cacheKey, fullSection);
     }
     return fullSection;
 };
@@ -537,12 +537,29 @@ const loadOfflineSectionByVersionWithCacheAndFallback = async function(fileNameS
     }
 };
 
+const SECTION_CACHE_LIMIT = 400;
+const setSectionCache = (key, value) => {
+    const cache = Sefaria._jsonSectionData;
+    if (!cache || !key) { return; }
+    cache[key] = value;
+    const keys = Object.keys(cache);
+    if (keys.length > SECTION_CACHE_LIMIT) {
+        let evicted = 0;
+        for (const k of keys) {
+            if (evicted >= 100) { break; }
+            if (k === key || k.endsWith('|fileOrder') || k.endsWith('|fullyUnzipped')) { continue; }
+            delete cache[k];
+            evicted += 1;
+        }
+    }
+};
+
 const loadOfflineSectionByVersionWithCache = async function(fileNameStem, lang, vtitle) {
     const key = `${fileNameStem}|${lang}|${vtitle}`;
     const cached = Sefaria._jsonSectionData[key];
     if (cached) { return cached; }
     const text = await loadOfflineSectionByVersion(fileNameStem, lang, vtitle);
-    Sefaria._jsonSectionData[key] = text;
+    setSectionCache(key, text);
     return text;
 };
 
@@ -577,9 +594,9 @@ const loadOfflineSectionMetadataWithCache = async function(ref) {
     } catch(error) {
         throw ERRORS.OFFLINE_LIBRARY_NOT_COMPATIBLE_WITH_V7;
     }
-    Sefaria._jsonSectionData[key] = metadata;
+    setSectionCache(key, metadata);
     if (metadata && metadata[0] && metadata[0].sectionRef) {
-        Sefaria._jsonSectionData[`${metadata[0].sectionRef}|metadata`] = metadata;
+        setSectionCache(`${metadata[0].sectionRef}|metadata`, metadata);
     }
     return metadata;
 };

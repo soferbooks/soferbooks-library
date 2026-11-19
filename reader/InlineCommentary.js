@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import pLimit from 'p-limit';
 import { useGlobalState } from '../Hooks';
 import { loadText } from '../offlineOnline';
@@ -89,7 +89,7 @@ export const commentRuns = (t, he, dibbur) => {
 };
 
 const BoldRunsText = ({ runs, style }) => (
-  <Text selectable style={style}>
+  <Text selectable={Platform.OS !== 'android'} style={style}>
     {runs.map((r, i) => (r.bold ? <Text key={i} style={localStyles.bold}>{r.text}</Text> : r.text))}
   </Text>
 );
@@ -155,7 +155,7 @@ const InlineCommentary = ({ links, sourceKey, nakdan = false }) => {
     if (he) { parts.push(<InlineCommentaryHe key={`he${i}`} t={activeT} he={he} dibbur={dibbur} nakdan={nakdan} style={[localStyles.he, { fontFamily: hebFont }, theme.tertiaryText, { fontSize: size * 1.1 * hebScale, lineHeight: size * 1.6 }]} />); }
     // (LRM first: English Rashi opens with the Hebrew words it explains, and Android then laid the
     // whole paragraph out right to left - its closing period at the start of the line, ".daytime")
-    if (en) { parts.push(<Text selectable key={`en${i}`} style={[localStyles.en, theme.tertiaryText, { fontSize: size, lineHeight: size * 1.45 }]}>{LRM + en}</Text>); }
+    if (en) { parts.push(<Text selectable={Platform.OS !== 'android'} key={`en${i}`} style={[localStyles.en, theme.tertiaryText, { fontSize: size, lineHeight: size * 1.45 }]}>{LRM + en}</Text>); }
   });
   if (!parts.length) { return null; }
   return (

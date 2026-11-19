@@ -86,7 +86,11 @@ export function useHTMLViewStyles(bilingual, textType, fontSizeOverride = null, 
       return {
         classesStyles,
         tagsStyles,
-        textStyle: {style: textStyle, selectable: true},
+        // Android's selectable TextView switches from StaticLayout to DynamicLayout/Editor,
+        // which breaks textAlign: 'justify', clips Hebrew end-of-line glyphs with custom fonts,
+        // and allocates native Editor instances per segment (OOM on 32-bit tablets).
+        // Android uses the Copy Text modal (CopyTextBox) for partial/multi-passage selection.
+        textStyle: {style: textStyle, ...(Platform.OS !== 'android' ? { selectable: true } : {})},
       }
     }, [isStacked, bilingual, textType, fontSize, theme, activeHebFont]);
     return getHTMLViewStyles(bilingual, textType);

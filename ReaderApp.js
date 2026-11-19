@@ -1321,7 +1321,11 @@ class ReaderApp extends React.PureComponent {
               loadingTextHead: false,
             };
           }, () => {
-            this.loadSecondaryData(textContent.sectionRef);
+            this.loadTranslations(textContent.sectionRef);
+            this.loadRelated(textContent.sectionRef);
+            if (!this.state.versions || this.state.versions.length === 0) {
+              this.loadVersions(textContent.sectionRef);
+            }
             this.setCurrVersionObjects(textContent.sectionRef);
           });
         })
@@ -1366,7 +1370,11 @@ class ReaderApp extends React.PureComponent {
                 loadingTextTail: false
               };
             }, () => {
-              this.loadSecondaryData(textContent.sectionRef);
+              this.loadTranslations(textContent.sectionRef);
+              this.loadRelated(textContent.sectionRef);
+              if (!this.state.versions || this.state.versions.length === 0) {
+                this.loadVersions(textContent.sectionRef);
+              }
               prewarmSection(textContent.sectionRef, this.state.next);
               this.setCurrVersionObjects(textContent.sectionRef);
             });

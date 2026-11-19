@@ -9,6 +9,7 @@ import {
   Dimensions,
   AppState,
   Image,
+  Platform,
 } from 'react-native';
 import {ViewPropTypes} from 'deprecated-react-native-prop-types';
 import {ErrorBoundaryFallbackComponent} from "./ErrorBoundaryFallbackComponent";
@@ -1104,7 +1105,12 @@ class TextColumn extends React.PureComponent {
               ListHeaderComponent={this.renderListHeader}
               ListFooterComponent={this.renderListFooter}
               onEndReached={this.onEndReached}
-              onEndReachedThreshold={2.0}
+              onEndReachedThreshold={1.0}
+              windowSize={7}
+              maxToRenderPerBatch={8}
+              initialNumToRender={10}
+              updateCellsBatchingPeriod={50}
+              removeClippedSubviews={Platform.OS === 'android'}
               onScroll={this.handleScroll}
               onScrollBeginDrag={this._onScrollBeginDrag}
               onScrollEndDrag={this.handleScrollEnd}

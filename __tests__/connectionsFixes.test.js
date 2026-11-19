@@ -1161,6 +1161,27 @@ describe('single-word Hebrew alignment, copy support, and Great Neck Kollel cred
     expect(result.textStyle.style).toEqual(expect.arrayContaining([
       expect.objectContaining({ writingDirection: 'rtl' }),
     ]));
+
+    // On Android, selectable must be omitted so StaticLayout keeps textAlign: 'justify',
+    // does not clip end-of-line Hebrew glyphs, and avoids per-segment Editor allocations.
+    const { Platform } = require('react-native');
+    const savedOS = Platform.OS;
+    Platform.OS = 'android';
+    try {
+      act(() => {
+        renderer.create(
+          <GlobalStateContext.Provider value={{ ...DEFAULT_STATE, textLanguage: 'hebrew', biLayout: 'stacked' }}>
+            <Probe />
+          </GlobalStateContext.Provider>
+        );
+      });
+      expect(result.textStyle.selectable).toBeUndefined();
+      expect(result.textStyle.style).toEqual(expect.arrayContaining([
+        expect.objectContaining({ textAlign: 'justify', direction: 'rtl', writingDirection: 'rtl' }),
+      ]));
+    } finally {
+      Platform.OS = savedOS;
+    }
   });
 
   test('TextSegment disables bypassAnonymousTPhrasingNodes so 1-word Hebrew segments stay right-aligned', () => {

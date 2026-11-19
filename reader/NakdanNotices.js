@@ -11,7 +11,7 @@
 
 import React, { useContext } from 'react';
 import PropTypes from 'prop-types';
-import { Linking, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { Linking, Platform, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { GlobalStateContext, getTheme } from '../StateManager';
 import strings from '../LocalizedStrings';
 import styles from '../Styles';
@@ -20,7 +20,7 @@ import { notNowNakdan, setNakdanForBook, setNakdanSettings, useNakdanPrefs } fro
 
 export const NakdanText = ({ text, on, style }) => {
   const vowelled = useNakdan(text, on);
-  return <Text selectable style={style}>{vowelled || text}</Text>;
+  return <Text selectable={Platform.OS !== 'android'} style={style}>{vowelled || text}</Text>;
 };
 NakdanText.propTypes = { text: PropTypes.string, on: PropTypes.bool, style: PropTypes.any };
 
