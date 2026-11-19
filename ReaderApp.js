@@ -902,16 +902,9 @@ class ReaderApp extends React.PureComponent {
     
     const justOpened = shouldToggle && !visible;
     const justScrolling = !shouldToggle && !visible; // true when called while scrolling with text list closed
-    
-    if (((segment !== this.state.segmentIndexRef || section !== this.state.sectionIndexRef) && !justScrolling) || justOpened) {
-      if (this.state.linksLoaded[section]) {
-        this.updateLinkSummary(section, segment);
-      } else if (this.state.sectionArray?.[section] && !isSheet) {
-        this.loadRelated(this.state.sectionArray[section], false);
-      }
-      this.updateVersionCat(null, segmentRef);
-    }
-    
+    const needsSummaryUpdate = ((segment !== this.state.segmentIndexRef || section !== this.state.sectionIndexRef) && !justScrolling) || justOpened;
+    const needsRelatedLoad = needsSummaryUpdate && !this.state.linksLoaded[section] && !!this.state.sectionArray?.[section] && !isSheet;
+
     this.setState(prevState => {
       let stateObj = {
         segmentRef,
@@ -921,7 +914,12 @@ class ReaderApp extends React.PureComponent {
         versionStaleRecentFilters: prevState.versionRecentFilters.map(()=>true),
         currentTranslations: this._getTranslationForSegment(section, segment),
       };
-      
+
+      if (needsRelatedLoad) {
+        stateObj.loadingLinks = true;
+        stateObj.linkSummary = [];
+      }
+
       if (isSheet) {
         // sometimes the quoted segment ref is the data we care about (e.g. for lexicon lookup)
         stateObj.segmentRefOnSheet = this.state.data[section][segment].sourceRef;
@@ -936,6 +934,14 @@ class ReaderApp extends React.PureComponent {
       
       return stateObj;
     }, () => {
+      if (needsSummaryUpdate) {
+        if (this.state.linksLoaded[section] === true) {
+          this.updateLinkSummary(section, segment);
+        } else if (this.state.sectionArray?.[section] && !isSheet) {
+          this.loadRelated(this.state.sectionArray[section], false);
+        }
+        this.updateVersionCat(null, segmentRef);
+      }
       if (shouldToggle) {
         // make sure textlist renders once before using layoutanimations
         nextFrame().then(() => {
@@ -944,10 +950,6 @@ class ReaderApp extends React.PureComponent {
       }
       Sefaria.history.saveHistoryItem(this.getHistoryObject, true);
     });
-    
-    // NOTE: This forceUpdate is potentially problematic - it forces a re-render
-    // immediately after setting state, which can lead to inconsistencies
-    this.forceUpdate();
   };
   /*
     isLoadingVersion - true when you are replacing an already loaded text with a specific version
@@ -1034,10 +1036,15 @@ class ReaderApp extends React.PureComponent {
               Sefaria.links.reset();
             }
             this.setState(nextState, ()=>{
+              // Load related links immediately in parallel with textToc (do not wait for TOC)
+              if (!isLoadingVersion) {
+                this.loadRelated(textContent.sectionRef);
+              }
               // Preload Text TOC data into memory
               this.loadTextToc(textContent.indexTitle, textContent.sectionRef).then(() => {
                 // dependent on versions cached from offline textToc
-                this.loadSecondaryData(textContent.sectionRef);
+                this.loadTranslations(textContent.sectionRef);
+                this.loadVersions(textContent.sectionRef);
                 prewarmSection(textContent.sectionRef, around.next);
                 // dependent on nextState and currVersionObjects
                 Sefaria.history.saveHistoryItem(this.getHistoryObject);
@@ -1132,29 +1139,49 @@ class ReaderApp extends React.PureComponent {
       console.warn(new Error(`Translations load error: Message: ${error}`));
     }
   }
-  loadRelated = async (ref, isSheet) => {
-    let hadSuccess = false;
-    for (let isOnline of [false, true]) {
-      try {
-        await this._loadRelatedOnlineAndOffline(ref, isSheet, isOnline);
-        hadSuccess = true;
-        break;
-      } catch (error) {
-        if (!isOnline && error === ERRORS.MISSING_OFFLINE_DATA) {
-          // expected: the book's links are not downloaded, so they are read online next (not an error)
-          console.log(`Related: ${ref} not downloaded, reading its links online`);
-        } else {
-          console.warn(new Error(`Related load error: Message: ${error}`));
+  loadRelated = (ref, isSheet) => {
+    const key = `${ref}|${isSheet ? 1 : 0}`;
+    if (!this._relatedLoadingByRef) { this._relatedLoadingByRef = {}; }
+    if (this._relatedLoadingByRef[key]) {
+      return this._relatedLoadingByRef[key];
+    }
+    const run = (async () => {
+      let hadSuccess = false;
+      for (let isOnline of [false, true]) {
+        try {
+          await this._loadRelatedOnlineAndOffline(ref, isSheet, isOnline);
+          hadSuccess = true;
+          break;
+        } catch (error) {
+          if (!isOnline && error === ERRORS.MISSING_OFFLINE_DATA) {
+            // expected: the book's links are not downloaded, so they are read online next (not an error)
+            console.log(`Related: ${ref} not downloaded, reading its links online`);
+          } else {
+            console.warn(new Error(`Related load error: Message: ${error}`));
+          }
         }
       }
-    }
-    if (!hadSuccess) {
-      // make sure links get marked as loaded no matter what
-      const iSec = this._getSectionIndex(ref, isSheet);
-      let tempLinksLoaded = this.state.linksLoaded.slice(0);
-      tempLinksLoaded[iSec] = 'error';
-      this.setState({linksLoaded: tempLinksLoaded});
-    }
+      if (!hadSuccess) {
+        // make sure links get marked as error no matter what
+        this.setState(prevState => {
+          const curSec = isSheet ? 0 : prevState.sectionArray.findIndex(secRef => secRef === ref);
+          if (curSec === -1) { return null; }
+          let tempLinksLoaded = prevState.linksLoaded.slice(0);
+          tempLinksLoaded[curSec] = 'error';
+          const out = {linksLoaded: tempLinksLoaded};
+          if (curSec === prevState.sectionIndexRef) {
+            out.loadingLinks = false;
+          }
+          return out;
+        });
+      }
+    })();
+    this._relatedLoadingByRef[key] = run;
+    return run.finally(() => {
+      if (this._relatedLoadingByRef && this._relatedLoadingByRef[key] === run) {
+        delete this._relatedLoadingByRef[key];
+      }
+    });
   };
 
   loadRelatedSheet = (sheet) => {
@@ -1172,29 +1199,37 @@ class ReaderApp extends React.PureComponent {
     // isSheet is true when loading links for individual refs on a sheet
     // Ensures that links have been loaded for `ref` and stores result in `this.state.linksLoaded` array.
     // Links are not loaded yet in case you're in API mode, or you are reading a non-default version
-    const iSec = this._getSectionIndex(ref, isSheet);
-    if (iSec === -1) { console.log("could not find section ref in sectionArray", ref); return; }
+    if (this._getSectionIndex(ref, isSheet) === -1) { console.log("could not find section ref in sectionArray", ref); return; }
     return Sefaria.offlineOnline.loadRelated(ref, online)
       .then(response => {
-        if (ref !== this.state.sectionArray?.[iSec] || !this.state.data || iSec >= this.state.data.length) {
+        // Re-locate `ref` in sectionArray because updateDataPrev may have shifted indices while links were in flight
+        const curSec = this._getSectionIndex(ref, isSheet);
+        if (curSec === -1 || !this.state.data || curSec >= this.state.data.length) {
           // this async call to load links is for a section that is no longer being viewed
           return;
         }
+        const currSectionRef = isSheet ? this.state.sectionArray[0] : ref;
         // (the summary is worked out from the links just stored, not the ones before them: an extra
-        // book's commentary, added to Sefaria's links, was missing from the panel until reopened)
+        // book's commentary, added to Sefaria's links, was missing from the panel until reopened;
+        // only refresh if the currently viewed segment is in this section)
         const refreshSummary = () => {
-          if (this.state.segmentIndexRef !== -1 && this.state.sectionIndexRef !== -1) {
+          if (this.state.segmentIndexRef !== -1 && this.state.sectionIndexRef !== -1 &&
+              (isSheet || this.state.sectionArray?.[this.state.sectionIndexRef] === currSectionRef)) {
             this.updateLinkSummary(this.state.sectionIndexRef, this.state.segmentIndexRef);
           }
         };
         this.setState(prevState => {
-          const currSection = this.state.data[iSec];
+          const idx = isSheet ? 0 : prevState.sectionArray.findIndex(secRef => secRef === ref);
+          if (idx === -1 || !prevState.data || idx >= prevState.data.length) {
+            return null;
+          }
+          const currSection = prevState.data[idx];
           if (!currSection || currSection.length === 0) {
             // Some books start with an empty section (e.g. Berakhot 2a in
             // Sefaria's data); there is nothing to attach links to.
             return null;
           }
-          const currSectionRef = isSheet ? this.state.sectionArray[0] : ref;
+          const sectionRefForState = isSheet ? prevState.sectionArray[0] : ref;
           const offset = parseInt(currSection[0]['segmentNumber']) - 1;
 
           let relatedObj;
@@ -1203,24 +1238,24 @@ class ReaderApp extends React.PureComponent {
               seg.sourceRef === ref ? [i] : []
             );
             const partialRelatedObj = Sefaria.links.makeRelatedByIndexForSheet(response, sheetSegIndexes);
-            relatedObj = {...(this.state.relatedBySectionRef[currSectionRef] || {}), ...partialRelatedObj};
+            relatedObj = {...(prevState.relatedBySectionRef[sectionRefForState] || {}), ...partialRelatedObj};
           } else {
             relatedObj = Sefaria.links.postProcessRelatedResponse(response, offset, currSection.length);
           }
           Sefaria.cacheCommentatorListBySection(ref, relatedObj);
           if (!isSheet) {
-            prewarmLinkedCommentaries(currSectionRef, this.state.next, relatedObj);
+            prewarmLinkedCommentaries(sectionRefForState, prevState.next, relatedObj);
           }
 
-          // Update linksLoaded immutably
+          // Update linksLoaded immutably using prevState so concurrent section loads don't clobber each other
           let newLinksLoaded = prevState.linksLoaded;
-          if (!newLinksLoaded[iSec]) {
+          if (!newLinksLoaded[idx]) {
             newLinksLoaded = [...newLinksLoaded];
-            newLinksLoaded[iSec] = true;
+            newLinksLoaded[idx] = true;
           }
 
           return {
-            relatedBySectionRef: {...this.state.relatedBySectionRef, [currSectionRef]: relatedObj},
+            relatedBySectionRef: {...prevState.relatedBySectionRef, [sectionRefForState]: relatedObj},
             linksLoaded: newLinksLoaded
           };
         }, refreshSummary);
@@ -2536,7 +2571,17 @@ ${strings.formatString(strings.extras.download_size, size)}` : '';
         offsetRef: (snapshot.segmentIndexRef !== -1 && snapshot.segmentRef) ? snapshot.segmentRef : snapshot.offsetRef,
         offsetPlace: snapshot.scrollPlace || null,
         textColumnKey: `${id}|${Date.now()}`,
-      }, () => { applyTabLanguage(); resolve(); }));
+      }, () => {
+        applyTabLanguage();
+        if (!snapshot.sheet && Array.isArray(snapshot.sectionArray)) {
+          snapshot.sectionArray.forEach((secRef, i) => {
+            if (secRef && !snapshot.linksLoaded?.[i]) {
+              this.loadRelated(secRef);
+            }
+          });
+        }
+        resolve();
+      }));
     }
     delete this._tabSnapshots[id];
     const ref = target ? target.ref : tabResumeRef(tab);

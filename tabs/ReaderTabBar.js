@@ -22,51 +22,171 @@ import { isPinned } from './tabState';
 
 export const READER_TAB_BAR_HEIGHT = 38;
 
+const TANAKH_BOOKS = new Set([
+  'Genesis', 'Exodus', 'Leviticus', 'Numbers', 'Deuteronomy',
+  'Joshua', 'Judges', 'I Samuel', 'II Samuel', 'I Kings', 'II Kings',
+  'Isaiah', 'Jeremiah', 'Ezekiel',
+  'Hosea', 'Joel', 'Amos', 'Obadiah', 'Jonah', 'Micah', 'Nahum', 'Habakkuk',
+  'Zephaniah', 'Haggai', 'Zechariah', 'Malachi',
+  'Psalms', 'Proverbs', 'Job', 'Song of Songs', 'Ruth', 'Lamentations',
+  'Ecclesiastes', 'Esther', 'Daniel', 'Ezra', 'Nehemiah',
+  'I Chronicles', 'II Chronicles',
+]);
+
+const KNOWN_HE_ACRONYMS = new Set([
+  'ש"ע', 'או"ח', 'יו"ד', 'אה"ע', 'חו"מ', 'שועה"ר', 'קצש"ע', 'עה"ש',
+  'רמב"ם', 'מ"ב', 'בה"ל', 'שה"צ', 'מג"א', 'ט"ז', 'ש"ך', 'באה"ט', 'ב"י', 'רש"י',
+]);
+
 /**
- * Simplify a Hebrew section ref for the narrow tab strip:
- * - Drop any trailing segment (`:ה׳`)
- * - Talmud daf + ammud (`נדה ב׳ א` / `נדה ל״ב ב`) -> `נדה ב.` / `נדה לב:` (no geresh/gershayim)
- * - Other trailing Hebrew numerals (`בראשית א׳`, `אורח חיים תמ״ז`) -> strip geresh/gershayim (`בראשית א`, `אורח חיים תמז`)
- * Leaves book-title acronyms (e.g. `רש"י`, `רמב"ם`) and book-only titles (`שמואל א`) intact.
+ * True when `tab.segmentRef` adds a canonical verse/mishnah/se'if/halakha number onto a depth-1
+ * section ref (Tanakh Perek:Pasuk, Mishnah Perek:Mishnah, Tosefta Perek:Halakha, Shulchan Arukh
+ * Siman:Se'if, Rambam Perek:Halakha, Midrash Rabbah, classic Halakhah). Excludes Sefaria-only
+ * segment numbers (Bavli line numbers, 3rd-level commentary/Yerushalmi lines, paragraphs).
+ */
+const hasStandardSegmentRef = tab => {
+  if (!tab || !tab.ref || !tab.segmentRef || !tab.segmentRef.startsWith(`${tab.ref}:`)) { return false; }
+  if (/\s\d+[ab](?::\d+)*$/.test(tab.ref)) { return false; }
+  if (tab.ref.includes(':')) { return false; }
+  const segSuffix = tab.segmentRef.slice(tab.ref.length + 1);
+  if (!/^\d+$/.test(segSuffix)) { return false; }
+  const title = tab.title || '';
+  const idx = typeof Sefaria !== 'undefined' && Sefaria.index ? Sefaria.index(title) : null;
+  const cats = (idx && idx.categories) || [];
+  const isComm = Boolean((idx && idx.dependence === 'Commentary') || /\son\s/i.test(title));
+  if (cats[0] === 'Tanakh' && !isComm) { return true; }
+  if (cats[0] === 'Mishnah' && !isComm) { return true; }
+  if (cats[0] === 'Tosefta' && !isComm) { return true; }
+  if ((cats[0] === 'Halakhah' && cats[1] === 'Shulchan Arukh' && !isComm) || /^Shulchan Arukh,\s/i.test(title)) { return true; }
+  if ((cats[0] === 'Halakhah' && cats[1] === 'Mishneh Torah' && !isComm) || /^Mishneh Torah,\s/i.test(title)) { return true; }
+  if ((cats[0] === 'Halakhah' && cats[1] === 'Shulchan Arukh HaRav') ||
+      /^(?:Kitzur Shulchan Arukh|Arukh HaShulchan(?: HeAtid)?|Shulchan Arukh HaRav|Mishnah Berurah|Magen Avraham|Turei Zahav|Siftei Kohen|Be'er Heitev|Sha'ar HaTziyun)\b/i.test(title)) {
+    return true;
+  }
+  if (cats[0] !== 'Talmud' && (cats.includes('Midrash Rabbah') || (idx && idx.corpus === 'Midrash Rabbah') || /\bRabbah$/i.test(title))) {
+    return true;
+  }
+  if (!idx) {
+    return TANAKH_BOOKS.has(title) || /^Mishnah\s/i.test(title) || /^Tosefta\s/i.test(title);
+  }
+  return false;
+};
+
+/** Shorten well-known Hebrew sefer names and drop " על " in commentaries for compact tabs. */
+const abbreviateHeTabTitle = title => String(title || '')
+  .replace(/שו?לחן ערוך,?\s+אורח חיים/g, 'ש"ע או"ח')
+  .replace(/שו?לחן ערוך,?\s+יורה דעה/g, 'ש"ע יו"ד')
+  .replace(/שו?לחן ערוך,?\s+אבן העזר/g, 'ש"ע אה"ע')
+  .replace(/שו?לחן ערוך,?\s+חושן משפט/g, 'ש"ע חו"מ')
+  .replace(/שו?לחן ערוך הרב/g, 'שועה"ר')
+  .replace(/קיצור שו?לחן ערוך/g, 'קצש"ע')
+  .replace(/ערוך השו?לחן/g, 'עה"ש')
+  .replace(/ארבעה טורים/g, 'טור')
+  .replace(/משנה תורה,?\s+הלכות\s+/g, 'רמב"ם ')
+  .replace(/משנה תורה,\s+/g, 'רמב"ם ')
+  .replace(/תלמוד ירושלמי\s+/g, 'ירושלמי ')
+  .replace(/משנה ברורה/g, 'מ"ב')
+  .replace(/ביאור הלכה/g, 'בה"ל')
+  .replace(/שער הציון/g, 'שה"צ')
+  .replace(/מגן אברהם/g, 'מג"א')
+  .replace(/טורי זהב/g, 'ט"ז')
+  .replace(/שפתי כהן/g, 'ש"ך')
+  .replace(/באר היטב/g, 'באה"ט')
+  .replace(/בית יוסף/g, 'ב"י')
+  .replace(/תרגום אונקלוס/g, 'אונקלוס')
+  .replace(/,\s*אורח חיים/g, ' או"ח')
+  .replace(/,\s*יורה דעה/g, ' יו"ד')
+  .replace(/,\s*אבן העזר/g, ' אה"ע')
+  .replace(/,\s*חושן משפט/g, ' חו"מ')
+  .replace(/\s+על\s+/g, ' ')
+  .replace(/\s{2,}/g, ' ')
+  .trim();
+
+/** Shorten well-known English sefer names and drop " on " in commentaries for compact tabs. */
+const abbreviateEnTabTitle = title => String(title || '')
+  .replace(/Shulchan Arukh,?\s+Orach Chay?im/gi, 'SA OC')
+  .replace(/Shulchan Arukh,?\s+Yoreh De'?ah/gi, 'SA YD')
+  .replace(/Shulchan Arukh,?\s+Even HaEzer/gi, 'SA EH')
+  .replace(/Shulchan Arukh,?\s+Choshen Mishpat/gi, 'SA CM')
+  .replace(/Shulchan Arukh HaRav/gi, 'SA HaRav')
+  .replace(/Kitzur Shulchan Arukh/gi, 'Kitzur SA')
+  .replace(/Mishneh Torah,\s+/gi, 'Rambam ')
+  .replace(/Jerusalem Talmud\s+/gi, 'Yerushalmi ')
+  .replace(/,\s*Orach Chay?im/gi, ' OC')
+  .replace(/,\s*Yoreh De'?ah/gi, ' YD')
+  .replace(/,\s*Even HaEzer/gi, ' EH')
+  .replace(/,\s*Choshen Mishpat/gi, ' CM')
+  .replace(/\s+on\s+/gi, ' ')
+  .replace(/\s{2,}/g, ' ')
+  .trim();
+
+/**
+ * Simplify a Hebrew ref for the narrow tab strip:
+ * - Talmud daf + ammud (`נדה ב׳ א` / `נדה ב׳ א:ה׳` / `נדה ל״ב ב`) -> `נדה ב.` / `נדה לב:`
+ * - Commentaries drop ` על ` (`רש"י על נדה ב׳ א:ה׳` -> `רש"י נדה ב.`)
+ * - Known sefarim abbreviate (`שולחן ערוך, אורח חיים` -> `ש"ע או"ח`)
+ * - Non-Talmud sections keep at most 2 colon parts (`א׳:ה׳:ב׳` -> `א:ה`) and strip numeral
+ *   geresh/gershayim while leaving book-title acronyms (`רש"י`, `רמב"ם`) and book-only titles
+ *   (`שמואל א`) intact.
  */
 const compactHeTabRef = (heRef, tab) => {
-  if (!heRef || (tab && tab.heTitle && heRef === tab.heTitle)) { return heRef; }
-  let s = heRef.replace(/:[א-ת0-9]+[׳״'"]*$/, '');
-  const isTalmudRef = Boolean(tab && tab.ref && /\s\d+[ab](?::\d+)?$/.test(tab.ref));
+  if (!heRef) { return heRef; }
+  if (tab && tab.heTitle && heRef === tab.heTitle) { return abbreviateHeTabTitle(heRef); }
+  const isTalmudRef = Boolean(tab && tab.ref && /\s\d+[ab](?::\d+)*$/.test(tab.ref));
+  const talmudStripped = heRef.replace(/:[א-ת0-9]+[׳״'"]*(?::[א-ת0-9]+[׳״'"]*)*$/, '');
   const dafPattern = isTalmudRef
     ? /^(.+\s)([א-ת׳״'"]+)\s+([אב])[׳']?$/
     : /^(.+\s)([א-ת]{1,4}[׳״'"]+[א-ת]?)\s+([אב])[׳']?$/;
-  const dafMatch = s.match(dafPattern);
+  const dafMatch = talmudStripped.match(dafPattern);
   if (dafMatch) {
+    const titlePart = abbreviateHeTabTitle(dafMatch[1]);
     const daf = dafMatch[2].replace(/[׳״'"]/g, '');
     const ammud = dafMatch[3] === 'א' ? '.' : ':';
-    return `${dafMatch[1]}${daf}${ammud}`;
+    return `${titlePart} ${daf}${ammud}`;
   }
-  return s.replace(/(\s)([א-ת׳״'":]+)$/, (_, space, sec) => `${space}${sec.replace(/[׳״'"]/g, '')}`);
+  const abbreviated = abbreviateHeTabTitle(heRef);
+  const m = abbreviated.match(/^(.+)\s+([א-ת׳״'":0-9-]+)$/);
+  if (!m) { return abbreviated; }
+  const [, prefix, rawSec] = m;
+  if (KNOWN_HE_ACRONYMS.has(rawSec)) { return abbreviated; }
+  const secParts = rawSec.split(':').slice(0, 2).map(part => part.replace(/[׳״'"]/g, ''));
+  return `${prefix} ${secParts.join(':')}`;
+};
+
+/** Simplify an English ref for the narrow tab strip: abbreviate titles and drop Sefaria-only segments. */
+const compactEnTabRef = enRef => {
+  if (!enRef) { return enRef; }
+  let s = enRef.replace(/(\s\d+[ab])(?::\d+)+$/, '$1');
+  s = s.replace(/(\s\d+:\d+)(?::\d+)+$/, '$1');
+  return abbreviateEnTabTitle(s);
 };
 
 /**
  * Label for a tab or archived tab in the current menu language, with an extra book's Hebrew
  * section names in place of its section keys (extras/schema7.js).
- * The tab strip names the book and section/page the tab is at ("Niddah 2a", "נדה ב."), so its
- * title is compact and does not change with every passage scrolled past. With `{ passage: true }`
- * (the home page's Open Tabs cards and the archive list, which have room) it names the passage
- * itself ("Shulchan Arukh, Orach Chayim 447:11", QA round 2).
+ * The tab strip names the book, standard section/verse when canonical ("Niddah 2a", "נדה ב.",
+ * "ש"ע או"ח תמז:יא", "Genesis 1:5"), omitting Sefaria-only segment numbers, ` על `/` on `, and
+ * Hebrew geresh/gershayim on numerals. With `{ passage: true }` (the home page's Open Tabs cards
+ * and the archive list, which have room) it names the full passage ("Shulchan Arukh, Orach Chayim 447:11").
  */
 export const tabLabel = (tab, isHeb, { passage = false } = {}) => {
   if (!tab) { return ''; }
   // a day read as one unit has its own name: "Chok LeYisrael — Wednesday, 11 Nov"
   const named = tab.schedule && tab.schedule.tabLabel;
   if (named && (isHeb ? named.he : named.en)) { return isHeb ? named.he : named.en; }
-  const seg = passage && tab.segmentRef && tab.ref && tab.segmentRef.startsWith(`${tab.ref}:`) ? tab.segmentRef : null;
+  const includeSeg = passage || hasStandardSegmentRef(tab);
+  const seg = includeSeg && tab.segmentRef && tab.ref && tab.segmentRef.startsWith(`${tab.ref}:`) ? tab.segmentRef : null;
   if (isHeb) {
+    let raw;
     if (seg && tab.heRef && typeof Sefaria !== 'undefined' && Sefaria.toHeSegmentRef) {
-      try { return Sefaria.toHeSegmentRef(tab.heRef, seg) || tab.heRef; } catch (e) { /* the section's ref */ }
+      try { raw = Sefaria.toHeSegmentRef(tab.heRef, seg) || tab.heRef; } catch (e) { raw = tab.heRef; }
+    } else {
+      raw = tab.heRef || tab.heTitle || tab.ref || tab.title || '';
     }
-    const raw = tab.heRef || tab.heTitle || tab.ref || tab.title || '';
     return passage ? raw : compactHeTabRef(raw, tab);
   }
-  return displayRef(seg || tab.ref || tab.title || '', tab.heRef);
+  const raw = displayRef(seg || tab.ref || tab.title || '', tab.heRef);
+  return passage ? raw : compactEnTabRef(raw);
 };
 
 const showOptions = (options, onChoose) => {

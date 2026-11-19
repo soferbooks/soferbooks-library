@@ -11,6 +11,7 @@ import {
     getOfflineVersionObjectsAvailable,
     getAllTranslationsOffline,
     textFromRefData,
+    offlineTitleExists,
 } from "./offline";
 import api from "./api";
 import * as shomer from "./shomer";
@@ -210,6 +211,8 @@ export const loadTranslations = async (ref, online=true) => {
     return shomer.filterTranslations(translations);  // content filter
 }
 
+const _relatedInFlight = {};
+
 export const loadRelated = async function(ref, online) {
     // Sefaria's links (online or offline), with the downloaded extra books' links of the section
     // added (extras/links.js: an extra book's own connections, and the extra commentaries on a
@@ -217,28 +220,49 @@ export const loadRelated = async function(ref, online) {
     if (isExtraRef(ref)) {
         return shomer.filterRelated({links: await extras.extraLinksFor(ref)});
     }
-    let response = api._related[ref];
-    if (!response) {
-        if (!online) {
-            response = await loadLinksOffline(ref);
-        } else {
-            try {
+    const key = `${ref}|${online ? 1 : 0}`;
+    if (_relatedInFlight[key]) {
+        return _relatedInFlight[key];
+    }
+    const run = (async () => {
+        let response = api._related[ref];
+        if (!response) {
+            if (!online) {
                 response = await loadLinksOffline(ref);
-            } catch (offlineErr) {
-                try {
-                    response = await api.related(ref);
-                } catch (error) {
-                    // (Sefaria's links could not be had - offline, not downloaded: the extra books' still can)
-                    const extra = await extras.extraLinksFor(ref);
-                    if (!extra.length) { throw error; }
-                    return shomer.filterRelated({links: extra});
+            } else {
+                const hasOfflineData = Boolean(
+                    (typeof Sefaria !== 'undefined' && Sefaria._jsonSectionData && Sefaria._jsonSectionData[`${ref}|metadata`]) ||
+                    await offlineTitleExists(ref).catch(() => false)
+                );
+                if (hasOfflineData) {
+                    try {
+                        response = await loadLinksOffline(ref);
+                    } catch (offlineErr) {
+                        response = null;
+                    }
+                }
+                if (!response) {
+                    try {
+                        response = await api.related(ref);
+                    } catch (error) {
+                        // (Sefaria's links could not be had - offline, not downloaded: the extra books' still can)
+                        const extra = await extras.extraLinksFor(ref);
+                        if (!extra.length) { throw error; }
+                        return shomer.filterRelated({links: extra});
+                    }
                 }
             }
+            api._related[ref] = response;
         }
-        api._related[ref] = response;
+        // content filter (links to hidden books drop out with the TOC)
+        return shomer.filterRelated(await extras.withExtraLinks(ref, response));
+    })();
+    _relatedInFlight[key] = run;
+    try {
+        return await run;
+    } finally {
+        if (_relatedInFlight[key] === run) { delete _relatedInFlight[key]; }
     }
-    // content filter (links to hidden books drop out with the TOC)
-    return shomer.filterRelated(await extras.withExtraLinks(ref, response));
 };
 
 const _textToc = {};
@@ -257,13 +281,20 @@ export const textToc = function(title) {
             // that used to throw inside resolver, fall back to the API, and - offline - leave
             // this promise pending forever, so the reader never loaded the section's
             // translations and related texts (QA: "Translations (0)", no related texts).
-            // Try the offline index twice (a book can be mid-unzip), then the API; settle either way.
+            // Retry the offline index after 300ms only if the book actually exists offline
+            // (it can be mid-unzip); otherwise go straight to the API without sleeping.
             const offlineIndex = () => loadTextIndexOffline(title).then(index => {
                 if (!index) { throw new Error(`no offline index for ${title}`); }
                 return index;
             });
             offlineIndex()
-                .catch(() => new Promise(r => setTimeout(r, 300)).then(offlineIndex))
+                .catch(async err => {
+                    if (await offlineTitleExists(title).catch(() => false)) {
+                        await new Promise(r => setTimeout(r, 300));
+                        return offlineIndex();
+                    }
+                    throw err;
+                })
                 .then(resolver)
                 .catch(error => (extras.isExtraTitle(title) ? Promise.reject(error)
                     : api._request(title, 'index', true, {}, true).then(resolver)))

@@ -116,22 +116,127 @@ describe('Back after "Open here": the panel comes back with its text, not "Loadi
     expect(reloadPositions([A], [], [0])).toEqual([]);
   });
 
-  test('a source that fails to load does not leave the rest of the list waiting', async () => {
+  test('a source that fails to load does not leave the rest of the list waiting (bounded concurrency)', async () => {
     Sefaria.links.reset();
+    const moreRefs = [
+      'Tosafot Rid on Niddah 2a:1:1',
+      'Tosafot Rid on Niddah 2a:1:2',
+      'Tosafot Rid on Niddah 2a:1:3',
+      'Tosafot Rid on Niddah 2a:1:4',
+      'Tosafot Rid on Niddah 2a:1:5',
+    ];
     const loadText = jest.spyOn(Sefaria.offlineOnline, 'loadText')
       .mockImplementationOnce(() => Promise.reject('network'))
       .mockImplementation(ref => Promise.resolve({ result: loaded(ref) }));
     const done = [];
-    const first = Sefaria.links.loadLinkData(refs[0], 0, null, null).catch(e => done.push(['failed', e]));
-    const second = Sefaria.links.loadLinkData(refs[1], 1, d => done.push(['loaded', d.sectionRef]), e => done.push(['rejected', e]))
+    const first = Sefaria.links.loadLinkData(moreRefs[0], 0, null, null).catch(e => done.push(['failed', e]));
+    const inFlight = [
+      Sefaria.links.loadLinkData(moreRefs[1], 1, null, null).then(d => done.push(['loaded', d.sectionRef])),
+      Sefaria.links.loadLinkData(moreRefs[2], 2, null, null).then(d => done.push(['loaded', d.sectionRef])),
+      Sefaria.links.loadLinkData(moreRefs[3], 3, null, null).then(d => done.push(['loaded', d.sectionRef])),
+    ];
+    const fifth = Sefaria.links.loadLinkData(moreRefs[4], 4, d => done.push(['loaded', d.sectionRef]), e => done.push(['rejected', e]))
       .catch(e => e);
-    expect(await second).toBe('inQueue');  // queued behind the first
-    await first;
+    expect(await fifth).toBe('inQueue');  // queued once 4 concurrent loads are in flight
+    await Promise.all([first, ...inFlight]);
     await new Promise(r => setTimeout(r, 0));
     expect(done).toContainEqual(['failed', 'network']);
-    expect(done).toContainEqual(['loaded', refs[1]]);
-    expect(loadText).toHaveBeenCalledTimes(2);
+    expect(done).toContainEqual(['loaded', moreRefs[4]]);
+    expect(loadText).toHaveBeenCalledTimes(5);
     expect(Sefaria.links._linkContentLoadingStack).toHaveLength(0);
+  });
+
+  test('tapping a passage while links are still loading sets loadingLinks, loads them, and populates commentaries on first tap', async () => {
+    const app = makeApp({
+      data: [[{ segmentNumber: '1' }, { segmentNumber: '2' }, { segmentNumber: '3' }]],
+      textListVisible: false,
+      linksLoaded: [false],
+      loadingLinks: false,
+    }, { realLoadRelated: true });
+    app.animateTextList = jest.fn();
+    app.updateVersionCat = jest.fn();
+    app._getTranslationForSegment = () => null;
+    jest.spyOn(Sefaria, 'cacheCommentatorListBySection').mockImplementation(() => {});
+    const savedIndex = Sefaria._index;
+    const savedBooksDict = Sefaria.booksDict;
+    Sefaria._index = { ...savedIndex, Niddah: { title: 'Niddah', heTitle: 'נדה' }, 'Rashi on Niddah': { title: 'Rashi on Niddah', heTitle: 'רש"י על נדה', categories: ['Talmud', 'Bavli', 'Rishonim on Talmud'] } };
+    Sefaria.booksDict = { ...savedBooksDict, 'Rashi on Niddah': 1 };
+    let resolveLinks;
+    jest.spyOn(Sefaria.offlineOnline, 'loadRelated').mockImplementation(() => new Promise(r => { resolveLinks = r; }));
+    try {
+      app.textSegmentPressed(0, 0, 'Niddah 2a:1', true);
+      expect(app.state.textListVisible).toBe(true);
+      expect(app.state.loadingLinks).toBe(true);
+      expect(Sefaria.offlineOnline.loadRelated).toHaveBeenCalledWith('Niddah 2a', false);
+      resolveLinks({ links: [{ category: 'Commentary', index_title: 'Rashi on Niddah', sourceRef: 'Rashi on Niddah 2a:1:1', sourceHeRef: 'רש"י', anchorRef: 'Niddah 2a:1', sourceHasEn: false }] });
+      await new Promise(r => setTimeout(r, 0));
+      expect(app.state.loadingLinks).toBe(false);
+      expect(app.state.linksLoaded[0]).toBe(true);
+      expect(app.state.linkSummary.some(c => c.category === 'Commentary' && c.count > 0)).toBe(true);
+    } finally {
+      Sefaria._index = savedIndex;
+      Sefaria.booksDict = savedBooksDict;
+    }
+  });
+
+  test('prepending a previous section while links are in flight does not drop the links or break summary refresh', async () => {
+    const app = makeApp({
+      data: [[{ segmentNumber: '1' }, { segmentNumber: '2' }, { segmentNumber: '3' }]],
+      sectionArray: ['Niddah 2b'],
+      sectionIndexRef: 0,
+      segmentIndexRef: 1,
+      segmentRef: 'Niddah 2b:2',
+      linksLoaded: [false],
+      loadingLinks: true,
+    }, { realLoadRelated: true });
+    jest.spyOn(Sefaria, 'cacheCommentatorListBySection').mockImplementation(() => {});
+    const savedIndex = Sefaria._index;
+    const savedBooksDict = Sefaria.booksDict;
+    Sefaria._index = { ...savedIndex, Niddah: { title: 'Niddah', heTitle: 'נדה' }, 'Rashi on Niddah': { title: 'Rashi on Niddah', heTitle: 'רש"י על נדה', categories: ['Talmud', 'Bavli', 'Rishonim on Talmud'] } };
+    Sefaria.booksDict = { ...savedBooksDict, 'Rashi on Niddah': 1 };
+    let resolveLinks;
+    jest.spyOn(Sefaria.offlineOnline, 'loadRelated').mockImplementation(() => new Promise(r => { resolveLinks = r; }));
+    try {
+      const promise = app._loadRelatedOnlineAndOffline('Niddah 2b', false, true);
+      // simulate updateDataPrev prepending Niddah 2a while Niddah 2b links are still in flight
+      app.setState(prev => ({
+        data: [[{ segmentNumber: '1' }, { segmentNumber: '2' }], ...prev.data],
+        sectionArray: ['Niddah 2a', ...prev.sectionArray],
+        sectionIndexRef: prev.sectionIndexRef + 1,
+        linksLoaded: [false, ...prev.linksLoaded],
+      }));
+      resolveLinks({ links: [{ category: 'Commentary', index_title: 'Rashi on Niddah', sourceRef: 'Rashi on Niddah 2b:2:1', sourceHeRef: 'רש"י', anchorRef: 'Niddah 2b:2', sourceHasEn: false }] });
+      await promise;
+      expect(app.state.linksLoaded).toEqual([false, true]);
+      expect(app.state.relatedBySectionRef['Niddah 2b']).toBeDefined();
+      expect(app.state.loadingLinks).toBe(false);
+      expect(app.state.linkSummary.some(c => c.category === 'Commentary' && c.count > 0)).toBe(true);
+    } finally {
+      Sefaria._index = savedIndex;
+      Sefaria.booksDict = savedBooksDict;
+    }
+  });
+
+  test('concurrent section link loads keep both sections in relatedBySectionRef', async () => {
+    const app = makeApp({
+      data: [[{ segmentNumber: '1' }], [{ segmentNumber: '1' }]],
+      sectionArray: ['Niddah 2a', 'Niddah 2b'],
+      sectionIndexRef: 0,
+      segmentIndexRef: 0,
+      segmentRef: 'Niddah 2a:1',
+      linksLoaded: [false, false],
+    }, { realLoadRelated: true });
+    jest.spyOn(Sefaria, 'cacheCommentatorListBySection').mockImplementation(() => {});
+    jest.spyOn(Sefaria.offlineOnline, 'loadRelated').mockImplementation(ref =>
+      Promise.resolve({ links: [{ category: 'Commentary', index_title: 'Rashi on Niddah', sourceRef: `Rashi on ${ref}:1:1`, sourceHeRef: 'רש"י', anchorRef: `${ref}:1`, sourceHasEn: false }] })
+    );
+    await Promise.all([
+      app._loadRelatedOnlineAndOffline('Niddah 2a', false, true),
+      app._loadRelatedOnlineAndOffline('Niddah 2b', false, true),
+    ]);
+    expect(app.state.linksLoaded).toEqual([true, true]);
+    expect(app.state.relatedBySectionRef['Niddah 2a']).toBeDefined();
+    expect(app.state.relatedBySectionRef['Niddah 2b']).toBeDefined();
   });
 
   test('a book not downloaded: its links are read online without a "Related load error" warning', async () => {

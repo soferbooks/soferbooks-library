@@ -282,15 +282,29 @@ describe('the native shortcut module', () => {
 });
 
 describe('the tab strip', () => {
-  test('a tab is titled by its book and section, not the passage scrolled to, and Hebrew tabs are compact', () => {
-    const tab = { title: 'Niddah', ref: 'Niddah 2a', heRef: 'נדה ב׳ א', segmentRef: 'Niddah 2a:2' };
+  test('tab strip labels drop על/on, abbreviate known sefarim, keep standard sub-refs, and exclude Sefaria-only segments', () => {
+    const tab = { title: 'Niddah', ref: 'Niddah 2a', heRef: 'נדה ב׳ א', segmentRef: 'Niddah 2a:5' };
     expect(tabLabel(tab, false)).toBe('Niddah 2a');
     expect(tabLabel(tab, true)).toBe('נדה ב.');
+    expect(tabLabel({ ...tab, segmentRef: 'Niddah 2a:7' }, false)).toBe('Niddah 2a');
     expect(tabLabel({ title: 'Niddah', ref: 'Niddah 2b', heRef: 'נדה ב׳ ב', segmentRef: 'Niddah 2b:3' }, true)).toBe('נדה ב:');
     expect(tabLabel({ title: 'Niddah', ref: 'Niddah 32a', heRef: 'נדה ל״ב א' }, true)).toBe('נדה לב.');
-    expect(tabLabel({ title: 'Rashi on Niddah', heTitle: 'רש"י על נדה', ref: 'Rashi on Niddah 2a', heRef: 'רש"י על נדה ב׳ א:ה׳' }, true)).toBe('רש"י על נדה ב.');
+    expect(tabLabel({ title: 'Rashi on Niddah', heTitle: 'רש"י על נדה', ref: 'Rashi on Niddah 2a', heRef: 'רש"י על נדה ב׳ א:ה׳', segmentRef: 'Rashi on Niddah 2a:5:1' }, true)).toBe('רש"י נדה ב.');
+    expect(tabLabel({ title: 'Rashi on Niddah', ref: 'Rashi on Niddah 2a', segmentRef: 'Rashi on Niddah 2a:5:1' }, false)).toBe('Rashi Niddah 2a');
+    expect(tabLabel({ title: 'Genesis', ref: 'Genesis 1', heRef: 'בראשית א׳', segmentRef: 'Genesis 1:5' }, true)).toBe('בראשית א:ה');
+    expect(tabLabel({ title: 'Genesis', ref: 'Genesis 1', heRef: 'בראשית א׳', segmentRef: 'Genesis 1:5' }, false)).toBe('Genesis 1:5');
+    expect(tabLabel({ title: 'Rashi on Genesis', ref: 'Rashi on Genesis 1:5', heRef: 'רש"י על בראשית א׳:ה׳', segmentRef: 'Rashi on Genesis 1:5:2' }, true)).toBe('רש"י בראשית א:ה');
+    expect(tabLabel({ title: 'Rashi on Genesis', ref: 'Rashi on Genesis 1:5', heRef: 'רש"י על בראשית א׳:ה׳', segmentRef: 'Rashi on Genesis 1:5:2' }, false)).toBe('Rashi Genesis 1:5');
+    expect(tabLabel({ title: 'Shulchan Arukh, Orach Chayim', heTitle: 'שולחן ערוך, אורח חיים', ref: 'Shulchan Arukh, Orach Chayim 447', heRef: 'שולחן ערוך, אורח חיים תמ״ז', segmentRef: 'Shulchan Arukh, Orach Chayim 447:11' }, true)).toBe('ש"ע או"ח תמז:יא');
+    expect(tabLabel({ title: 'Shulchan Arukh, Orach Chayim', ref: 'Shulchan Arukh, Orach Chayim 447', heRef: 'שולחן ערוך, אורח חיים תמ״ז', segmentRef: 'Shulchan Arukh, Orach Chayim 447:11' }, false)).toBe('SA OC 447:11');
+    expect(tabLabel({ title: 'Shulchan Arukh, Orach Chayim', ref: 'Shulchan Arukh, Orach Chayim 447', heRef: 'שולחן ערוך, אורח חיים תמ״ז' }, true)).toBe('ש"ע או"ח תמז');
+    expect(tabLabel({ title: 'Mishneh Torah, Sabbath', ref: 'Mishneh Torah, Sabbath 1', heRef: 'משנה תורה, הלכות שבת א׳', segmentRef: 'Mishneh Torah, Sabbath 1:3' }, true)).toBe('רמב"ם שבת א:ג');
+    expect(tabLabel({ title: 'Mishneh Torah, Sabbath', ref: 'Mishneh Torah, Sabbath 1', heRef: 'משנה תורה, הלכות שבת א׳', segmentRef: 'Mishneh Torah, Sabbath 1:3' }, false)).toBe('Rambam Sabbath 1:3');
+    expect(tabLabel({ title: 'Jerusalem Talmud Berakhot', ref: 'Jerusalem Talmud Berakhot 1:1', heRef: 'תלמוד ירושלמי ברכות א׳:א׳', segmentRef: 'Jerusalem Talmud Berakhot 1:1:4' }, true)).toBe('ירושלמי ברכות א:א');
+    expect(tabLabel({ title: 'Jerusalem Talmud Berakhot', ref: 'Jerusalem Talmud Berakhot 1:1', heRef: 'תלמוד ירושלמי ברכות א׳:א׳', segmentRef: 'Jerusalem Talmud Berakhot 1:1:4' }, false)).toBe('Yerushalmi Berakhot 1:1');
+    expect(tabLabel({ title: 'Tanya, Part I', heTitle: 'תניא, חלק א', ref: 'Tanya, Part I 1', heRef: 'תניא, חלק א א׳', segmentRef: 'Tanya, Part I 1:3' }, true)).toBe('תניא, חלק א א');
+    expect(tabLabel({ title: 'Tanya, Part I', heTitle: 'תניא, חלק א', ref: 'Tanya, Part I 1', heRef: 'תניא, חלק א א׳', segmentRef: 'Tanya, Part I 1:3' }, false)).toBe('Tanya, Part I 1');
     expect(tabLabel({ title: 'I Samuel', heTitle: 'שמואל א', ref: 'I Samuel', heRef: 'שמואל א' }, true)).toBe('שמואל א');
-    expect(tabLabel({ ...tab, segmentRef: 'Niddah 2a:7' }, false)).toBe('Niddah 2a');
   });
 
   test('the long-press menu offers Pin, or Unpin and Add to home screen (Android)', () => {

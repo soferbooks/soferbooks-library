@@ -738,9 +738,14 @@ global.Sefaria = {
   },
   links: {
     _linkContentLoadingStack: [],
-    /* when you switch segments, delete stack and hashtable */
+    _maxConcurrentLinks: 4,
+    _activeLinkLoads: 0,
+    _loadGeneration: 0,
+    /* when you switch segments, delete stack and reset bounded queue */
     reset: function() {
       Sefaria.links._linkContentLoadingStack = [];
+      Sefaria.links._activeLinkLoads = 0;
+      Sefaria.links._loadGeneration += 1;
     },
     getSegmentIndexFromRef: function(ref, offset) {
       let index = parseInt(ref.substring(ref.lastIndexOf(':') + 1)) - 1 - offset;
@@ -823,50 +828,55 @@ global.Sefaria = {
       return relatedList;
     },
     loadLinkData: function(ref, pos, resolveClosure, rejectClosure, runNow) {
-      const parseData = async function(data) {
-        let result;
-        try {
-          result = data.result;
-        } catch (e) {
-          recordError(getCrashlytics(), new Error(`loadLinkData failed to load ${data.requestedRef}`));
-        }
-        let prev = Sefaria.links._linkContentLoadingStack.shift();
-        //delete Sefaria.links._linkContentLoadingHash[prev.ref];
-        //console.log("Removing from queue:",prev.ref,"Length:",Sefaria.links._linkContentLoadingStack.length);
-        if (Sefaria.links._linkContentLoadingStack.length > 0) {
-          let next = Sefaria.links._linkContentLoadingStack[0]; //Sefaria.links._linkContentLoadingStack.length-1
+      if (!runNow && Sefaria.links._activeLinkLoads >= Sefaria.links._maxConcurrentLinks) {
+        Sefaria.links._linkContentLoadingStack.push({
+          ref,
+          pos,
+          resolveClosure,
+          rejectClosure,
+        });
+        return Promise.reject('inQueue');
+      }
+
+      const gen = Sefaria.links._loadGeneration;
+      Sefaria.links._activeLinkLoads += 1;
+
+      const finishSlot = () => {
+        if (gen !== Sefaria.links._loadGeneration) { return; }
+        Sefaria.links._activeLinkLoads = Math.max(0, Sefaria.links._activeLinkLoads - 1);
+        while (
+          Sefaria.links._activeLinkLoads < Sefaria.links._maxConcurrentLinks &&
+          Sefaria.links._linkContentLoadingStack.length > 0
+        ) {
+          const next = Sefaria.links._linkContentLoadingStack.shift();
           Sefaria.links.loadLinkData(next.ref, next.pos, null, null, true)
-                          .then(next.resolveClosure)
-                          .catch(next.rejectClosure);
-        }
-        if (result) {
-          return result;
-        } else {
-          throw result;
+            .then(next.resolveClosure || (() => {}))
+            .catch(next.rejectClosure || (() => {}));
         }
       };
 
-      if (!runNow) {
-        //console.log("Putting in queue:",ref,"Length:",Sefaria.links._linkContentLoadingStack.length);
-        Sefaria.links._linkContentLoadingStack.push({
-                                                      "ref":ref,
-                                                      "pos":pos,
-                                                      "resolveClosure":resolveClosure,
-                                                      "rejectClosure":rejectClosure
-                                                    });
-      }
-      if (Sefaria.links._linkContentLoadingStack.length === 1 || runNow) {
-        // a source that fails to load must still make way for the next ones: otherwise the queue
-        // stayed stuck on it and every later source of the panel said "Loading..." for good
-        return Sefaria.offlineOnline.loadText(ref, false).then(parseData, error => parseData({}).then(
-          () => { throw error; }, () => { throw error; }));
-      } else {
-        //console.log("Rejecting", ref);
-        return new Promise(function(resolve, reject) {
-          reject('inQueue');
-        })
-      }
-
+      // a source that fails to load must still make way for the next ones: otherwise the queue
+      // stayed stuck on it and every later source of the panel said "Loading..." for good
+      return Sefaria.offlineOnline.loadText(ref, false).then(
+        data => {
+          let result;
+          try {
+            result = data.result;
+          } catch (e) {
+            recordError(getCrashlytics(), new Error(`loadLinkData failed to load ${data && data.requestedRef}`));
+          }
+          finishSlot();
+          if (result) {
+            return result;
+          } else {
+            throw result;
+          }
+        },
+        error => {
+          finishSlot();
+          throw error;
+        }
+      );
     },
     /**
      * linkSummary's {category: {count, books: {title: book}}} with the categories whose names are

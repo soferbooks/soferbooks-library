@@ -135,9 +135,11 @@ describe('tab labels name the passage', () => {
     expect(tabLabel({ ...tab, segmentRef: null }, false, passage)).toBe('Shulchan Arukh, Orach Chayim 447');
     // a place in another section is not this section's
     expect(tabLabel({ ...tab, segmentRef: 'Shulchan Arukh, Orach Chayim 448:1' }, false, passage)).toBe('Shulchan Arukh, Orach Chayim 447');
-    // the tab strip
-    expect(tabLabel(tab, false)).toBe('Shulchan Arukh, Orach Chayim 447');
-    expect(tabLabel(tab, true)).toBe('שולחן ערוך, אורח חיים תמז');
+    // the tab strip (abbreviated title + standard se'if ref, without geresh/gershayim)
+    expect(tabLabel(tab, false)).toBe('SA OC 447:11');
+    expect(tabLabel(tab, true)).toBe('ש"ע או"ח תמז:יא');
+    expect(tabLabel({ ...tab, segmentRef: null }, false)).toBe('SA OC 447');
+    expect(tabLabel({ ...tab, segmentRef: null }, true)).toBe('ש"ע או"ח תמז');
   });
 
   test("an extra book's tab shows its Hebrew section names", () => {
