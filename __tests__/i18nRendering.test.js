@@ -1240,6 +1240,7 @@ describe('Strings with placeholders', () => {
     'extras.progress_percent': { percent: 42 },
     'extras.turn_off_message': { count: 5 },
     'extras.updates_message': { count: 3 },
+    'filter.blocks_prefix': { items: 'Reform' },
     'full_library.part_size': { download: '1.2 GB', phone: '5.2 GB' },
     'full_library.part_books': { count: '1,156' },
     'full_library.total': { download: '2.1 GB', phone: '7.4 GB' },

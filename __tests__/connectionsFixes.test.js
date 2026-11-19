@@ -834,11 +834,17 @@ describe('Extra commentary collectiveTitle strings and depth-3 1D content_counts
     }
   });
 
-  test('menuLanguage follows textLanguage (bilingual -> hebrew) and tablet Browse the Library lays out RTL when Hebrew', () => {
-    expect(Sefaria.util.get_menu_language('english', 'bilingual')).toBe('hebrew');
-    expect(Sefaria.util.get_menu_language('english', 'hebrew')).toBe('hebrew');
+  test('menuLanguage stays in interfaceLanguage even when textLanguage is bilingual/hebrew, and tablet Browse the Library lays out RTL when Hebrew', () => {
+    expect(Sefaria.util.get_menu_language('english', 'bilingual')).toBe('english');
+    expect(Sefaria.util.get_menu_language('english', 'hebrew')).toBe('english');
     expect(Sefaria.util.get_menu_language('english', 'english')).toBe('english');
-    expect(Sefaria.util.get_menu_language('hebrew', 'english')).toBe('english');
+    expect(Sefaria.util.get_menu_language('hebrew', 'english')).toBe('hebrew');
+
+    const { presetDetail } = require('../shomer/ContentFilterSettings');
+    const { CHOICES } = require('../shomer/presets');
+    strings.setLanguage('en');
+    const rwmo = CHOICES.find(p => p.id === 'rwmo');
+    expect(presetDetail(rwmo)).toMatch(/^Blocks: /);
 
     const RN = require('react-native');
     const { FlatList } = RN;
@@ -858,7 +864,7 @@ describe('Extra commentary collectiveTitle strings and depth-3 1D content_counts
     try {
       act(() => {
         tree = renderer.create(
-          <GlobalStateContext.Provider value={{ ...DEFAULT_STATE, interfaceLanguage: 'english', textLanguage: 'bilingual', menuLanguage: 'hebrew' }}>
+          <GlobalStateContext.Provider value={{ ...DEFAULT_STATE, interfaceLanguage: 'hebrew', textLanguage: 'bilingual', menuLanguage: 'hebrew' }}>
             <ReaderAppContext.Provider value={{ readerTabs: { tabs: [] }, openScheduleItem: jest.fn() }}>
               <TextsPage categories={[]} setCategories={jest.fn()} openRef={jest.fn()} openLearningSchedules={jest.fn()} onBack={jest.fn()} openAbout={jest.fn()} openHistory={jest.fn()} />
             </ReaderAppContext.Provider>

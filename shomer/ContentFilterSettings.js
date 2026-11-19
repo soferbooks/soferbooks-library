@@ -72,8 +72,13 @@ export const groupExamples = (g, hebrew) => {
 };
 
 // What each preset adds on top of the one before it ("Off": nothing)
-export const presetDetail = preset => (preset.id === 'off' ? strings.filter.off_detail
-  : LISTED_GROUPS.filter(g => g.level === preset.level).map(groupShort).join(', '));
+export const presetDetail = preset => {
+  if (preset.id === 'off') { return strings.filter.off_detail; }
+  const items = LISTED_GROUPS.filter(g => g.level === preset.level).map(groupShort).join(', ');
+  if (!items) { return ''; }
+  const out = strings.formatString(strings.filter.blocks_prefix, { items });
+  return Array.isArray(out) ? out.join('') : String(out);
+};
 
 export const ContentFilterSettings = ({ langStyle }) => {
   const { themeStr, contentFilter, interfaceLanguage } = useContext(GlobalStateContext);

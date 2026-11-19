@@ -145,6 +145,7 @@
     "extras.up_to_date": "הספרים שהורדו מעודכנים.",
     "extras.updates_message": "יש עדכונים ל־{count} ספרים שהורדו. להוריד אותם כעת?",
     "extras.updates_message_one": "יש עדכון לספר אחד שהורד. להוריד אותו כעת?",
+    "filter.blocks_prefix": "חוסם: {items}",
     "filter.custom": "מותאם אישית",
     "filter.description": "מסתיר ספרים, פירושים ותרגומים לפי קבוצות. כל רמה מסתירה את כל מה שהרמה שלפניה מסתירה, ועוד. שינוי ידני של קבוצה הופך את המסנן ל\"מותאם אישית\".",
     "filter.group_academic_orthodox": "מחקר אקדמי דתי",
