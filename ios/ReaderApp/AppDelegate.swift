@@ -57,7 +57,29 @@ class AppDelegate: ExpoAppDelegate {
       launchOptions: launchOptions
     )
 
+    if let shortcutItem = launchOptions?[.shortcutItem] as? UIApplicationShortcutItem,
+       let urlString = shortcutItem.userInfo?["url"] as? String,
+       let url = URL(string: urlString) {
+      DispatchQueue.main.async {
+        _ = RCTLinkingManager.application(application, open: url, options: [:])
+      }
+    }
+
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  override func application(
+    _ application: UIApplication,
+    performActionFor shortcutItem: UIApplicationShortcutItem,
+    completionHandler: @escaping (Bool) -> Void
+  ) {
+    if let urlString = shortcutItem.userInfo?["url"] as? String,
+       let url = URL(string: urlString) {
+      let handled = RCTLinkingManager.application(application, open: url, options: [:])
+      completionHandler(handled)
+      return
+    }
+    completionHandler(false)
   }
 }
 

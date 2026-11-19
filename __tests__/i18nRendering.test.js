@@ -457,6 +457,7 @@ describe('Settings screen', () => {
         'library_sources.always_on', 'extras.source_detail',
         'settings.nakdan_header', 'settings.nakdan_always', 'settings.nakdan_always_detail',
         'settings.nakdan_credit',
+        'settings.app_icon_shortcuts', 'settings.app_icon_shortcuts_desc', 'settings.app_icon_shortcuts_empty',
         'reader.font', 'reader.commentary_font', 'reader.font_frank_sofer',
         'reader.font_vilna_sofer', 'reader.font_hadassah', 'reader.font_rashi',
       ]
@@ -1249,6 +1250,7 @@ describe('Strings with placeholders', () => {
     'full_library.part_progress': { done: '2,310', total: '6,001' },
     'full_library.paused_low_space': { free: '380 MB' },
     'full_library.space': { free: '2.0 GB', used: '1.5 GB' },
+    'settings.app_icon_shortcuts_desc': { count: 4 },
     'storage.low_space_message': { needed: '1.9 GB', free: '1.2 GB' },
   };
 

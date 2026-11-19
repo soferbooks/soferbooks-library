@@ -1488,3 +1488,64 @@ describe('Mac default freeform text selection (replacing Dictionary on Mac only)
     }
   });
 });
+
+describe('App icon long-press shortcuts (latest tabs + Settings pinned tabs)', () => {
+  const {
+    selectAppIconShortcuts,
+    toggleShortcutPinnedId,
+    _resetShortcutPinsForTests,
+  } = require('../tabs/tabShortcuts');
+  const { AppIconShortcutsSettings } = require('../SettingsPage');
+  const ReaderAppContext = require('../context').default;
+
+  afterEach(() => {
+    _resetShortcutPinsForTests();
+  });
+
+  test('selectAppIconShortcuts puts Settings-pinned tabs first and fills remaining slots with latest tabs', () => {
+    const tabs = [
+      { id: 't1', title: 'Berakhot', heTitle: 'ברכות', ref: 'Berakhot 2a', heRef: 'ברכות ב.', lastUsed: 10 },
+      { id: 't2', title: 'Genesis', heTitle: 'בראשית', ref: 'Genesis 1', heRef: 'בראשית א', lastUsed: 50 },
+      { id: 't3', title: 'Yoma', heTitle: 'יומא', ref: 'Yoma 37b', heRef: 'יומא לז:', lastUsed: 30 },
+      { id: 't4', title: 'Shabbat', heTitle: 'שבת', ref: 'Shabbat 21b', heRef: 'שבת כא:', lastUsed: 40 },
+      { id: 't5', title: 'Mishnah Avot', heTitle: 'משנה אבות', ref: 'Avot 1', heRef: 'אבות א', lastUsed: 20 },
+    ];
+    const items = selectAppIconShortcuts(tabs, ['t1', 't5'], 'english', 4);
+    expect(items.map(i => i.tabId)).toEqual(['t1', 't5', 't2', 't4']);
+    expect(items[0]).toMatchObject({
+      id: 'tab-t1',
+      pinnedToShortcut: true,
+      label: 'Berakhot',
+      sublabel: 'Berakhot 2a',
+      url: 'soferbooks://tab/t1?title=Berakhot',
+    });
+    expect(items[2].pinnedToShortcut).toBe(false);
+
+    const heItems = selectAppIconShortcuts(tabs, ['t1'], 'hebrew', 2);
+    expect(heItems.map(i => i.label)).toEqual(['ברכות', 'בראשית']);
+  });
+
+  test('Settings AppIconShortcutsSettings lets user pin and unpin open tabs for app-icon long press', async () => {
+    strings.setLanguage('en');
+    const tabs = [
+      { id: 't1', title: 'Berakhot', heTitle: 'ברכות', ref: 'Berakhot 2a', lastUsed: 10 },
+      { id: 't2', title: 'Yoma', heTitle: 'יומא', ref: 'Yoma 37b', lastUsed: 20 },
+    ];
+    let inst;
+    await act(async () => {
+      inst = renderer.create(
+        <GlobalStateContext.Provider value={{ ...DEFAULT_STATE, interfaceLanguage: 'english' }}>
+          <ReaderAppContext.Provider value={{ readerTabs: { tabs } }}>
+            <AppIconShortcutsSettings langStyle={{}} />
+          </ReaderAppContext.Provider>
+        </GlobalStateContext.Provider>
+      );
+    });
+    const chip1 = () => inst.root.findByProps({ testID: 'shortcut-pin-t1' });
+    await act(async () => { await chip1().props.onPress(); });
+    expect(chip1().findByType(require('react-native').Text).props.children).toBe('★ Berakhot');
+    await act(async () => { await toggleShortcutPinnedId('t1'); });
+    expect(chip1().findByType(require('react-native').Text).props.children).toBe('Berakhot');
+    act(() => { inst.unmount(); });
+  });
+});

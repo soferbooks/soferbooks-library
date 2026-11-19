@@ -9,6 +9,7 @@ import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
+import com.facebook.react.bridge.ReadableArray
 import org.sefaria.sefaria.R
 import org.sefaria.sefaria.SplashActivity
 
@@ -53,6 +54,43 @@ class PinnedShortcutsModule(private val reactContext: ReactApplicationContext) :
             promise.resolve(ShortcutManagerCompat.requestPinShortcut(context, info, null))
         } catch (e: Exception) {
             promise.reject("E_PIN_SHORTCUT", e.message, e)
+        }
+    }
+
+    /**
+     * Replace the app icon's long-press (dynamic) shortcuts with up to 4 tabs
+     * (shortcut-pinned tabs first, then most recent tabs).
+     */
+    @ReactMethod
+    fun setDynamicShortcuts(items: ReadableArray, promise: Promise) {
+        try {
+            val max = ShortcutManagerCompat.getMaxShortcutCountPerActivity(reactContext).coerceAtMost(4)
+            val count = items.size().coerceAtMost(max)
+            val shortcuts = ArrayList<ShortcutInfoCompat>(count)
+            for (i in 0 until count) {
+                val item = items.getMap(i) ?: continue
+                val id = item.getString("id") ?: continue
+                val label = item.getString("label") ?: "SoferBooks"
+                val sublabel = item.getString("sublabel") ?: ""
+                val url = item.getString("url") ?: continue
+                val longLabel = if (sublabel.isNotEmpty() && sublabel != label) "$label — $sublabel" else label
+                val intent = Intent(reactContext, SplashActivity::class.java).apply {
+                    action = Intent.ACTION_VIEW
+                    data = Uri.parse(url)
+                }
+                val info = ShortcutInfoCompat.Builder(reactContext, id)
+                    .setShortLabel(label)
+                    .setLongLabel(longLabel)
+                    .setIcon(IconCompat.createWithResource(reactContext, R.mipmap.ic_launcher))
+                    .setIntent(intent)
+                    .setRank(i)
+                    .build()
+                shortcuts.add(info)
+            }
+            ShortcutManagerCompat.setDynamicShortcuts(reactContext, shortcuts)
+            promise.resolve(true)
+        } catch (e: Exception) {
+            promise.reject("E_DYNAMIC_SHORTCUTS", e.message, e)
         }
     }
 

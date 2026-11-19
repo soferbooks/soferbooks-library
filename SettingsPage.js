@@ -51,6 +51,15 @@ import { ContentFilterSettings, LibrarySourcesSettings } from './shomer/ContentF
 import { NakdanSettings } from './reader/NakdanNotices';
 import { onPackageChosen, FULL_LIBRARY } from './fullLibrary';
 import { FullLibraryPanel } from './FullLibraryPanel';
+import ReaderAppContext from './context';
+import { loadTabs } from './tabs/tabStorage';
+import {
+  MAX_APP_ICON_SHORTCUTS,
+  getShortcutPinnedIds,
+  loadShortcutPinnedIds,
+  subscribeShortcutPinnedIds,
+  toggleShortcutPinnedId,
+} from './tabs/tabShortcuts';
 const DEBUG_MODE = false;
 
 /**
@@ -244,6 +253,71 @@ const defaultBaseHost = Sefaria.api._baseHost;
 export const openSefariaLinkSettings = () =>
   Linking.openSettings().catch(e => console.log('could not open the app settings', e));
 
+export const AppIconShortcutsSettings = ({ langStyle }) => {
+  const { themeStr, interfaceLanguage } = useContext(GlobalStateContext);
+  const { readerTabs } = useContext(ReaderAppContext) || {};
+  const theme = getTheme(themeStr);
+  const [loadedTabs, setLoadedTabs] = useState([]);
+  const [pinnedIds, setPinnedIds] = useState(() => getShortcutPinnedIds());
+
+  useEffect(() => {
+    let alive = true;
+    const unsub = subscribeShortcutPinnedIds(ids => { if (alive) { setPinnedIds(ids); } });
+    loadShortcutPinnedIds().then(ids => { if (alive) { setPinnedIds(ids); } }).catch(() => {});
+    if (!readerTabs?.tabs) {
+      loadTabs().then(state => { if (alive && state?.tabs) { setLoadedTabs(state.tabs); } }).catch(() => {});
+    }
+    return () => { alive = false; unsub(); };
+  }, [readerTabs]);
+
+  const tabs = (readerTabs && Array.isArray(readerTabs.tabs)) ? readerTabs.tabs : loadedTabs;
+  const isHeb = interfaceLanguage === 'hebrew';
+  return (
+    <View style={styles.settingsSection} testID="app-icon-shortcuts-settings">
+      <Text style={[langStyle, styles.settingsSectionHeader, theme.tertiaryText]}>
+        {strings.settings.app_icon_shortcuts}
+      </Text>
+      <Text style={[langStyle, theme.secondaryText, { fontSize: 13, marginBottom: 8, textAlign: 'center' }]}>
+        {strings.formatString(strings.settings.app_icon_shortcuts_desc, { count: MAX_APP_ICON_SHORTCUTS })}
+      </Text>
+      {tabs.length === 0 ? (
+        <Text style={[langStyle, theme.secondaryText, { fontSize: 13, textAlign: 'center', fontStyle: 'italic' }]}>
+          {strings.settings.app_icon_shortcuts_empty}
+        </Text>
+      ) : (
+        <View style={{ flexDirection: isHeb ? 'row-reverse' : 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8 }}>
+          {tabs.map(tab => {
+            const pinned = pinnedIds.includes(tab.id);
+            const label = (isHeb && tab.heTitle) ? tab.heTitle : tab.title;
+            return (
+              <TouchableOpacity
+                key={tab.id}
+                testID={`shortcut-pin-${tab.id}`}
+                onPress={() => toggleShortcutPinnedId(tab.id)}
+                style={[
+                  {
+                    paddingHorizontal: 12,
+                    paddingVertical: 6,
+                    borderRadius: 16,
+                    borderWidth: 1,
+                  },
+                  pinned
+                    ? { borderColor: '#C49A3C', backgroundColor: '#C49A3C22' }
+                    : theme.lighterGreyBorder,
+                ]}
+              >
+                <Text style={[langStyle, pinned ? theme.text : theme.secondaryText, { fontSize: 13, fontWeight: pinned ? 'bold' : 'normal' }]}>
+                  {`${pinned ? '★ ' : ''}${label}`}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
+    </View>
+  );
+};
+
 export const SefariaLinksSetting = ({ langStyle }) => {
   const globalState = useContext(GlobalStateContext);
   const theme = getTheme(globalState.themeStr);
@@ -349,6 +423,7 @@ const SettingsPage = ({ close, openUri }) => {
           <ContentFilterSettings langStyle={langStyle} />
           <LibrarySourcesSettings langStyle={langStyle} />
           <NakdanSettings langStyle={langStyle} />
+          <AppIconShortcutsSettings langStyle={langStyle} />
 
           <View style={[styles.readerDisplayOptionsMenuDivider, styles.settingsDivider, theme.readerDisplayOptionsMenuDivider]}/>
           <View>

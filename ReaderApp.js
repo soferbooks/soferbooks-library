@@ -98,7 +98,13 @@ import {
   MAX_PINNED_TABS,
 } from "./tabs/tabState";
 import { loadTabs, makeDebouncedTabSaver } from "./tabs/tabStorage";
-import { addTabShortcut } from "./tabs/tabShortcuts";
+import {
+  addTabShortcut,
+  loadShortcutPinnedIds,
+  subscribeShortcutPinnedIds,
+  selectAppIconShortcuts,
+  syncAppIconShortcuts,
+} from "./tabs/tabShortcuts";
 import SplitTabPane from "./reader/SplitTabPane";
 import { makeScheduleSequence, sequenceAt, currentReading, hasSequence, isBounded, boundedNeighbours, readingIndexOf, isLastReading } from "./learningSchedules/scheduleSequence";
 import { chokDaySequence } from "./learningSchedules/chokDay";
@@ -329,6 +335,12 @@ class ReaderApp extends React.PureComponent {
     // nikud by computer (Dicta): its settings, shared with the Settings page
     this._nakdanSubscription = subscribeNakdanPrefs(nakdanPrefs => this.setState({ nakdanPrefs }));
     loadNakdanPrefs().catch(() => {});
+    this._shortcutPinnedIds = [];
+    this._shortcutPinnedSubscription = subscribeShortcutPinnedIds(ids => {
+      this._shortcutPinnedIds = ids;
+      this._syncAppIconShortcuts();
+    });
+    loadShortcutPinnedIds().catch(() => {});
     this.RNShakeSubscription = RNShake.addListener(() => {
       if (this.props.groggerActive === 'on' && Sefaria.isGettinToBePurimTime()) {
         SoundPlayer.playSoundFile('grogger', 'mp3');
@@ -352,6 +364,7 @@ class ReaderApp extends React.PureComponent {
     DownloadTracker.unsubscribe('ReaderApp')
     this._extrasSubscription && this._extrasSubscription();
     this._nakdanSubscription && this._nakdanSubscription();
+    this._shortcutPinnedSubscription && this._shortcutPinnedSubscription();
     this.dimensionsSubscription && this.dimensionsSubscription.remove();
     this._appStateSubscription && this._appStateSubscription.remove && this._appStateSubscription.remove();
     this._saveTabs.flush();
@@ -363,6 +376,9 @@ class ReaderApp extends React.PureComponent {
     }
     if (this.state.readerTabs !== prevState.readerTabs) {
       this._saveTabs(this.state.readerTabs);
+      this._syncAppIconShortcuts();
+    } else if (this.props.interfaceLanguage !== prevProps.interfaceLanguage) {
+      this._syncAppIconShortcuts();
     }
     if (!this.state.menuOpen && this.state.loaded && !this.state.sheet &&
         (TAB_PLACE_STATE_KEYS.some(k => this.state[k] !== prevState[k]) || this.props.textLanguage !== prevProps.textLanguage)) {
@@ -391,6 +407,15 @@ class ReaderApp extends React.PureComponent {
     } catch (e) {
       console.warn('Could not load reader preferences', e);
     }
+  };
+
+  _syncAppIconShortcuts = () => {
+    const items = selectAppIconShortcuts(
+      this.state.readerTabs.tabs,
+      this._shortcutPinnedIds || [],
+      this.props.interfaceLanguage
+    );
+    syncAppIconShortcuts(items);
   };
 
   promptLibraryDownload() {
