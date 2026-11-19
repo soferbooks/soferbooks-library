@@ -282,10 +282,14 @@ describe('the native shortcut module', () => {
 });
 
 describe('the tab strip', () => {
-  test('a tab is titled by its book and section, not the passage scrolled to', () => {
+  test('a tab is titled by its book and section, not the passage scrolled to, and Hebrew tabs are compact', () => {
     const tab = { title: 'Niddah', ref: 'Niddah 2a', heRef: 'נדה ב׳ א', segmentRef: 'Niddah 2a:2' };
     expect(tabLabel(tab, false)).toBe('Niddah 2a');
-    expect(tabLabel(tab, true)).toBe('נדה ב׳ א');
+    expect(tabLabel(tab, true)).toBe('נדה ב.');
+    expect(tabLabel({ title: 'Niddah', ref: 'Niddah 2b', heRef: 'נדה ב׳ ב', segmentRef: 'Niddah 2b:3' }, true)).toBe('נדה ב:');
+    expect(tabLabel({ title: 'Niddah', ref: 'Niddah 32a', heRef: 'נדה ל״ב א' }, true)).toBe('נדה לב.');
+    expect(tabLabel({ title: 'Rashi on Niddah', heTitle: 'רש"י על נדה', ref: 'Rashi on Niddah 2a', heRef: 'רש"י על נדה ב׳ א:ה׳' }, true)).toBe('רש"י על נדה ב.');
+    expect(tabLabel({ title: 'I Samuel', heTitle: 'שמואל א', ref: 'I Samuel', heRef: 'שמואל א' }, true)).toBe('שמואל א');
     expect(tabLabel({ ...tab, segmentRef: 'Niddah 2a:7' }, false)).toBe('Niddah 2a');
   });
 

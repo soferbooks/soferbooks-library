@@ -137,7 +137,7 @@ describe('tab labels name the passage', () => {
     expect(tabLabel({ ...tab, segmentRef: 'Shulchan Arukh, Orach Chayim 448:1' }, false, passage)).toBe('Shulchan Arukh, Orach Chayim 447');
     // the tab strip
     expect(tabLabel(tab, false)).toBe('Shulchan Arukh, Orach Chayim 447');
-    expect(tabLabel(tab, true)).toBe('שולחן ערוך, אורח חיים תמ״ז');
+    expect(tabLabel(tab, true)).toBe('שולחן ערוך, אורח חיים תמז');
   });
 
   test("an extra book's tab shows its Hebrew section names", () => {

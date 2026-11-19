@@ -23,12 +23,35 @@ import { isPinned } from './tabState';
 export const READER_TAB_BAR_HEIGHT = 38;
 
 /**
+ * Simplify a Hebrew section ref for the narrow tab strip:
+ * - Drop any trailing segment (`:ה׳`)
+ * - Talmud daf + ammud (`נדה ב׳ א` / `נדה ל״ב ב`) -> `נדה ב.` / `נדה לב:` (no geresh/gershayim)
+ * - Other trailing Hebrew numerals (`בראשית א׳`, `אורח חיים תמ״ז`) -> strip geresh/gershayim (`בראשית א`, `אורח חיים תמז`)
+ * Leaves book-title acronyms (e.g. `רש"י`, `רמב"ם`) and book-only titles (`שמואל א`) intact.
+ */
+const compactHeTabRef = (heRef, tab) => {
+  if (!heRef || (tab && tab.heTitle && heRef === tab.heTitle)) { return heRef; }
+  let s = heRef.replace(/:[א-ת0-9]+[׳״'"]*$/, '');
+  const isTalmudRef = Boolean(tab && tab.ref && /\s\d+[ab](?::\d+)?$/.test(tab.ref));
+  const dafPattern = isTalmudRef
+    ? /^(.+\s)([א-ת׳״'"]+)\s+([אב])[׳']?$/
+    : /^(.+\s)([א-ת]{1,4}[׳״'"]+[א-ת]?)\s+([אב])[׳']?$/;
+  const dafMatch = s.match(dafPattern);
+  if (dafMatch) {
+    const daf = dafMatch[2].replace(/[׳״'"]/g, '');
+    const ammud = dafMatch[3] === 'א' ? '.' : ':';
+    return `${dafMatch[1]}${daf}${ammud}`;
+  }
+  return s.replace(/(\s)([א-ת׳״'":]+)$/, (_, space, sec) => `${space}${sec.replace(/[׳״'"]/g, '')}`);
+};
+
+/**
  * Label for a tab or archived tab in the current menu language, with an extra book's Hebrew
  * section names in place of its section keys (extras/schema7.js).
- * The tab strip names the book and section/page the tab is at ("Niddah 2a"), so its title does
- * not change with every passage scrolled past (QA, 2026-11-11). With `{ passage: true }` (the
- * home page's Open Tabs cards and the archive list, which have room) it names the passage itself
- * ("Shulchan Arukh, Orach Chayim 447:11", QA round 2).
+ * The tab strip names the book and section/page the tab is at ("Niddah 2a", "נדה ב."), so its
+ * title is compact and does not change with every passage scrolled past. With `{ passage: true }`
+ * (the home page's Open Tabs cards and the archive list, which have room) it names the passage
+ * itself ("Shulchan Arukh, Orach Chayim 447:11", QA round 2).
  */
 export const tabLabel = (tab, isHeb, { passage = false } = {}) => {
   if (!tab) { return ''; }
@@ -40,7 +63,8 @@ export const tabLabel = (tab, isHeb, { passage = false } = {}) => {
     if (seg && tab.heRef && typeof Sefaria !== 'undefined' && Sefaria.toHeSegmentRef) {
       try { return Sefaria.toHeSegmentRef(tab.heRef, seg) || tab.heRef; } catch (e) { /* the section's ref */ }
     }
-    return tab.heRef || tab.heTitle || tab.ref || tab.title || '';
+    const raw = tab.heRef || tab.heTitle || tab.ref || tab.title || '';
+    return passage ? raw : compactHeTabRef(raw, tab);
   }
   return displayRef(seg || tab.ref || tab.title || '', tab.heRef);
 };
@@ -75,7 +99,7 @@ const TabChip = ({ tab, active, isHeb, onSelect, onClose, onLongPress, theme, on
   >
     {isPinned(tab) ? <PinnedTabBar /> : null}
     <Text numberOfLines={1} ellipsizeMode={'tail'} style={[localStyles.chipText, active ? theme.text : theme.tertiaryText, isHeb ? localStyles.heText : null]}>
-      {tabLabel(tab, isHeb, { passage: true })}
+      {tabLabel(tab, isHeb)}
     </Text>
     <TouchableOpacity
       onPress={() => onClose(tab.id)}
