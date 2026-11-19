@@ -1221,11 +1221,12 @@ Sefaria.util = {
     }
   },
   get_menu_language: function(interfaceLanguage, textLanguage) {
-    // Menus always stay in interfaceLanguage (even when reading a sefer in Hebrew or bilingual).
-    if (interfaceLanguage === 'hebrew' || interfaceLanguage === 'english') {
-      return interfaceLanguage;
+    // Book names, categories, and section headers follow textLanguage (bilingual shows Hebrew),
+    // falling back to interfaceLanguage only when textLanguage is unset.
+    if (textLanguage) {
+      return textLanguage === 'english' ? 'english' : 'hebrew';
     }
-    return textLanguage === 'hebrew' ? 'hebrew' : 'english';
+    return interfaceLanguage == 'hebrew' ? 'hebrew' : 'english';
   },
   objectHasNonNullValues: function(obj) {
     return !!obj && Object.keys(obj).length !== 0 && Object.values(obj).reduce((accum, curr) => accum || !!curr, false);
