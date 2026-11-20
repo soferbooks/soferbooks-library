@@ -20,6 +20,7 @@ import TextRange from './TextRange';
 import TextRangeContinuous from './TextRangeContinuous';
 import TextHeightMeasurer from './TextHeightMeasurer';
 import InlineCommentary from './reader/InlineCommentary';
+import { linkSourceKey } from './reader/inlineCommentaryPrefs';
 import { isCommentaryBook } from './reader/dibbur';
 import { commentaryTitles } from './extras/links';
 import { refHasSectionKeys } from './extras/schema7';
@@ -776,8 +777,11 @@ class TextColumn extends React.PureComponent {
   };
 
   renderSheetInline = item => {
-    const key = this.props.sheetInlineFor(item.data.content);
-    return key ? <InlineCommentary links={item.data.related.links} sourceKey={key} nakdan={false} /> : null;
+    // (the source as the links name it: "Onkelos", or the book's own title "Onkelos Genesis" offline)
+    const want = this.props.sheetInlineFor(item.data.content);
+    const links = item.data.related.links || [];
+    const key = want && links.map(linkSourceKey).find(k => k === want || (k && k.startsWith(`${want} `)));
+    return key ? <InlineCommentary links={links} sourceKey={key} nakdan={false} /> : null;
   };
 
   renderSheetMedia = ({ item }) => {
