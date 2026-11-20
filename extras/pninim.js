@@ -17,7 +17,9 @@ import * as sofer from './sofer';
 
 export const ID = 'pninim';
 // THE ONE LINE a new release of the Pninim library changes (made with --latest=false)
-export const RELEASE_TAG = 'pninim-2026-11-20';
+// (20b: the website's re-import from Pninim's latest repository - Birkei Yosef's simanim corrected;
+//  Artzot HaChaim left out, Otzaria's copy used on the site too)
+export const RELEASE_TAG = 'pninim-2026-11-20b';
 export const RELEASE_URL = `https://github.com/${sofer.REPO}/releases/download/${RELEASE_TAG}`;
 export const CATALOG_URL = `${RELEASE_URL}/pninim-catalog.json`;
 export const HOME_URL = 'https://pninim.org';
@@ -33,7 +35,8 @@ let lastBundle = null;
  * Zekenim is a fragment (10 thousand letters against 4.5 million); Birkei Yosef is one book here
  * with both parts; the others the same text, laid out by the website's import with their notes.
  * Not Artzot HaChaim: Otzaria's has its two commentaries (המאיר לארץ, ארץ יהודה) linked to it
- * passage by passage (1,323 links), which this copy - one book with them inside - does not.
+ * passage by passage (1,323 links), which Pninim's one book with them inside does not - so the
+ * website's library and this release leave Pninim's out (the website's session agreed, 2026-11-20).
  */
 export const BETTER_THAN = {
   'Birkei Yosef': ['ברכי יוסף על אורח חיים', 'ברכי יוסף על יורה דעה', 'הערות על ברכי יוסף על אורח חיים'],

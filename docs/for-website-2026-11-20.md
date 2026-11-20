@@ -15,7 +15,7 @@ The app can't write to the website's repository, so this note lists each change 
    | Artzot HaChaim | המאיר לארץ and ארץ יהודה as separate books, linked passage by passage (1,323 links) | one book with them inside, no links | Otzaria's |
 
    On the website:
-   - The library has a separate `המאיר לארץ` schema next to Pninim's Artzot HaChaim, which seems to contain it too. Check for that duplicate.
+   - ~~The library has a separate `המאיר לארץ` schema next to Pninim's Artzot HaChaim. Check for that duplicate.~~ Not a duplicate: the website's session found it is a different sefer, Rabbi Meir Soloveitchik's on the Rambam.
    - Check for any other sefer where the site keeps a worse copy when a better one is available.
    - Check Pninim's Birkei Yosef headings. The app's siman list shows "א" where סימן טו should be, and "סימן טו״ב".
 2. **Siddur kavanot.** Mordy asked to take out the kavanah written after Hashem's name (יאהדונהי) in Siddur Edot HaMizrach (Shaliehsaboo edition).
@@ -27,4 +27,6 @@ The app can't write to the website's repository, so this note lists each change 
    - before alot hashachar it is still the previous day (Friday night before dawn is still ליל שישי).
 4. **Cream reading colour.** There is now a third colour beside light and dark (`ThemeCream.js`): page #F3E9D2, panels #FBF4E4, text #2B2116, borders #E3D5B8. If the website's reader has a light/dark choice, add Cream the same way.
 5. **Pninim credit.** Each Pninim edition in the app shows their notice, project section and dedications under the edition, and "report an error" goes to contact@pninim.org, as their notice asks. Check the website gives the same credit wherever it shows those books (its printed sources pages already do, per `pninim.py`).
+**Done on the website, 2026-11-20** (reported by its Library Texts session): item 1 matches the app. The site takes Artzot HaChaim from Otzaria (with המאיר לארץ and ארץ יהודה linked to it) and has removed Pninim's copy. Birkei Yosef's simanim are corrected in `pninim_import.py`, and the Pninim books were re-imported from Pninim's latest repository. The app's release was rebuilt from them as `pninim-2026-11-20b`.
+
 6. **Pninim books for the app.** The app's Pninim library (release `pninim-2026-11-20`) is built from the website's export by `tools/pninim/build_pninim_release.py`, which calls `scripts/library_app/build_sofer_library.py --books`. If the Pninim books change on the website, tell the app so the release can be rebuilt.
