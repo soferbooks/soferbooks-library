@@ -2199,7 +2199,7 @@ const NOT_YET_COVERED = [
   // Settings screen render above does not load the packages it needs.
   'full_library.header', 'full_library.description', 'full_library.part_sefaria',
   'full_library.download', 'full_library.pause', 'full_library.resume', 'full_library.cancel',
-  'full_library.waiting_wifi', 'full_library.paused', 'full_library.offer_parts',
+  'full_library.waiting_wifi', 'full_library.paused', 'full_library.stopped', 'full_library.download_rest', 'full_library.offer_parts',
   'full_library.cancelled_title', 'full_library.part_no_room',
 
   // storage.js (QA round 14): the alert when a download does not fit on the phone - raised from

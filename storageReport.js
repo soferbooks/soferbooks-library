@@ -1,5 +1,7 @@
 /**
- * Where the app's storage goes: written to the device log once a session (a minute after start),
+ * Where the app's storage goes: written to the device log only when the phone is short of space
+ * (under LOW_ROOM free), at most once a day - it walks every file, and kept the 32-bit tablet busy
+ * for about 90 s at every start (owner, 2026-11-20: "as less often as necessary"),
  * so a phone's space can be looked at with `adb logcat | grep "Storage report"` without making
  * a debuggable build. Read-only; never throws.
  *
@@ -7,6 +9,12 @@
  *   library/: its .zip books, search files (_search.txt), corrections, _extras (by subfolder)
  */
 import * as FileSystem from 'expo-file-system/legacy';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { freeBytes } from './storage';
+
+export const LOW_ROOM = 1e9;               // (bytes free under which the report is written)
+const LAST_KEY = 'storageReport.last';
+const DAY = 24 * 3600 * 1000;
 
 const MB = n => Math.round((n || 0) / 1e5) / 10;
 
@@ -62,10 +70,27 @@ export async function storageReport() {
   console.log('Storage report: work/', MB(await sizeOf(`${root}work/`)), 'MB; local_search/', MB(await sizeOf(`${root}local_search/`)), 'MB');
 }
 
+/** Whether a report is wanted now: the phone short of space, and none written in the last day */
+export async function reportWanted(now = Date.now()) {
+  const free = await freeBytes();
+  if (free === null || free >= LOW_ROOM) { return false; }
+  let last = 0;
+  try { last = parseInt(await AsyncStorage.getItem(LAST_KEY), 10) || 0; } catch (e) { last = 0; }
+  return now - last >= DAY;
+}
+
 let started = false;
-/** Once a session, `delay` ms after start (the app's own start work first) */
+/** At most once a session, `delay` ms after start (the app's own start work first), when wanted */
 export function scheduleStorageReport(delay = 60000) {
   if (started) { return; }
   started = true;
-  setTimeout(() => { storageReport().catch(e => console.log('Storage report failed', e)); }, delay);
+  setTimeout(async () => {
+    try {
+      if (!(await reportWanted())) { return; }
+      await AsyncStorage.setItem(LAST_KEY, String(Date.now())).catch(() => {});
+      await storageReport();
+    } catch (e) {
+      console.log('Storage report failed', e);
+    }
+  }, delay);
 }

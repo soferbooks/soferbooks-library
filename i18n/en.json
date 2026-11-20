@@ -207,6 +207,8 @@
     "full_library.part_progress": "{done} of {total} books downloaded",
     "full_library.part_sefaria": "Sefaria library",
     "full_library.part_size": "{download} download, about {phone} stored",
+    "full_library.stopped": "Not downloading now",
+    "full_library.download_rest": "Download the rest",
     "full_library.pause": "Pause",
     "full_library.paused": "Paused",
     "full_library.paused_low_space": "Paused: device is almost full ({free} free). Make room, then tap Resume.",

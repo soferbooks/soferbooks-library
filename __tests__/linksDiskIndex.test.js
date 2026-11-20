@@ -41,6 +41,28 @@ test('a deleted book\'s records come out of the index alone (no rebuild: 20 minu
   expect(map.get('Book A, S1')).toEqual([]);
 });
 
+test('an updated book\'s records replace its earlier ones in the index (no whole rebuild)', async () => {
+  links._reset();
+  await links.saveLinks('Book C', { title: 'Book C', links: [link('Exodus 2:1', 'Book C, S1:1', 'base')] });
+  let map = await links.sectionIndex(['Book C'], 'Exodus 2');
+  expect(map.get('Exodus 2').map(r => r.anchor)).toEqual(['Exodus 2:1']);
+
+  // the book updated: its passage now on Exodus 2:5
+  await links.saveLinks('Book C', { title: 'Book C', links: [link('Exodus 2:5', 'Book C, S1:1', 'base')] });
+  map = await links.sectionIndex(['Book C'], 'Exodus 2');
+  expect(map.get('Exodus 2').map(r => r.anchor)).toEqual(['Exodus 2:5']);
+  expect(links._lastIndexWork()).toBe('incremental');
+});
+
+test('the books\' summaries: what the obvious connections need, without reading every links file', async () => {
+  links._resetSummary();
+  await links.saveLinks('Book D', { title: 'Book D', heTitle: 'ספר ד על בראשית', secs: [['Book D, S1', 'x']], inferredOn: 'Genesis' });
+  const s = await links.summariesFor(['Book D', 'Not Downloaded']);
+  expect(s).toEqual({ 'Book D': { heTitle: 'ספר ד על בראשית', secs: true, inferredOn: 'Genesis' } });
+  await links.removeLinks('Book D');
+  expect(await links.summariesFor(['Book D'])).toEqual({});
+});
+
 test('a section is kept in its book\'s file', () => {
   expect(links.shardOf('Niddah 2b')).toBe('Niddah');
   expect(links.shardOf('Shulchan Arukh, Orach Chayim 447')).toBe('Shulchan Arukh, Orach Chayim');

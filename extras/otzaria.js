@@ -119,13 +119,36 @@ export function entryForPath(path, hash, rules = RULES) {
   };
 }
 
+/**
+ * Otzaria's folders of commentaries ("<folder>/מפרשים/...") on a book whose commentaries Sefaria's
+ * library groups ("Commentary") -> that group, so they stand with the others (owner, 2026-11-20:
+ * המאיר לארץ on the Rambam was on an Otzaria shelf of its own). 288 on the Mishneh Torah, 148 on
+ * the Shulchan Arukh, 61 on the Yerushalmi (2026-11); the others stay on Otzaria's shelves.
+ */
+export const COMMENTARY_SHELVES = {
+  'הלכה/משנה תורה': [['Halakhah', 'Mishneh Torah', 'Commentary'], ['הלכה', 'משנה תורה', 'מפרשים']],
+  'הלכה/שולחן ערוך': [['Halakhah', 'Shulchan Arukh', 'Commentary'], ['הלכה', 'שולחן ערוך', 'מפרשים']],
+  'תלמוד ירושלמי': [['Talmud', 'Yerushalmi', 'Commentary'], ['תלמוד', 'ירושלמי', 'מפרשים']],
+};
+const BOOKS_DIR = '/ספרים/אוצריא/';
+
+/** The entry on the shelf it belongs on (a catalogue kept on the phone has the one it was made with) */
+export function currentEntry(e) {
+  if (!e || typeof e.id !== 'string' || !e.id.includes(BOOKS_DIR)) { return e; }
+  const parts = e.id.split(BOOKS_DIR)[1].split('/').slice(0, -1);
+  const i = parts.indexOf('מפרשים');
+  const shelf = i > 0 && COMMENTARY_SHELVES[parts.slice(0, i).join('/')];
+  if (!shelf) { return e; }
+  return {...e, categories: shelf[0], heCategories: shelf[1]};
+}
+
 /** files_manifest.json -> the catalogue's entries */
 export function parseCatalog(manifestText, rules = RULES) {
   const manifest = typeof manifestText === 'string' ? JSON.parse(manifestText) : manifestText;
   const out = [];
   for (const [path, info] of Object.entries(manifest || {})) {
     if (!path.endsWith('.txt')) { continue; }
-    const e = entryForPath(path, info && info.hash, rules);
+    const e = currentEntry(entryForPath(path, info && info.hash, rules));
     if (e) {
       // (whether Otzaria has links for it: downloaded with it - extras/links.js)
       e.links = !!manifest[linksPathFor(path)];
@@ -300,6 +323,7 @@ const textOf = doc => (doc && typeof doc === 'object' ? doc.text : doc);
 
 export default {
   id: ID,
+  currentEntry,
   converterVersion: CONVERTER_VERSION,
   catalogUrl: CATALOG_URL,
   parseCatalog,

@@ -73,6 +73,29 @@ export const QueueStatus = ({ langStyle, theme, isHebrew, onCancel }) => {
     queue.resume();
     if (sefariaUnderWay) { Tracker.resume().catch(e => console.log('full library: resume', e)); }
   };
+  // (not downloading - finished, or stopped with books still to come: it said "2 of 5" with a Pause
+  //  button while nothing downloaded, the 32-bit tablet, 2026-11-20): only the libraries with books
+  //  still to download, said plainly, and a link that downloads them
+  if (!st.running && !sefariaUnderWay) {
+    const left = st.sources.map(id => [id, queue.progressOf(id)]).filter(([, p]) => p.done < p.total);
+    if (!left.length) { return null; }
+    return (
+      <View testID="full-library-queue">
+        {left.map(([id, p]) => (
+          <Text key={id} style={[langStyle, theme.secondaryText, local.detail]}>
+            {strings.formatString(strings.full_library.progress, {
+              source: partName(id, strings, isHebrew), done: p.done.toLocaleString(), total: p.total.toLocaleString(),
+              done_size: formatSize(p.doneKB), total_size: formatSize(p.totalKB),
+            })}
+          </Text>
+        ))}
+        <Text style={[langStyle, theme.secondaryText, local.detail]} testID="full-library-stopped">{strings.full_library.stopped}</Text>
+        <View style={local.row}>
+          <Link text={strings.full_library.download_rest} onPress={resume} langStyle={langStyle} theme={theme} testID="full-library-download-rest" />
+        </View>
+      </View>
+    );
+  }
   return (
     <View testID="full-library-queue">
       {sefariaUnderWay ? (

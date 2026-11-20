@@ -55,6 +55,7 @@ import pninim from './pninim';
 import {READY_MADE} from '../sources';
 import {bookFiles, setEnglishNameLookup} from './schema7';
 import * as links from './links';
+import {inferBase} from './inferred';
 import {chooseBooks, addToToc, categoryNames, replacementForRef, redirectNameResults as redirectNames} from './catalog';
 import {bookLines} from '../localSearch';
 import {clearOfflineSearchCache} from '../offlineSearch';
@@ -829,10 +830,25 @@ async function inferNow(changed) {
     });
   }
   const titles = installedTitles().filter(t => !state.installed[t].companionOf);
+  // (only the books whose base may have changed are read - the book downloaded, those whose base
+  //  is now another - and the downloaded books they are on: the books' summaries tell which.
+  //  Reading every links file, 380 MB, took minutes on the 32-bit tablet - 2026-11-20)
+  const books = inferenceBooks();
+  const sums = await links.summariesFor(titles);
   const files = {};
   for (const t of titles) {
+    const sm = sums[t];
+    if (!sm || !sm.secs) { continue; }
+    const found = inferBase(sm.heTitle, books, `extra:${t}`);
+    const on = found.book ? found.book.key : null;
+    if (t !== changed && (!changed || on !== `extra:${changed}`) && (sm.inferredOn || null) === on) { continue; }
     const f = await links.readLinks(t);
-    if (f) { files[t] = f; }
+    if (!f) { continue; }
+    files[t] = f;
+    if (found.book && found.book.kind === 'extra' && !files[found.book.title]) {
+      const g = await links.readLinks(found.book.title);
+      if (g) { files[found.book.title] = g; }
+    }
   }
   if (!Object.keys(files).length) { return; }
   const loadSection = async ref => {
@@ -860,7 +876,7 @@ async function inferNow(changed) {
     } catch (e) { /* not downloaded */ }
     try { return await require('../offlineOnline').textToc(title); } catch (e) { return null; }
   };
-  const done = await links.inferAll({files, books: inferenceBooks(), changed, loadSection, loadIndex});
+  const done = await links.inferAll({files, books, changed, loadSection, loadIndex});
   for (const t of done) {
     if (state.installed[t]) { await links.saveLinks(t, files[t]); }
   }

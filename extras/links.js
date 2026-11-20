@@ -205,16 +205,81 @@ async function writeJSON(path, data) {
 
 export const readLinks = title => readJSON(linksFile(title));
 export async function saveLinks(title, data) {
-  await writeJSON(linksFile(title), data);
+  await writeLinksFile(title, data);
   invalidate(title);
 }
+
+/**
+ * A book's links file written. The version it replaces is kept aside (removed/, unless one is
+ * there already: the index still has that one's records) so the index on the phone swaps the
+ * book's records - readyOnDisk: an updated book kept its old records beside the new ones
+ * until the whole index was made again (2026-11-20). And the book's summary noted (summariesFor).
+ */
+async function writeLinksFile(title, data) {
+  const from = linksFile(title);
+  const aside = `${REMOVED_DIR()}${md5(title)}.json`;
+  const [now, kept] = await Promise.all([FileSystem.getInfoAsync(from).catch(() => null), FileSystem.getInfoAsync(aside).catch(() => null)]);
+  if (now && now.exists && !(kept && kept.exists)) {
+    await FileSystem.makeDirectoryAsync(REMOVED_DIR(), {intermediates: true}).catch(() => {});
+    await FileSystem.moveAsync({from, to: aside}).catch(() => {});
+  }
+  await writeJSON(from, data);
+  await noteSummary(title, data);
+}
+
+// ---------------------------------------------------------------- the books' summaries
+// (what the obvious connections need to know of every downloaded book - its Hebrew name, whether it
+//  has sections to tie, what it was tied to - kept in one small file, so a download or a deletion
+//  reads only the books whose base may have changed: reading all 1,971 books' links files, 380 MB,
+//  took minutes on the 32-bit tablet each time - 2026-11-20)
+const SUMMARY_FILE = () => `${DIR()}summary.json`;
+let summary = null;
+let summarySaving = null;
+const summarize = f => ({heTitle: f.heTitle || null, secs: Array.isArray(f.secs) && f.secs.length > 0, inferredOn: f.inferredOn || null});
+async function loadSummary() {
+  if (!summary) { summary = (await readJSON(SUMMARY_FILE())) || {}; }
+  return summary;
+}
+function saveSummarySoon() {
+  if (!summarySaving) {
+    summarySaving = new Promise(resolve => setTimeout(resolve, 1000))
+      .then(() => { summarySaving = null; return writeJSON(SUMMARY_FILE(), summary); })
+      .catch(() => { summarySaving = null; });
+  }
+  return summarySaving;
+}
+async function noteSummary(title, f) {
+  await loadSummary();
+  if (f) { summary[title] = summarize(f); } else { delete summary[title]; }
+  saveSummarySoon();
+}
+/** {title: {heTitle, secs, inferredOn}} of these books (a book not noted yet: its file read once) */
+export async function summariesFor(titles) {
+  await loadSummary();
+  let added = false;
+  for (const t of titles) {
+    if (summary[t]) { continue; }
+    const f = await readJSON(linksFile(t));
+    if (f) { summary[t] = summarize(f); added = true; }
+  }
+  if (added) { saveSummarySoon(); }
+  const out = {};
+  titles.forEach(t => { if (summary[t]) { out[t] = summary[t]; } });
+  return out;
+}
+export const _resetSummary = () => { summary = null; };
 
 export async function removeLinks(title) {
   // (kept aside until the index on the phone has taken out this book's records - readyOnDisk -
   //  instead of the whole index made again: 20 minutes on the 32-bit tablet, with no connections
   //  of the extra books meanwhile, after Otzaria's copies were deleted - 2026-11-20)
   const info = await FileSystem.getInfoAsync(linksFile(title)).catch(() => null);
-  if (info && info.exists) {
+  const kept = await FileSystem.getInfoAsync(`${REMOVED_DIR()}${md5(title)}.json`).catch(() => null);
+  await noteSummary(title, null);
+  if (info && info.exists && kept && kept.exists) {
+    // (an earlier version is kept aside already: the index still has its records)
+    await FileSystem.deleteAsync(linksFile(title), {idempotent: true}).catch(() => {});
+  } else if (info && info.exists) {
     await FileSystem.makeDirectoryAsync(REMOVED_DIR(), {intermediates: true}).catch(() => {});
     try {
       await FileSystem.moveAsync({from: linksFile(title), to: `${REMOVED_DIR()}${md5(title)}.json`});
@@ -239,7 +304,7 @@ export async function collect({title, heTitle, tree, where, fetchCitations, stil
   if (!tree) {
     // (a book that came ready made - the Sofer Library's: only the links its files give)
     const data = {v: VERSION, title, heTitle, links: own, pending: []};
-    await writeJSON(linksFile(title), data).catch(e => console.log('extras: links', e));
+    await writeLinksFile(title, data).catch(e => console.log('extras: links', e));
     invalidate(title);
     return {data, later: Promise.resolve(false)};
   }
@@ -267,7 +332,7 @@ export async function collect({title, heTitle, tree, where, fetchCitations, stil
       console.log('extras: Otzaria\'s links of', title, e);
     }
   }
-  await writeJSON(linksFile(title), data).catch(e => console.log('extras: links', e));
+  await writeLinksFile(title, data).catch(e => console.log('extras: links', e));
   invalidate(title);
   let later = Promise.resolve(false);
   if (where && where.dictaPages && fetchCitations) {
@@ -278,7 +343,7 @@ export async function collect({title, heTitle, tree, where, fetchCitations, stil
         if (!cites.length || !stillWanted()) { return false; }
         const now = (await readJSON(linksFile(title))) || data;
         now.links = (now.links || []).concat(cites);
-        await writeJSON(linksFile(title), now);
+        await writeLinksFile(title, now);
         invalidate(title);
         return true;
       } catch (e) {
@@ -724,7 +789,7 @@ async function buildOnDisk(titles) {
 /**
  * Books downloaded or updated since the index was made: their records added to it (their own links,
  * their pending ones by the lines of the books they point to, their obvious connections). A book
- * updated keeps its earlier records too until the index is next made whole (a book deleted).
+ * updated has its earlier records taken out first (removeFromDisk, its earlier file kept aside).
  */
 /** The index's records a book's links file makes ({shard: {section: [record]}}), and whether it is a commentary */
 async function recordsOf(f, titles, lineBooks = new Map()) {
@@ -815,10 +880,20 @@ async function removedFiles() {
   const dir = REMOVED_DIR();
   let names = [];
   try { names = await FileSystem.readDirectoryAsync(dir); } catch (e) { return []; }
+  // (taken: renamed first, so a version set aside again while the index is updated keeps its own
+  //  name and waits for the next time - its records are taken out then, and the newest added after)
+  let n = 0;
+  for (const name of names.filter(x => x.endsWith('.json') && !x.endsWith('.taking.json'))) {
+    const to = `${dir}${name.replace(/\.json$/, '')}.${Date.now()}-${n++}.taking.json`;
+    await FileSystem.moveAsync({from: `${dir}${name}`, to}).catch(() => {});
+  }
+  try { names = await FileSystem.readDirectoryAsync(dir); } catch (e) { return []; }
   const out = [];
-  for (const n of names.filter(x => x.endsWith('.json'))) {
-    const f = await readJSON(`${dir}${n}`);
-    if (f) { out.push({title: f.title, f, path: `${dir}${n}`}); }
+  for (const name of names.filter(x => x.endsWith('.taking.json'))) {
+    const f = await readJSON(`${dir}${name}`);
+    if (f) { out.push({title: f.title, f, path: `${dir}${name}`}); } else {
+      await FileSystem.deleteAsync(`${dir}${name}`, {idempotent: true}).catch(() => {});
+    }
   }
   return out;
 }
@@ -847,7 +922,8 @@ export function readyOnDisk(titles) {
       && titles.every(t => had.has(t) || added.includes(t))
       && m.titles.every(t => titles.includes(t) || removedTitles.has(t));
     if (onlyAdded) {
-      const gone = removed.filter(r => had.has(r.title) && !titles.includes(r.title));
+      // (deleted books, and the earlier version of a book updated since: their records out)
+      const gone = removed.filter(r => had.has(r.title));
       const kept = gone.length ? await removeFromDisk(m, gone, titles) : m;
       const made = await appendOnDisk(kept, added.filter(t => titles.includes(t)), titles);
       await dropRemoved();

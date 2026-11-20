@@ -278,6 +278,28 @@ describe('the Settings panel', () => {
     act(() => inst.unmount());
   });
 
+  test('a download that stopped with books still to come says so (no Pause), and its link downloads them', async () => {
+    extras.enabled = { otzaria: true };
+    extras.installed = { 'Otz A': 'otzaria' };
+    queue._reset({ sources: ['otzaria'], running: false, paused: false }, { polite: 0, retry: 0 });
+    const inst = await renderPanel();
+    expect(inst.root.findAllByProps({ testID: 'full-library-pause' })).toHaveLength(0);
+    expect(texts(inst).join('|')).toContain('Not downloading now');
+    await act(async () => { await inst.root.findByProps({ testID: 'full-library-download-rest' }).props.onPress(); });
+    await act(async () => { await queue._loop(); });
+    expect(extras.downloads).toContain('Otz B');
+    act(() => inst.unmount());
+  });
+
+  test('a finished download shows nothing', async () => {
+    extras.enabled = { otzaria: true };
+    extras.installed = { 'Otz A': 'otzaria', 'Otz B': 'otzaria' };
+    queue._reset({ sources: ['otzaria'], running: false, paused: false });
+    const inst = await renderPanel();
+    expect(inst.root.findAllByProps({ testID: 'full-library-queue' })).toHaveLength(0);
+    act(() => inst.unmount());
+  });
+
   test('Cancel deletes the half-downloaded files, keeps the books, and says so', async () => {
     const clean = jest.spyOn(storage, 'cleanWork');
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});

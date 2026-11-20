@@ -207,6 +207,8 @@
     "full_library.part_progress": "{done} מתוך {total} ספרים הורדו",
     "full_library.part_sefaria": "ספריית ספריא",
     "full_library.part_size": "{download} להורדה, כ-{phone} באחסון",
+    "full_library.stopped": "ההורדה אינה פעילה כעת",
+    "full_library.download_rest": "הורדת השאר",
     "full_library.pause": "השהיה",
     "full_library.paused": "מושהה",
     "full_library.paused_low_space": "מושהה: המכשיר כמעט מלא (פנויים {free}). פנו מקום, ואז הקישו על המשך.",
