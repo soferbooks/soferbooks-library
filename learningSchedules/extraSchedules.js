@@ -18,7 +18,7 @@
  */
 import { HDate, gematriya } from '@hebcal/core';
 import HEBCAL from './data/hebcalSchedules.json';
-import { chokCalendarItem } from './chokDay';
+import { chokSheetCalendarItem } from './chokSheet';
 
 export const TITLES = {
   shnayimMikra: { en: 'Shnayim Mikra', he: 'שניים מקרא ואחד תרגום' },
@@ -92,9 +92,10 @@ export function mishnahBerurah(date) {
 
 // ---------- Chok LeYisrael ----------
 
-// The whole sefer, downloaded from Otzaria's library and read as one daily unit
-// (learningSchedules/chokDay.js, extras/chok.js). Sefaria's item is only a link to its website.
-export const chokLeYisrael = (date, options = {}) => chokCalendarItem(date, options);
+// The day as Sefaria's Chok LeYisrael sheets lay it out, on one page (learningSchedules/chokSheet.js):
+// until alos hashachar it is still the day before, and from Thursday's sunset Thursday night
+// (ליל שישי). Sefaria's own calendar item is only a link to its website.
+export const chokLeYisrael = (date, options = {}) => chokSheetCalendarItem(date, options);
 
 // ---------- Shnayim Mikra ----------
 

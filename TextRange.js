@@ -112,7 +112,7 @@ const TextRange = React.memo(({
           {
             showHe ? (
               <View style={{flex: 4.5, paddingRight: biLayout == 'stacked' ? 0 : (biLayout == 'sidebyside' ? 10 : 0), paddingLeft: biLayout == 'stacked' ? 0 : (biLayout == 'sidebysiderev' ? 10 : 0)}}>
-                {displayRef ? <Text style={[styles.he, styles.textListCitation, {marginBottom: -10}, theme.textListCitation]}>{rowData.content.sourceHeRef}</Text> : null}
+                {displayRef && rowData.content.sourceHeRef ? <Text style={[styles.he, styles.textListCitation, {marginBottom: -10}, theme.textListCitation]}>{rowData.content.sourceHeRef}</Text> : null}
                 <TextSegment
                   fontSize={fontSize}
                   themeStr={themeStr}
@@ -135,7 +135,7 @@ const TextRange = React.memo(({
           {
             showEn ? (
               <View style={{flex: 5.5, paddingTop: showHe ? biLayout == 'stacked' ? 5 : 0 : 0, paddingRight: biLayout == 'stacked' ? 0 : (biLayout == 'sidebyside' ? 0 : 10), paddingLeft: biLayout == 'stacked' ? 0 : (biLayout == 'sidebysiderev' ? 0 : 10)}}>
-                {displayRef ? <Text style={[styles.en, styles.textListCitation, theme.textListCitation, {marginBottom: 0}]}>{rowData.content.sourceRef}</Text> : null}
+                {displayRef && rowData.content.sourceHeRef ? <Text style={[styles.en, styles.textListCitation, theme.textListCitation, {marginBottom: 0}]}>{rowData.content.sourceRef}</Text> : null}
                 <TextSegment
                   fontSize={fontSize}
                   themeStr={themeStr}

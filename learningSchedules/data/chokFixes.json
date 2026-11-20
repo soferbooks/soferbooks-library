@@ -1,0 +1,850 @@
+{
+ "note": "Checked 2026-11-20 against Sefaria: Zohar refs renumbered since the sheets were made (matched on Sefaria's Hebrew Translation of the Zohar); sheet-written passages found in a Sefaria book (ref: tapping them shows its connections).",
+ "zohar": {
+  "אחרי מות|sun": {
+   "old": "Zohar, Achrei Mot 33",
+   "new": "Zohar, Achrei Mot 31:192-32:201"
+  },
+  "אחרי מות|thu": {
+   "old": "Zohar, Achrei Mot 74",
+   "new": "Zohar, Achrei Mot 71:403-73:407"
+  },
+  "אחרי מות|tue": {
+   "old": "Zohar, Achrei Mot 41",
+   "new": "Zohar, Achrei Mot 40:241-41:247"
+  },
+  "אחרי מות|wed": {
+   "old": "Zohar, Achrei Mot 49",
+   "new": "Zohar, Achrei Mot 47:290-48:294"
+  },
+  "אמור|mon": {
+   "old": "Zohar, Emor 13",
+   "new": "Zohar, Emor 11:33-37"
+  },
+  "אמור|sun": {
+   "old": "Zohar, Emor 3",
+   "new": "Zohar, Emor 2:5-9"
+  },
+  "אמור|thu": {
+   "old": "Zohar, Emor 32",
+   "new": "Zohar, Emor 31:145-149"
+  },
+  "אמור|tue": {
+   "old": "Zohar, Emor 16",
+   "new": "Zohar, Emor 15:54-16:58"
+  },
+  "אמור|wed": {
+   "old": "Zohar, Emor 25",
+   "new": "Zohar, Emor 24:112-118"
+  },
+  "בא|mon": {
+   "old": "Zohar, Bo 10",
+   "new": "Zohar, Bo 8:165-9:168"
+  },
+  "בא|sun": {
+   "old": "Zohar, Bo 2",
+   "new": "Zohar, Bo 1:1-4"
+  },
+  "בא|thu": {
+   "old": "Zohar, Beshalach 1",
+   "new": "Zohar, Bo 17:240-246"
+  },
+  "בא|tue": {
+   "old": "Zohar, Bo 12",
+   "new": "Zohar, Bo 11:178-184"
+  },
+  "בהעלותך|fri": {
+   "old": "Zohar, Vayakhel 12",
+   "new": "Zohar, Vayakhel 11:157-12:158"
+  },
+  "בהעלותך|mon": {
+   "old": "Zohar, Beha'alotcha 6",
+   "new": "Zohar, Beha'alotcha 5:25-28"
+  },
+  "בהעלותך|thu": {
+   "old": "Zohar, Beha'alotcha 18",
+   "new": "Zohar, Beha'alotcha 17:95-99"
+  },
+  "בהעלותך|tue": {
+   "old": "Zohar, Beha'alotcha 10",
+   "new": "Zohar, Beha'alotcha 9:48-51"
+  },
+  "בהר|fri": {
+   "old": "Zohar, Terumah 16",
+   "new": "Zohar, Terumah 15:183-16:186"
+  },
+  "בהר|mon": {
+   "old": "Zohar, Behar 3",
+   "new": "Zohar, Behar 2:6-3:10"
+  },
+  "בהר|sun": {
+   "old": "Zohar, Behar 2",
+   "new": "Zohar, Behar 1:1-2:5"
+  },
+  "בהר|thu": {
+   "old": "Zohar, Addenda, Volume III 6:28-32",
+   "new": "Zohar, Behar 9:58-62"
+  },
+  "בהר|wed": {
+   "old": "Zohar, Behar 9",
+   "new": "Zohar, Behar 8:52-57"
+  },
+  "בחוקותי|fri": {
+   "old": "Zohar, Terumah 20",
+   "new": "Zohar, Terumah 21:214-215"
+  },
+  "בחוקותי|sun": {
+   "old": "Zohar, Bechukotai 6",
+   "new": "Zohar, Bechukotai 5:20-6:23"
+  },
+  "בחוקותי|thu": {
+   "old": "Zohar, Bechukotai 16",
+   "new": "Zohar, Bechukotai 15:56-16:61"
+  },
+  "בחוקותי|wed": {
+   "old": "Zohar, Bechukotai 14",
+   "new": "Zohar, Bechukotai 13:49-51"
+  },
+  "בלק|sun": {
+   "old": "Zohar, Balak 15",
+   "new": "Zohar, Balak 14:186-191"
+  },
+  "במדבר|mon": {
+   "old": "Zohar, Bamidbar 3",
+   "new": "Zohar, Bamidbar 2:21-26"
+  },
+  "במדבר|thu": {
+   "old": "Zohar, Nasso 1",
+   "new": "Zohar, Bamidbar 8:73-77"
+  },
+  "בראשית|mon": {
+   "old": "Zohar, Introduction 18",
+   "new": "Zohar, Introduction 17:169-173"
+  },
+  "בראשית|thu": {
+   "old": "Zohar, Introduction 30",
+   "new": "Zohar, Introduction 29:233-236"
+  },
+  "בראשית|wed": {
+   "old": "Zohar, Addenda, Volume I 39:334",
+   "new": "Zohar, Bereshit 75:176-179"
+  },
+  "האזינו|tue": {
+   "old": "Zohar, Vayeilech 8",
+   "new": "Zohar, Vayeilech 7:42-8:45"
+  },
+  "האזינו|wed": {
+   "old": "Zohar, Ha'Azinu 1",
+   "new": "Zohar, Vayeilech 8:46-9:49"
+  },
+  "וארא|mon": {
+   "old": "Zohar, Vaera 16",
+   "new": "Zohar, Vaera 15:125-127"
+  },
+  "וארא|sun": {
+   "old": "Zohar, Vaera 9",
+   "new": "Zohar, Vaera 8:77-81"
+  },
+  "וארא|thu": {
+   "old": "Zohar, Bo 1",
+   "new": "Zohar, Vaera 22:201-206"
+  },
+  "וארא|wed": {
+   "old": "Zohar, Vaera 20",
+   "new": "Zohar, Vaera 19:185-188"
+  },
+  "ואתחנן|mon": {
+   "old": "Zohar, Vaetchanan 3",
+   "new": "Zohar, Vaetchanan 2:7-3:11"
+  },
+  "ואתחנן|sun": {
+   "old": "Zohar, Vaetchanan 2",
+   "new": "Zohar, Vaetchanan 1:1-2:7"
+  },
+  "ואתחנן|tue": {
+   "old": "Zohar, Vaetchanan 8",
+   "new": "Zohar, Vaetchanan 6:32-7:36"
+  },
+  "וזאת הברכה|fri": {
+   "old": "Zohar, Emor 25",
+   "new": "Zohar, Emor 24:118-25:121"
+  },
+  "וזאת הברכה|sun": {
+   "old": "Zohar, Emor 42",
+   "new": "Zohar, Emor 41:259-42:264"
+  },
+  "וזאת הברכה|thu": {
+   "old": "Zohar, Tetzaveh 17",
+   "new": "Zohar, Tetzaveh 15:130-16:140"
+  },
+  "ויגש|mon": {
+   "old": "Zohar, Vayigash 6",
+   "new": "Zohar, Vayigash 5:48-52"
+  },
+  "ויחי|wed": {
+   "old": "Zohar, Vayechi 63",
+   "new": "Zohar, Vayechi 62:629-636"
+  },
+  "וילך|fri": {
+   "old": "Zohar, Vayakhel 17",
+   "new": "Zohar, Vayakhel 16:214-216"
+  },
+  "ויצא|thu": {
+   "old": "Zohar, Vayishlach 1",
+   "new": "Zohar, Vayetzei 43:384-389"
+  },
+  "ויקהל|wed": {
+   "old": "Zohar, Vayakhel 41",
+   "new": "Zohar, Vayakhel 40:467-470"
+  },
+  "ויקרא|sun": {
+   "old": "Zohar, Vayikra 3",
+   "new": "Zohar, Vayikra 2:26-31"
+  },
+  "ויקרא|thu": {
+   "old": "Zohar, Vayikra 62",
+   "new": "Zohar, Vayikra 61:401-408"
+  },
+  "ויקרא|tue": {
+   "old": "Zohar, Vayikra 8",
+   "new": "Zohar, Vayikra 7:62-8:68"
+  },
+  "ויקרא|wed": {
+   "old": "Zohar, Vayikra 61",
+   "new": "Zohar, Vayikra 60:395-400"
+  },
+  "וירא|sun": {
+   "old": "Zohar, Vayera 7",
+   "new": "Zohar, Vayera 6:106-114"
+  },
+  "וירא|wed": {
+   "old": "Zohar, Vayera 18",
+   "new": "Zohar, Vayera 20:289-294"
+  },
+  "וישב|thu": {
+   "old": "Zohar, Vayeshev 23",
+   "new": "Zohar, Vayeshev 22:237-240"
+  },
+  "וישב|wed": {
+   "old": "Zohar, Vayeshev 21",
+   "new": "Zohar, Vayeshev 20:204-209"
+  },
+  "וישלח|mon": {
+   "old": "Zohar, Vayishlach 2",
+   "new": "Zohar, Vayishlach 1:15-20"
+  },
+  "וישלח|thu": {
+   "old": "Zohar, Vayeshev 1",
+   "new": "Zohar, Vayishlach 30:274-278"
+  },
+  "וישלח|wed": {
+   "old": "Zohar, Vayishlach 9",
+   "new": "Zohar, Vayishlach 8:117-120"
+  },
+  "חוקת|sun": {
+   "old": "Zohar, Chukat 5",
+   "new": "Zohar, Chukat 4:21-25"
+  },
+  "חוקת|thu": {
+   "old": "Zohar, Balak 1",
+   "new": "Zohar, Chukat 12:85-90"
+  },
+  "חוקת|tue": {
+   "old": "Zohar, Chukat 10",
+   "new": "Zohar, Chukat 9:63-68"
+  },
+  "חוקת|wed": {
+   "old": "Zohar, Chukat 12",
+   "new": "Zohar, Chukat 11:77-83"
+  },
+  "חיי שרה|mon": {
+   "old": "Zohar, Chayei Sara 8",
+   "new": "Zohar, Chayei Sara 17:136-139"
+  },
+  "חיי שרה|sun": {
+   "old": "Zohar, Chayei Sara 17",
+   "new": "Zohar, Chayei Sara 16:118-17:127"
+  },
+  "חיי שרה|wed": {
+   "old": "Zohar, Chayei Sara 22",
+   "new": "Zohar, Chayei Sara 21:219-223"
+  },
+  "יתרו|thu": {
+   "old": "Zohar, Yitro 28",
+   "new": "Zohar, Yitro 27:480-484"
+  },
+  "כי תבוא|sun": {
+   "old": "Zohar, Pinchas 59",
+   "new": "Zohar, Pinchas 58:351-353"
+  },
+  "כי תבוא|tue": {
+   "old": "Zohar, Vayechi 35",
+   "new": "Zohar, Vayechi 34:355-358"
+  },
+  "כי תבוא|wed": {
+   "old": "Zohar, Pinchas 61",
+   "new": "Zohar, Pinchas 60:358-361"
+  },
+  "כי תצא|fri": {
+   "old": "Zohar, Vayakhel 16",
+   "new": "Zohar, Vayakhel 15:204-206"
+  },
+  "כי תצא|sun": {
+   "old": "Zohar, Vayikra 35",
+   "new": "Zohar, Vayikra 34:252-35:257"
+  },
+  "כי תצא|tue": {
+   "old": "Zohar, Vayechi 40",
+   "new": "Zohar, Vayechi 39:410-413"
+  },
+  "כי תצא|wed": {
+   "old": "Zohar, Emor 1",
+   "new": "Zohar, Kedoshim 20:131-21:134"
+  },
+  "כי תשא|mon": {
+   "old": "Zohar, Ki Tisa 6",
+   "new": "Zohar, Ki Tisa 5:16-20"
+  },
+  "כי תשא|sun": {
+   "old": "Zohar, Ki Tisa 5",
+   "new": "Zohar, Ki Tisa 4:10-15"
+  },
+  "כי תשא|thu": {
+   "old": "Zohar, Vayakhel 1",
+   "new": "Zohar, Ki Tisa 11:110-12:120"
+  },
+  "כי תשא|tue": {
+   "old": "Zohar, Ki Tisa 7",
+   "new": "Zohar, Ki Tisa 6:31-7:36"
+  },
+  "לך לך|sun": {
+   "old": "Zohar, Lech Lecha 2",
+   "new": "Zohar, Lech Lecha 1:1-2:5"
+  },
+  "לך לך|thu": {
+   "old": "Zohar, Lech Lecha 21",
+   "new": "Zohar, Lech Lecha 20:191-194"
+  },
+  "לך לך|wed": {
+   "old": "Zohar, Lech Lecha 17",
+   "new": "Zohar, Lech Lecha 16:146-151"
+  },
+  "מטות|thu": {
+   "old": "Zohar, Toldot 1",
+   "new": "Zohar, Chayei Sara 27:265-270"
+  },
+  "מטות|tue": {
+   "old": "Zohar, Vayigash 10",
+   "new": "Zohar, Vayigash 8:85-9:96"
+  },
+  "מטות|wed": {
+   "old": "Zohar, Noach 9",
+   "new": "Zohar, Noach 8:46-54"
+  },
+  "מסעי|mon": {
+   "old": "Zohar, Terumah 53",
+   "new": "Zohar, Terumah 52:565-568"
+  },
+  "מסעי|sun": {
+   "old": "Zohar, Beshalach 22",
+   "new": "Zohar, Beshalach 21:308-312"
+  },
+  "מסעי|thu": {
+   "old": "Zohar, Beshalach 17",
+   "new": "Zohar, Beshalach 16:245-250"
+  },
+  "מסעי|wed": {
+   "old": "Zohar, Vayigash 11",
+   "new": "Zohar, Vayigash 10:97-105"
+  },
+  "מצורע|fri": {
+   "old": "Zohar, Yitro 34",
+   "new": "Zohar, Yitro 33:546-549"
+  },
+  "מצורע|mon": {
+   "old": "Zohar, Metzora 7",
+   "new": "Zohar, Metzora 6:20-21"
+  },
+  "מצורע|sun": {
+   "old": "Zohar, Metzora 2",
+   "new": "Zohar, Metzora 1:1-4"
+  },
+  "מקץ|thu": {
+   "old": "Zohar, Miketz 12",
+   "new": "Zohar, Miketz 11:186-191"
+  },
+  "מקץ|tue": {
+   "old": "Zohar, Miketz 9",
+   "new": "Zohar, Miketz 8:114-129"
+  },
+  "משפטים|mon": {
+   "old": "Zohar, Mishpatim 21",
+   "new": "Zohar, Mishpatim 20:516-21:518"
+  },
+  "משפטים|thu": {
+   "old": "Zohar, Mishpatim 29",
+   "new": "Zohar, Mishpatim 28:569-571"
+  },
+  "משפטים|tue": {
+   "old": "Zohar, Mishpatim 24",
+   "new": "Zohar, Mishpatim 23:542-24:545"
+  },
+  "נח|fri": {
+   "old": "Zohar, Addenda, Volume I 29:280-30:297",
+   "new": "Zohar, Bereshit 36:354-355"
+  },
+  "נח|sun": {
+   "old": "Zohar, Noach 3",
+   "new": "Zohar, Noach 1:1-2:17"
+  },
+  "נשא|mon": {
+   "old": "Zohar, Nasso 4",
+   "new": "Zohar, Nasso 3:16-21"
+  },
+  "נשא|thu": {
+   "old": "Zohar, Nasso 19",
+   "new": "Zohar, Nasso 17:171-173"
+  },
+  "עקב|mon": {
+   "old": "Zohar, Vaetchanan 21",
+   "new": "Zohar, Vaetchanan 20:132-135"
+  },
+  "עקב|sun": {
+   "old": "Zohar, Vaetchanan 18",
+   "new": "Zohar, Vaetchanan 17:115-119"
+  },
+  "עקב|tue": {
+   "old": "Zohar, Vaetchanan 19",
+   "new": "Zohar, Vaetchanan 18:120-126"
+  },
+  "פינחס|fri": {
+   "old": "Zohar, Vayakhel 14",
+   "new": "Zohar, Vayakhel 13:182-14:184"
+  },
+  "פינחס|mon": {
+   "old": "Zohar, Pinchas 6",
+   "new": "Zohar, Pinchas 4:12-5:16"
+  },
+  "פינחס|sun": {
+   "old": "Zohar, Pinchas 2",
+   "new": "Zohar, Pinchas 1:1-2:6"
+  },
+  "פינחס|thu": {
+   "old": "Zohar, Addenda, Volume III 11:141-12:163",
+   "new": "Zohar, Pinchas 93:642-645"
+  },
+  "פינחס|tue": {
+   "old": "Zohar, Pinchas 8",
+   "new": "Zohar, Pinchas 7:23-26"
+  },
+  "פקודי|fri": {
+   "old": "Zohar, Yitro 28",
+   "new": "Zohar, Yitro 27:482-484"
+  },
+  "פקודי|sun": {
+   "old": "Zohar, Pekudei 8",
+   "new": "Zohar, Pekudei 6:48-7:52"
+  },
+  "פקודי|thu": {
+   "old": "Zohar, Pekudei 53",
+   "new": "Zohar, Pekudei 52:831-835"
+  },
+  "צו|mon": {
+   "old": "Zohar, Tzav 16",
+   "new": "Zohar, Tzav 14:103-16:111"
+  },
+  "צו|sun": {
+   "old": "Zohar, Tzav 12",
+   "new": "Zohar, Tzav 11:89-12:95"
+  },
+  "צו|thu": {
+   "old": "Zohar, Shmini 1",
+   "new": "Zohar, Tzav 29:187-30:193"
+  },
+  "צו|tue": {
+   "old": "Zohar, Tzav 17",
+   "new": "Zohar, Tzav 16:114-120"
+  },
+  "צו|wed": {
+   "old": "Zohar, Tzav 29",
+   "new": "Zohar, Tzav 27:182-28:186"
+  },
+  "קדושים|wed": {
+   "old": "Zohar, Kedoshim 15",
+   "new": "Zohar, Kedoshim 14:85-88"
+  },
+  "קורח|mon": {
+   "old": "Zohar, Korach 6",
+   "new": "Zohar, Korach 5:20-6:24"
+  },
+  "קורח|sun": {
+   "old": "Zohar, Korach 2",
+   "new": "Zohar, Korach 1:1-8"
+  },
+  "קורח|wed": {
+   "old": "Zohar, Korach 8",
+   "new": "Zohar, Korach 7:30-34"
+  },
+  "ראה|fri": {
+   "old": "Zohar, Vayakhel 15",
+   "new": "Zohar, Vayakhel 14:197-15:199"
+  },
+  "ראה|thu": {
+   "old": "Zohar, Vayikra 33",
+   "new": "Zohar, Vayikra 32:246-33:250"
+  },
+  "ראה|wed": {
+   "old": "Zohar, Vayikra 30",
+   "new": "Zohar, Vayikra 29:210-213"
+  },
+  "שופטים|mon": {
+   "old": "Zohar, Vaera 11",
+   "new": "Zohar, Vaera 10:89-11:98"
+  },
+  "שופטים|thu": {
+   "old": "Zohar, Noach 40",
+   "new": "Zohar, Noach 39:312-319"
+  },
+  "שופטים|tue": {
+   "old": "Zohar, Metzora 14",
+   "new": "Zohar, Metzora 13:47-51"
+  },
+  "שלח|fri": {
+   "old": "Zohar, Vayakhel 13",
+   "new": "Zohar, Vayakhel 12:172-173"
+  },
+  "שלח|mon": {
+   "old": "Zohar, Sh'lach 11",
+   "new": "Zohar, Sh'lach 10:83-11:87"
+  },
+  "שלח|sun": {
+   "old": "Zohar, Sh'lach 8",
+   "new": "Zohar, Sh'lach 6:41-8:45"
+  },
+  "שלח|thu": {
+   "old": "Zohar, Korach 1",
+   "new": "Zohar, Sh'lach 46:343-348"
+  },
+  "שמות|mon": {
+   "old": "Zohar, Shemot 6",
+   "new": "Zohar, Shemot 5:29-35"
+  },
+  "שמיני|sun": {
+   "old": "Zohar, Shmini 2",
+   "new": "Zohar, Shmini 1:1-9"
+  },
+  "שמיני|tue": {
+   "old": "Zohar, Shmini 10",
+   "new": "Zohar, Shmini 9:83-87"
+  },
+  "שמיני|wed": {
+   "old": "Zohar, Shmini 15",
+   "new": "Zohar, Shmini 14:106-110"
+  },
+  "תולדות|fri": {
+   "old": "Zohar, Addenda, Volume I 41:342",
+   "new": "Zohar, Bereshit 78:198-200"
+  },
+  "תולדות|tue": {
+   "old": "Zohar, Toldot 14",
+   "new": "Zohar, Toldot 13:101-105"
+  },
+  "תזריע|fri": {
+   "old": "Zohar, Yitro 32:530",
+   "new": "Zohar, Yitro 32:530-532"
+  },
+  "תזריע|mon": {
+   "old": "Zohar, Tazria 14",
+   "new": "Zohar, Tazria 12:45-13:50"
+  },
+  "תזריע|sun": {
+   "old": "Zohar, Tazria 5",
+   "new": "Zohar, Tazria 3:9-5:15"
+  },
+  "תזריע|thu": {
+   "old": "Zohar, Tazria 29",
+   "new": "Zohar, Tazria 28:144-29:150"
+  },
+  "תזריע|tue": {
+   "old": "Zohar, Tazria 20",
+   "new": "Zohar, Tazria 19:82-20:87"
+  },
+  "תזריע|wed": {
+   "old": "Zohar, Tazria 28",
+   "new": "Zohar, Tazria 26:137-27:143"
+  },
+  "תצוה|mon": {
+   "old": "Zohar, Tetzaveh 4",
+   "new": "Zohar, Tetzaveh 3:38-41"
+  },
+  "תצוה|wed": {
+   "old": "Zohar, Tetzaveh 7",
+   "new": "Zohar, Tetzaveh 6:57-61"
+  },
+  "תרומה|wed": {
+   "old": "Zohar, Terumah 11",
+   "new": "Zohar, Terumah 10:115-118"
+  }
+ },
+ "texts": {
+  "במדבר|fri": [
+   {
+    "part": "מוסר",
+    "opening": "ברכי נפשי את ה וכל קרבי את שם",
+    "ref": "Sefer Chasidim 57:1"
+   }
+  ],
+  "וארא|fri": [
+   {
+    "part": "מוסר",
+    "opening": "וילבש שחורים ויתעטף שחורים ויענה בצום נפשו יום",
+    "ref": "Seder HaYom, Conjugal Conduct 3"
+   }
+  ],
+  "וארא|mon": [
+   {
+    "part": "מוסר",
+    "opening": "מי שהורג בנו אותו עבר שאשתו התעברה וגורם",
+    "ref": "Zohar, Shemot 5:30-32"
+   }
+  ],
+  "וארא|sun": [
+   {
+    "part": "מוסר",
+    "opening": "שלשה הם שדוחים שכינה מן העולם וגורמים שדיורו",
+    "ref": "Zohar, Shemot 5:24-30"
+   }
+  ],
+  "וארא|thu": [
+   {
+    "part": "מוסר",
+    "opening": "גדול עונו מנשוא אלו הם המביאים חרון אף",
+    "ref": "Seder HaYom, Conjugal Conduct 3"
+   }
+  ],
+  "וארא|tue": [
+   {
+    "part": "מוסר",
+    "opening": "נדה אמר עולא ישב לו קוץ בכרסו והוא",
+    "ref": "Seder HaYom, Conjugal Conduct 3"
+   }
+  ],
+  "וארא|wed": [
+   {
+    "part": "מוסר",
+    "opening": "לא יגורך רע ואין רע אלא העושה המעשים",
+    "ref": "Seder HaYom, Conjugal Conduct 3"
+   }
+  ],
+  "ויגש|fri": [
+   {
+    "part": "מוסר",
+    "opening": "ובשם אלהינו נדגול שצריך שישא דגל ה בימינו",
+    "ref": "Sefer Charedim, The Commandment of Repentance 4:6"
+   }
+  ],
+  "ויגש|mon": [
+   {
+    "part": "מוסר",
+    "opening": "בן אדם הלא ידעת כי ה מודד מדה",
+    "ref": "Sefer Charedim, The Commandment of Repentance 4:6"
+   }
+  ],
+  "ויגש|sun": [
+   {
+    "part": "מוסר",
+    "opening": "ראוי לשרת המלך בכלי המדה כלי כסף וכלי",
+    "ref": "Sefer Charedim, The Commandment of Repentance 4:6"
+   }
+  ],
+  "ויגש|thu": [
+   {
+    "part": "מוסר",
+    "opening": "לב חושב בענייני גופו בעת תפלה או חזרת",
+    "ref": "Sefer Charedim, The Commandment of Repentance 4:6"
+   }
+  ],
+  "ויחי|mon": [
+   {
+    "part": "מוסר",
+    "opening": "באכלך יותר על שובעך הפסדת ובטלת זמן האכילה",
+    "ref": "Sefer Charedim, The Commandment of Repentance 4:6"
+   }
+  ],
+  "ויחי|sun": [
+   {
+    "part": "מוסר",
+    "opening": "אצל כותל מערבי ויתד בלבבך אחוזות קשורות יפה",
+    "ref": "Sefer Charedim, The Commandment of Repentance 4:6"
+   }
+  ],
+  "ויצא|fri": [
+   {
+    "part": "מוסר",
+    "opening": "התפלות והתחנונים לשפוך שיחה לפני אדון האדונים ובפרט",
+    "ref": "Seder HaYom, Conduct for the Ten Days Of Repentance 2"
+   }
+  ],
+  "ויצא|thu": [
+   {
+    "part": "מוסר",
+    "opening": "יבכה ויתאבל וישב לעפר וישתומם על ככה איך",
+    "ref": "Seder HaYom, Conduct for the Ten Days Of Repentance 1"
+   }
+  ],
+  "וירא|mon": [
+   {
+    "part": "מוסר",
+    "opening": "ואם תראה אחד מן רשעים שהשפיע לו הקב",
+    "ref": "Sefer Chasidim 605:1"
+   }
+  ],
+  "וירא|sun": [
+   {
+    "part": "מוסר",
+    "opening": "מי שעשה עבירות גדולות כגון מי שבא על",
+    "ref": "Sefer Chasidim 605:1"
+   }
+  ],
+  "וירא|thu": [
+   {
+    "part": "מוסר",
+    "opening": "הרשע שהתעיב עלילה ובן מות הוא למלך יתברך",
+    "ref": "Sefer Charedim, The Commandment of Repentance 4:6"
+   }
+  ],
+  "וירא|tue": [
+   {
+    "part": "מוסר",
+    "opening": "הצרעת הוא שם האמור בשתפות כולל ענינים הרבה",
+    "ref": "Mishneh Torah, Defilement by Leprosy 16:10"
+   }
+  ],
+  "וירא|wed": [
+   {
+    "part": "מוסר",
+    "opening": "יהיו כל דבריך כבוד גדול ופיוס לבורא וגם",
+    "ref": "Sefer Charedim, The Commandment of Repentance 4:2"
+   }
+  ],
+  "וישב|fri": [
+   {
+    "part": "מוסר",
+    "opening": "אליך נשאתי את עיני וכתיב אליך ה נפשי",
+    "ref": "Sefer Charedim, The Commandment of Repentance 4:2"
+   }
+  ],
+  "וישב|mon": [
+   {
+    "part": "מוסר",
+    "opening": "המאכסן המלך בביתו כמה מכבד הבית ומרביצו והואיל",
+    "ref": "Sefer Charedim, The Commandment of Repentance 4:2"
+   }
+  ],
+  "וישב|thu": [
+   {
+    "part": "מוסר",
+    "opening": "אור פני מלך חיים שורה על ראשך שתוק",
+    "ref": "Sefer Charedim, The Commandment of Repentance 4:2"
+   }
+  ],
+  "וישב|tue": [
+   {
+    "part": "מוסר",
+    "opening": "כשם שצריך להתחזק לקבוע דירתו בארץ ישראל כך",
+    "ref": "Sefer Charedim, The Commandment of Repentance 4:2"
+   }
+  ],
+  "וישב|wed": [
+   {
+    "part": "מוסר",
+    "opening": "ואף על פי שאשתו היתה בדוקה לו בצדקתה",
+    "ref": "Sefer Charedim, The Commandment of Repentance 4:2"
+   }
+  ],
+  "לך לך|thu": [
+   {
+    "part": "מוסר",
+    "opening": "וראוי שנדע כי כל העונות מתכפרות בתשובה אלא",
+    "ref": "Sefer Chasidim 613:1"
+   }
+  ],
+  "לך לך|wed": [
+   {
+    "part": "מוסר",
+    "opening": "בשביל שבעה דברים אין תפלתו של אדם נשמעת",
+    "ref": "Sefer Chasidim 612:1"
+   }
+  ],
+  "מקץ|fri": [
+   {
+    "part": "מוסר",
+    "opening": "הכון לקראת אלהיך ישראל כי נשמתך כסא לו",
+    "ref": "Sefer Charedim, The Commandment of Repentance 4:6"
+   }
+  ],
+  "מקץ|mon": [
+   {
+    "part": "מוסר",
+    "opening": "הנחמדים מזהב ומפז רב וגו בא להלהיב לב",
+    "ref": "Sefer Charedim, The Commandment of Repentance 4:2"
+   }
+  ],
+  "מקץ|sun": [
+   {
+    "part": "מוסר",
+    "opening": "אור ה מאיר פניך ואתה חי ובהסתרו מיד",
+    "ref": "Sefer Charedim, The Commandment of Repentance 4:2"
+   }
+  ],
+  "מקץ|thu": [
+   {
+    "part": "מוסר",
+    "opening": "שונא איש ישראל תהיה מרכבה לטומאה דעשר קליפין",
+    "ref": "Sefer Charedim, The Commandment of Repentance 4:3"
+   }
+  ],
+  "מקץ|tue": [
+   {
+    "part": "מוסר",
+    "opening": "צריך אדם בשמעו קול הקורא להשכים לעבודת מלכו",
+    "ref": "Sefer Charedim, The Commandment of Repentance 4:3"
+   }
+  ],
+  "מקץ|wed": [
+   {
+    "part": "מוסר",
+    "opening": "שויתי ה לנגדי תמיד יען היות לעולם חיות",
+    "ref": "Sefer Charedim, The Commandment of Repentance 4:3"
+   }
+  ],
+  "שמות|fri": [
+   {
+    "part": "מוסר",
+    "opening": "חזית איש מהיר במלאכתו כלומר בלא רוב מחשבות",
+    "ref": "Sefer Charedim, The Commandment of Repentance 4:7"
+   }
+  ],
+  "שמות|thu": [
+   {
+    "part": "מוסר",
+    "opening": "ים סוער צריך לדמות האדם בדעתו כאלו הוא",
+    "ref": "Sefer Charedim, The Commandment of Repentance 4:7"
+   }
+  ],
+  "שמות|tue": [
+   {
+    "part": "מוסר",
+    "opening": "כשאני בין העם כיון שאין רואה סתר לבבי",
+    "ref": "Sefer Charedim, The Commandment of Repentance 4:6"
+   }
+  ],
+  "שמות|wed": [
+   {
+    "part": "מוסר",
+    "opening": "צריך אדם להיות עבד נאמן לאלהים ומאי נאמן",
+    "ref": "Sefer Charedim, The Commandment of Repentance 4:6"
+   }
+  ]
+ }
+}

@@ -20,7 +20,7 @@ import { withExtraSchedules } from '../learningSchedules/extraSchedules';
 
 const CALENDAR = JSON.parse(fs.readFileSync(
   path.join(__dirname, '..', 'android', 'app', 'src', 'main', 'assets', 'sources', 'calendar.json'), 'utf8'));
-const day = (y, m, d) => new Date(y, m - 1, d);
+const day = (y, m, d) => new Date(y, m - 1, d, 12);   // (midday: before alos it is still the day before - learningSchedules/chokSheet.js)
 const titled = (items, en) => items.find(i => i.title.en === en);
 const parsha = (items) => titled(items, 'Parashat Hashavua').subs[0].en;
 
@@ -158,7 +158,7 @@ describe("Chok LeYisrael's week (@hebcal/core, il flag)", () => {
     const chok = items => titled(items, 'Chok LeYisrael');
     expect(chok(withExtraSchedules([], day(2027, 6, 14), { israel: false })).summary.en).toBe('Nasso, Monday');
     expect(chok(withExtraSchedules([], day(2027, 6, 14), { israel: true })).summary.en).toBe("Beha'alotcha, Monday");
-    expect(chok(withExtraSchedules([], day(2027, 6, 14), { israel: true })).chok).toEqual({ date: '2027-06-14', israel: true });
+    expect(chok(withExtraSchedules([], day(2027, 6, 14), { israel: true })).chok).toEqual({ date: '2027-06-14', israel: true, dayKey: 'mon' });
     Sefaria.calendar = CALENDAR;
     try {
       expect(chok(Sefaria.getCalendars('sephardi', false, day(2027, 6, 14))).summary.en).toBe("Beha'alotcha, Monday");

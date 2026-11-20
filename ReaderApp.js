@@ -108,8 +108,10 @@ import {
 } from "./tabs/tabShortcuts";
 import SplitTabPane from "./reader/SplitTabPane";
 import { makeScheduleSequence, sequenceAt, currentReading, hasSequence, isBounded, boundedNeighbours, readingIndexOf, isLastReading } from "./learningSchedules/scheduleSequence";
-import { chokDaySequence } from "./learningSchedules/chokDay";
-import { ID as CHOK_SOURCE, TITLE as CHOK_TITLE } from "./extras/chok";
+import { HE_TITLE as CHOK_HE_TITLE } from "./extras/chok";
+import { isChokSheetRef, keysOfChokRef, chokSheetRef, chokRows, chokTitles, WEEK_DAY_KEYS as CHOK_WEEK_DAY_KEYS, parseKey as parseChokKey } from "./learningSchedules/chokSheet";
+import { SCHEDULE_TITLE as CHOK_SCHEDULE_TITLE, DAYS as CHOK_DAYS, THURSDAY_NIGHT as CHOK_THURSDAY_NIGHT } from "./learningSchedules/chokDay";
+import { loadText as loadTextOfRef, loadRelated as loadRelatedOfRef } from "./offlineOnline";
 import ScheduleSequenceBar from "./learningSchedules/ScheduleSequenceBar";
 import {
   getInlineCommentary,
@@ -145,6 +147,9 @@ import {
 import { ERRORS } from "./errors";
 
 const ViewPort = Dimensions.get('window');
+// Chok LeYisrael's page: Onkelos under each pasuk of the Torah, as the sefer prints it
+const CHOK_TORAH = /^(Genesis|Exodus|Leviticus|Numbers|Deuteronomy) \d/;
+const chokInlineFor = content => (content && CHOK_TORAH.test(content.sourceRef || '') ? 'Onkelos' : null);
 // Unknown Android profiles take the conservative path so a legacy 32-bit build does not
 // start the optional linked-commentary warm-up while opening Resources.
 const isLowMemoryAndroid = Platform.OS === 'android'
@@ -332,6 +337,7 @@ class ReaderApp extends React.PureComponent {
       this.setState({ windowWidth: window.width });
     });
     this._extrasSubscription = extras.subscribe(this._onExtrasChanged);
+    this._extraLinksSubscription = extras.onExtraLinksReady(this._onExtraLinksReady);
     // leaving the app: write the tabs' places now (the debounced save may never run if Android
     // then stops the app), so every tab - pinned ones above all - reopens at its latest place
     this._appStateSubscription = AppState.addEventListener?.('change', next => {
@@ -368,6 +374,7 @@ class ReaderApp extends React.PureComponent {
     this.RNShakeSubscription.remove();
     DownloadTracker.unsubscribe('ReaderApp')
     this._extrasSubscription && this._extrasSubscription();
+    this._extraLinksSubscription && this._extraLinksSubscription();
     this._nakdanSubscription && this._nakdanSubscription();
     this._shortcutPinnedSubscription && this._shortcutPinnedSubscription();
     this.dimensionsSubscription && this.dimensionsSubscription.remove();
@@ -827,6 +834,7 @@ class ReaderApp extends React.PureComponent {
       } = this.state;
       const { textLanguage, readingHistory } = this.props;
       if (!readingHistory) { return {}; }
+      if (sheet && sheet.chok) { return {}; }  // (the Chok LeYisrael day page: its tab keeps it, not Continue Reading)
       let ref, he_ref, sheet_owner, sheet_title;
       if (!!sheet) {
         ref = `Sheet ${sheet.id}${activeSheetNode && textListVisible ? `:${activeSheetNode}`: ''}`;
@@ -1538,6 +1546,16 @@ ${strings.formatString(strings.extras.download_size, size)}` : '';
    * must not keep showing it from memory. Their saved screens are dropped, and when the reader is
    * showing it, the "download to read" warning of its source comes up (Cancel leaves the reader).
    */
+  /** The downloaded extra books' links are read (offlineOnline.loadRelated gave Sefaria's alone meanwhile): add them */
+  _onExtraLinksReady = () => {
+    if (this.state.menuOpen || !this.state.loaded) { return; }
+    if (this.state.sheet && this.state.sheet.chok && Array.isArray(this.state.data[0])) {
+      this._loadChokRelated(this.state.textReference, this.state.data[0], this._loadToken).catch(() => {});
+      return;
+    }
+    (this.state.sectionArray || []).forEach(secRef => { if (secRef) { this.loadRelated(secRef); } });
+  };
+
   _onExtrasChanged = () => {
     const gone = t => !!t && extras.needsDownload(t);
     for (const tab of this.state.readerTabs.tabs) {
@@ -1589,6 +1607,7 @@ ${strings.formatString(strings.extras.download_size, size)}` : '';
   enableAliyot - true when you click on an aliya form ReaderTextTableOfContents
   */
   openRef = (ref, calledFrom, versions, addToBackStack=true, enableAliyot=false, loadNewVersions=false) => {
+    if (isChokSheetRef(ref)) { return this._openChokRef(ref, calledFrom, addToBackStack); }
     // Sefaria's copy of a book a preferred extra book is used instead of (a link, a saved place):
     // the preferred book, from its start (extras.redirectRef)
     ref = extras.redirectRef(ref) || ref;
@@ -2608,7 +2627,7 @@ ${strings.formatString(strings.extras.download_size, size)}` : '';
     return new Promise(resolve => this.setState({ readerTabs, loaded: false, ReaderDisplayOptionsMenuVisible: false }, () => {
       applyTabLanguage();
       this.openRef(ref, 'tab', versions, false, false, !!(target && target.loadNewVersions)).then(() => {
-        if (!Sefaria.textTitleForRef(ref)) {
+        if (!Sefaria.textTitleForRef(ref) && !isChokSheetRef(ref)) {
           // the book is no longer available (e.g. hidden by the content filter): drop the tab
           // (not offered under "Recently closed": it could not be reopened)
           this.setState(prev => ({ readerTabs: removeRecentlyClosedTab(closeTab(prev.readerTabs, id), id) }));
@@ -2714,38 +2733,169 @@ ${strings.formatString(strings.extras.download_size, size)}` : '';
     : this._openScheduleSequence(makeScheduleSequence(calendarItem, n)));
 
   /**
-   * Today's Chok LeYisrael (learningSchedules/chokDay.js): the whole day's learning from the sefer
-   * itself (extras/chok.js, downloaded once from Otzaria's library, then read offline), in the
-   * schedule's own tab, from the prayers before learning to the day's last part, where it ends.
+   * Today's Chok LeYisrael (learningSchedules/chokSheet.js): the day as Sefaria's sheet lays it
+   * out, on one page, in the schedule's own tab (one tab for Chok LeYisrael: a day opened later
+   * takes it over). A passage of a book is shown from the book itself, so tapping it opens its
+   * commentaries; the text the sheet writes out itself is shown as it is.
    */
-  openChokDay = async calendarItem => {
+  openChokDay = calendarItem => this.openChokSheet(calendarItem && calendarItem.refs && calendarItem.refs[0]);
+
+  openChokSheet = ref => {
+    if (!isChokSheetRef(ref)) { return Promise.resolve(); }
+    const keys = keysOfChokRef(ref);
+    const titles = chokTitles(keys);
+    const schedule = { key: CHOK_SCHEDULE_TITLE.en, title: CHOK_SCHEDULE_TITLE, items: [], chokSheet: true,
+      tabLabel: { en: titles.tabEn, he: titles.tabHe } };
+    const place = { title: CHOK_SCHEDULE_TITLE.en, heTitle: CHOK_HE_TITLE, ref, heRef: titles.he, segmentRef: null, schedule };
+    const inReader = !this.state.menuOpen;
+    if (!inReader) { this.modifyHistory({ dir: "forward", state: this.state }); }  // back returns to the page it came from
+    const existing = findTabForSchedule(this.state.readerTabs, schedule.key);
+    if (existing) {
+      const baseTabs = updateTabPlace(this.state.readerTabs, existing.id, place);
+      return this.switchToTab(existing.id, { ref }, { keepHistory: true, baseTabs });
+    }
+    if (inReader) { this._saveSnapshotForActiveTab(); }
+    const readerTabs = openTab(this.state.readerTabs, place);
+    this._pruneSnapshots(readerTabs);
+    return new Promise(resolve => this.setState({ readerTabs, loaded: false, ReaderDisplayOptionsMenuVisible: false }, () => {
+      this.openRef(ref, 'tab', undefined, false).then(resolve, resolve);
+    }));
+  };
+
+  _openChokRef = (ref, calledFrom, addToBackStack) => {
+    if (calledFrom !== 'tab') { return this.openChokSheet(ref); }
+    // (data: [] - the reader is drawn, loading, as soon as the menu closes: on a first opening
+    //  from Home nothing was read yet, and data was still null)
+    return new Promise(resolve => this.setState({
+      loaded: false,
+      data: [],
+      textListVisible: false,
+      textReference: ref,
+      connectionsMode: null,
+    }, () => {
+      this.closeMenu();
+      this.loadChokSheet(ref).then(resolve, resolve);
+    }));
+  };
+
+  /** Another day of the week from the day page's picker: the same tab */
+  openChokDayFromPicker = ref => {
+    const id = this.state.readerTabs.activeTabId;
+    const keys = keysOfChokRef(ref);
+    const titles = chokTitles(keys);
+    const tab = findTab(this.state.readerTabs, id);
+    if (!tab) { return this.openChokSheet(ref); }
+    const schedule = { ...(tab.schedule || {}), tabLabel: { en: titles.tabEn, he: titles.tabHe } };
+    const readerTabs = updateTabPlace(this.state.readerTabs, id, { ref, heRef: titles.he, segmentRef: null, schedule });
+    return new Promise(resolve => this.setState({ readerTabs }, () => {
+      this._openChokRef(ref, 'tab', false).then(resolve, resolve);
+    }));
+  };
+
+  /** The day's page: its rows (learningSchedules/chokSheet.js chokRows) in the reader's sheet mode */
+  loadChokSheet = async ref => {
+    const loadToken = ++this._loadToken;
+    const keys = keysOfChokRef(ref);
+    const titles = chokTitles(keys);
+    const loadSection = r => loadTextOfRef(r, true, undefined, true, true).then(x => x && x.textContent);
+    let rows = null;
     try {
-      await extras.loadExtras();
-      if (!extras.isEnabled(CHOK_SOURCE)) { await extras.setSourceEnabled(CHOK_SOURCE, true); }
+      rows = await chokRows(keys, { loadSection, titleOf: r => Sefaria.textTitleForRef(r) });
     } catch (e) {
-      console.log('Chok LeYisrael: could not add the book', e);
+      console.log('Chok LeYisrael: the day could not be read', e);
     }
-    const hidden = Sefaria.shomer?.hiddenBookForRef(CHOK_TITLE);  // content filter
-    if (hidden) {
-      Alert.alert(strings.filter.hidden_title,
-        strings.formatString(strings.filter.hidden_message, {title: hidden.title, reason: hidden.reason}),
-        [{text: strings.common.ok}]);
+    if (loadToken !== this._loadToken) { return; }  // another text or tab replaced this load
+    if (!rows) {
+      this.setState({ loaded: true });
+      this.textUnavailableAlert(ref);
       return;
     }
-    if (!extras.isExtraTitle(CHOK_TITLE)) {
-      Alert.alert(strings.download.download_error, strings.extras.download_failed_message, [{text: strings.common.ok}]);
-      return;
+    // the week's days, to pick another (Thursday night - ליל שישי - among them)
+    const first = parseChokKey(keys[0]);
+    const dayOf = k => (k === CHOK_THURSDAY_NIGHT.key ? CHOK_THURSDAY_NIGHT : CHOK_DAYS.find(d => d.key === k));
+    const week = first ? CHOK_WEEK_DAY_KEYS.map(k => ({
+      key: k, he: dayOf(k).he, en: dayOf(k).en,
+      ref: chokSheetRef(keys.map(x => `${parseChokKey(x).parshaHe}|${k}`)),
+      active: k === first.dayKey,
+    })) : [];
+    const sheet = { id: 'chok', chok: true, title: titles.he, ownerName: '' };
+    Sefaria.links.reset();
+    this.setState({
+      sheet,
+      sheetMeta: { sheetID: 'chok', title: titles.he, ownerName: 'Sefaria · חק לישראל', days: week },
+      data: [rows],
+      relatedBySectionRef: { [ref]: {} },
+      textReference: ref,
+      textTitle: null,
+      heTitle: CHOK_HE_TITLE,
+      heRef: titles.he,
+      sectionArray: [ref],
+      sectionHeArray: [titles.he],
+      segmentIndexRef: -1,
+      sectionIndexRef: 0,
+      segmentRef: null,
+      segmentRefOnSheet: null,
+      offsetRef: null,
+      offsetPlace: null,
+      next: null,
+      prev: null,
+      textToc: null,
+      readingEditions: null,
+      selectedVersions: undefined,
+      currVersionObjects: { en: null, he: null },
+      loaded: true,
+      loadingTextTail: false,
+      loadingTextHead: false,
+      // (the passages' links come in as each book's are read: the panel shows what has come)
+      linksLoaded: [true],
+      connectionsMode: null,
+      filterIndex: null,
+      linkRecentFilters: [],
+      versionFilterIndex: null,
+      versionRecentFilters: [],
+      linkSummary: [],
+      linkContents: [],
+      loadingLinks: false,
+      textListVisible: false,
+      dictLookup: null,
+      textColumnKey: `chok|${ref}|${Date.now()}`,
+    }, () => this._loadChokRelated(ref, rows, loadToken).catch(e => console.log('Chok LeYisrael: links', e)));
+  };
+
+  /**
+   * The links of each passage on the day's page: each book section's links (offline, else
+   * online), one section at a time, given to the rows of that section.
+   */
+  _loadChokRelated = async (ref, rows, loadToken) => {
+    const bySection = new Map();
+    rows.forEach((row, i) => {
+      if (!row.sectionRef) { return; }  // (a passage of a book, or the sheet's own text found in one)
+      if (!bySection.has(row.sectionRef)) { bySection.set(row.sectionRef, []); }
+      bySection.get(row.sectionRef).push(i);
+    });
+    for (const [sectionRef, rowIndexes] of bySection) {
+      if (loadToken !== this._loadToken || this.state.textReference !== ref) { return; }
+      let response = null;
+      for (const online of [false, true]) {
+        try { response = await loadRelatedOfRef(sectionRef, online); break; } catch (e) { response = null; }
+      }
+      if (!response || loadToken !== this._loadToken) { continue; }
+      const firstRow = rows[rowIndexes[0]];
+      const offset = Math.max(0, (parseInt(firstRow.segmentNumber, 10) - 1 - firstRow.segmentIndex) || 0);
+      const size = Math.max(...rowIndexes.map(i => rows[i].segmentIndex)) + 1;
+      let list = [];
+      try { list = Sefaria.links.postProcessRelatedResponse(response, offset, size); } catch (e) { list = []; }
+      this.setState(prev => {
+        if (prev.textReference !== ref) { return null; }
+        const current = { ...(prev.relatedBySectionRef[ref] || {}) };
+        for (const i of rowIndexes) { current[i] = list[rows[i].segmentIndex] || { links: [], relatedWOLinks: {} }; }
+        return { relatedBySectionRef: { ...prev.relatedBySectionRef, [ref]: current } };
+      }, () => {
+        if (this.state.textListVisible && rowIndexes.includes(this.state.segmentIndexRef)) {
+          this.updateLinkSummary(0, this.state.segmentIndexRef);
+        }
+      });
     }
-    // one tap: the download (with its progress and Cancel), then the day opens
-    if (extras.needsDownload(CHOK_TITLE) && !(await this.extraBookAlert(CHOK_TITLE, null))) { return; }
-    let index = null;
-    try { index = await Sefaria.offlineOnline.textToc(CHOK_TITLE); } catch (e) { console.log('Chok LeYisrael: index', e); }
-    const seq = chokDaySequence(index, calendarItem);
-    if (!seq) {
-      Alert.alert(strings.errors.text_unavailable, strings.extras.download_failed_message, [{text: strings.common.ok}]);
-      return;
-    }
-    await this._openScheduleSequence(seq);
   };
 
   /** The sections before and after `sectionRef` here: a day read as one unit keeps to its own readings */
@@ -3173,6 +3323,8 @@ ${strings.formatString(strings.extras.download_size, size)}` : '';
                   fontSize={this.props.fontSize}
                   sheetMeta={this.state.sheetMeta}
                   isSheet={isSheet}
+                  openSheetDay={this.state.sheet && this.state.sheet.chok ? this.openChokDayFromPicker : null}
+                  sheetInlineFor={this.state.sheet && this.state.sheet.chok ? chokInlineFor : null}
                   biLayout={this.props.biLayout}
                   key={this.state.textColumnKey}
                   showToast={this.showToast}

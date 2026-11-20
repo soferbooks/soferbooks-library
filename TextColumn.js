@@ -10,6 +10,7 @@ import {
   AppState,
   Image,
   Platform,
+  TouchableOpacity,
 } from 'react-native';
 import {ViewPropTypes} from 'deprecated-react-native-prop-types';
 import {ErrorBoundaryFallbackComponent} from "./ErrorBoundaryFallbackComponent";
@@ -277,16 +278,21 @@ class TextColumn extends React.PureComponent {
           let type = null;
           const sheetNodeRef = `${sheetRef}:${segmentNumber}`;
           const highlightedWordID = props.highlightedWordSegmentRef === sheetNodeRef && props.highlightedWordID;
+          // (a passage's links, for what is shown under it - the Chok LeYisrael page's Onkelos)
+          const related = props.sheetInlineFor && relatedBySectionRef && relatedBySectionRef[props.sectionArray[0]]
+            ? relatedBySectionRef[props.sectionArray[0]][segmentNumber] : null;
+          const highlight = props.textListVisible && props.segmentRef == sheetNodeRef;
           const row = {
             ref: sheetNodeRef,
             data: {
               content: source,
               sectionIndex: 0,
               rowIndex: segmentNumber,
-              highlight: props.textListVisible && props.segmentRef == sheetNodeRef,
+              highlight,
               highlightedWordID,
+              related,
             },
-            changeString: sheetNodeRef,
+            changeString: `${sheetNodeRef}|${highlight ? 1 : 0}|${related ? 1 : 0}|${props.fontSize}|${props.textLanguage}`,
           };
           if (source.type === 'ref')                { type = ROW_TYPES.SEGMENT; }
           else if (source.type === 'comment')       { type = ROW_TYPES.SHEET_COMMENT; }
@@ -763,8 +769,15 @@ class TextColumn extends React.PureComponent {
         />
         {this.props.inlineCommentary && item.type === ROW_TYPES.SEGMENT && !this.props.isSheet ?
           <InlineCommentary links={item.data.related?.links} sourceKey={this.props.inlineCommentary} nakdan={!!this.props.nakdan} /> : null}
+        {this.props.isSheet && this.props.sheetInlineFor && item.type === ROW_TYPES.SEGMENT && item.data.related?.links ?
+          this.renderSheetInline(item) : null}
       </View>
     );
+  };
+
+  renderSheetInline = item => {
+    const key = this.props.sheetInlineFor(item.data.content);
+    return key ? <InlineCommentary links={item.data.related.links} sourceKey={key} nakdan={false} /> : null;
   };
 
   renderSheetMedia = ({ item }) => {
@@ -830,11 +843,33 @@ class TextColumn extends React.PureComponent {
         <View>
           <Text style={[styles.sheetTitle, this.props.theme.text]}><HebrewInEnglishText text={this.props.sheetMeta.title} stylesHe={[styles.heInEn]} stylesEn={[]}/></Text>
           <Text style={[styles.sheetAuthor, this.props.theme.tertiaryText]}>{this.props.sheetMeta.ownerName}</Text>
+          {this.renderSheetDays()}
         </View>
       )
     }
     return null;
   }
+
+  // the week's days (Chok LeYisrael: the day page's sheetMeta.days), to open another
+  renderSheetDays = () => {
+    const days = this.props.sheetMeta && this.props.sheetMeta.days;
+    if (!days || !days.length || !this.props.openSheetDay) { return null; }
+    return (
+      <View style={dayStyles.row}>
+        {days.map(d => (
+          <TouchableOpacity
+            key={d.key}
+            accessibilityRole="button"
+            accessibilityState={{ selected: !!d.active }}
+            onPress={() => { if (!d.active) { this.props.openSheetDay(d.ref); } }}
+            style={[dayStyles.chip, d.active ? dayStyles.active : null]}
+          >
+            <Text style={[dayStyles.label, this.props.theme.text, d.active ? dayStyles.activeLabel : null]}>{d.he}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    );
+  };
 
   renderListFooter = () => {
     if (this.props.isSheet) { return null; }
@@ -1269,3 +1304,11 @@ class SheetMedia extends React.PureComponent {
 }
 
 module.exports = TextColumn;
+
+const dayStyles = {
+  row: { flexDirection: 'row-reverse', flexWrap: 'wrap', justifyContent: 'center', marginHorizontal: 12, marginBottom: 14 },
+  chip: { borderWidth: 1, borderColor: '#C49A3C', borderRadius: 14, paddingHorizontal: 10, paddingVertical: 3, margin: 3 },
+  active: { backgroundColor: '#1F3366', borderColor: '#1F3366' },
+  label: { fontFamily: 'FrankSofer', fontSize: 16 },
+  activeLabel: { color: '#FFFFFF' },
+};

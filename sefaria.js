@@ -304,7 +304,7 @@ global.Sefaria = {
   vowelToggleAvailability: function(segmentArray) {
     if(!segmentArray || segmentArray.length == 0) return VOCALIZATION.NONE;
     const sample = segmentArray[0]['he'];
-    const vowels_re = /[\u05b0-\u05c3\u05c7]/g;
+    const vowels_re = /[\u05b0-\u05c3\u05c7\u05c8]/g;   // (U+05C8: the shva na, as Phonetic MAM writes it)
     const cantillation_re = /[\u0591-\u05af]/g;
     if (cantillation_re.test(sample)) {
       return VOCALIZATION.TAAMIM_AND_NIKKUD;
@@ -1304,7 +1304,7 @@ Sefaria.util = {
     }
   },
   hebrewInEnglish: function(text, whatToReturn) {
-    const regEx = /(^|[\s\[\]().,;:*?!\-—"'<>])((?:[\u0591-\u05c7\u05d0-\u05ea]+[()\[\]\s'"\u05f3\u05f4]{0,2})+)(?![^<]+>)([\s\[\]().,;:*?!\-—"'<>]|$)/g
+    const regEx = /(^|[\s\[\]().,;:*?!\-—"'<>])((?:[\u0591-\u05c9\u05d0-\u05ea]+[()\[\]\s'"\u05f3\u05f4]{0,2})+)(?![^<]+>)([\s\[\]().,;:*?!\-—"'<>]|$)/g
     if (whatToReturn == "string") {
       // wrap all Hebrew strings with <span class="hebrew">
       text = text.replace(/<span dir="rtl">(.*?)<\/span>/g, '<span class="hebrew">\u2067$1\u2069</span>');
@@ -1401,7 +1401,7 @@ Sefaria.util = {
   applyVocalizationSettings: function(text, vocalization, vowelToggleAvailable) {
     if (vowelToggleAvailable === VOCALIZATION.NONE || vocalization === VOCALIZATION.TAAMIM_AND_NIKKUD) { return text; } 
     const nre = /(?:[\u0591-\u05af\u05bd\u05bf\u05c4\u05c5\u200d]|\s\u05c0)/g;
-    const cnre = /(?:[\u0591-\u05bd\u05bf\u05c1-\u05c5\u05c7\u200d]|\s\u05c0)/g;
+    const cnre = /(?:[\u0591-\u05bd\u05bf\u05c1-\u05c5\u05c7-\u05c9\u200d]|\s\u05c0)/g;   // (U+05C8 shva na, U+05C9 dagesh chazak: nikud too)
     const strip_text_re = (vocalization == VOCALIZATION.NIKKUD) ? nre : cnre;
     return text.replace(strip_text_re, "");
   },
@@ -1766,7 +1766,7 @@ Sefaria.hebrew = {
     return [enSection, heSection];
   },
   stripNikkud: function(rawString) {
-    return rawString.replace(/[\u0591-\u05C7]/g,"");
+    return rawString.replace(/[\u0591-\u05C9]/g,"");
   },
   isHebrew: function(text) {
     // Returns true if text is (mostly) Hebrew

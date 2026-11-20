@@ -6,7 +6,10 @@ import { devError } from './devUtils';
 // device log for debugging.
 export const ErrorBoundaryFallbackComponent = ({ error }) => {
   useEffect(() => {
-    if (error) { devError('Unhandled error caught by ErrorBoundary:', error); }
+    if (error) {
+      devError('Unhandled error caught by ErrorBoundary:', error);
+      console.log('ErrorBoundary stack:', error && error.stack);  // (release builds: the device log has the trace)
+    }
   }, [error]);
 
   return null;

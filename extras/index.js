@@ -791,8 +791,19 @@ function inferenceBooks() {
   return out;
 }
 
+const readyListeners = new Set();
+/** fn() once the downloaded books' links are read (after a withExtraLinks that did not wait); returns an unsubscribe */
+export const onExtraLinksReady = fn => { readyListeners.add(fn); return () => readyListeners.delete(fn); };
+
 /** Sefaria's links API's response for a section, with the downloaded extra books' links of it */
-export async function withExtraLinks(sectionRef, response) {
+export async function withExtraLinks(sectionRef, response, { wait = true } = {}) {
+  // wait: false - the first time in a session, the downloaded books' links are read from all their
+  // files (1,971 books took 87 s on a 32-bit tablet, 2026-11-20): Sefaria's own links are given at
+  // once meanwhile, and the extra books' join them once read (onExtraLinksReady)
+  if (!wait && !links.isReady()) {
+    extraLinksFor(sectionRef).then(() => { for (const fn of readyListeners) { try { fn(); } catch (e) {} } });
+    return response;
+  }
   const extra = await extraLinksFor(sectionRef);
   return links.withExtraLinks(response, extra);
 }

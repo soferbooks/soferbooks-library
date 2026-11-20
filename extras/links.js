@@ -558,6 +558,9 @@ export function buildIndex(files) {
 export const commentaryTitles = () => (index && index.commentaries) || new Set();
 
 /** Read the link files of the downloaded books (titles) into the index, once until invalidated */
+/** Whether the downloaded books' links are read already (ready() resolves at once) */
+export const isReady = () => !!index;
+
 export function ready(titles) {
   if (index) { return Promise.resolve(index); }
   if (!building) {

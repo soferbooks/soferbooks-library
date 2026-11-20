@@ -28,7 +28,42 @@ const isExtraRef = ref => {
 };
 
 
+// The Hebrew edition a book opens in when none was chosen, where the owner prefers another one to
+// Sefaria's default (owner, 2026-11-20: Onkelos is Metsudah's Sifsei Chachomim Chumash, as on
+// Sefaria's sheets, not the Yemenite Taj). Falls back to the default where a section lacks it.
+export const PREFERRED_HEBREW = [
+    { book: /^Onkelos (Genesis|Exodus|Leviticus|Numbers|Deuteronomy)$/, version: 'Sifsei Chachomim Chumash, Metsudah Publications, 2009' },
+];
+// (a book whose preferred edition turned out to be missing: Sefaria's default from then on)
+const _preferredMissing = new Set();
+const titleOfRef = ref => { try { return Sefaria.textTitleForRef(ref); } catch (e) { return null; } };
+export const withPreferredHebrew = (ref, versions) => {
+    if (versions && versions.he) { return versions; }
+    const title = titleOfRef(ref);
+    const rule = title && !_preferredMissing.has(title) && PREFERRED_HEBREW.find(r => r.book.test(title));
+    return rule ? { ...(versions || {}), he: rule.version } : versions;
+};
+
 export const loadText = function(ref, context, versions, fallbackOnDefaultVersions=true, failSilently=false) {
+    const asked = versions;
+    versions = withPreferredHebrew(ref, versions);
+    if (versions !== asked) {
+        // the preferred edition, or (when this section lacks it) the book's default
+        return loadTextAsAsked(ref, context, versions, fallbackOnDefaultVersions, failSilently)
+            .then(data => {
+                const missing = data?.textContent?.nonExistantVersions?.he || (context && data?.textContent && !data.textContent.content?.length);
+                if (!missing) { return data; }
+                _preferredMissing.add(titleOfRef(ref));
+                return loadTextAsAsked(ref, context, asked, fallbackOnDefaultVersions, failSilently);
+            }, error => {
+                _preferredMissing.add(titleOfRef(ref));
+                return loadTextAsAsked(ref, context, asked, fallbackOnDefaultVersions, failSilently);
+            });
+    }
+    return loadTextAsAsked(ref, context, versions, fallbackOnDefaultVersions, failSilently);
+};
+
+const loadTextAsAsked = function(ref, context, versions, fallbackOnDefaultVersions=true, failSilently=false) {
     /**
      if `context`, only return section no matter what. default is true
      versions is object with keys { en, he } specifying version titles of requested ref
@@ -255,7 +290,7 @@ export const loadRelated = async function(ref, online) {
             api._related[ref] = response;
         }
         // content filter (links to hidden books drop out with the TOC)
-        return shomer.filterRelated(await extras.withExtraLinks(ref, response));
+        return shomer.filterRelated(await extras.withExtraLinks(ref, response, { wait: false }));
     })();
     _relatedInFlight[key] = run;
     try {

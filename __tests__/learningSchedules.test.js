@@ -10,7 +10,7 @@ import {
   makeScheduleSequence, stepSequence, sequenceAt, hasSequence, currentReading, scheduleKey,
 } from '../learningSchedules/scheduleSequence';
 
-const day = (y, m, d) => new Date(y, m - 1, d);
+const day = (y, m, d) => new Date(y, m - 1, d, 12);   // (midday: before alos it is still the day before - learningSchedules/chokSheet.js)
 
 // Sefaria's calendar.json items for Tuesday 10 November 2026 (30 Cheshvan 5787), trimmed
 const sefariaItems = [
@@ -95,12 +95,12 @@ describe('Mishnah Berurah Yomi (Dirshu Daf HaYomi B\'Halacha, from @hebcal/learn
   });
 });
 
-describe('Chok LeYisrael (the sefer itself, by the Hebrew calendar)', () => {
+describe('Chok LeYisrael (Sefaria sheets, by the Hebrew calendar)', () => {
   test('a weekday gives the week\'s parsha and the day', () => {
     const item = chokLeYisrael(day(2026, 11, 10));   // Tuesday, Toldot
     expect(item.summary).toEqual({ en: 'Toldot, Tuesday', he: 'תולדות, יום שלישי' });
-    expect(item.refs).toEqual(['Chok LeYisrael']);
-    expect(item.chok).toEqual({ date: '2026-11-10', israel: false });
+    expect(item.refs).toEqual(['Sheet chok:תולדות|tue']);
+    expect(item.chok).toEqual({ date: '2026-11-10', israel: false, dayKey: 'tue' });
     expect(item.subs).toEqual([{ en: 'Toldot, Tuesday', he: 'תולדות, יום שלישי' }]);
   });
 
