@@ -45,7 +45,17 @@ export const SOURCES = [
     baseUrl: 'https://github.com/soferbooks/soferbooks-library-data', layout: 'extra',
     enabled: false, available: true, extra: true,
   },
+  // Pninim's own books that no other source gives (the website's import of 2026-11-19), hosted as
+  // the Sofer Library is: extras/pninim.js
+  {
+    id: 'pninim', name: 'Pninim', heName: 'פנינים',
+    baseUrl: 'https://pninim.org', layout: 'extra',
+    enabled: false, available: true, extra: true,
+  },
 ];
+
+/** The libraries whose books come ready made (sizes in their catalogue, nothing converted) */
+export const READY_MADE = new Set(['sofer_library', 'pninim']);
 
 /**
  * SoferBooks' own material for Sefaria's books - offline search packs and Sofer's text

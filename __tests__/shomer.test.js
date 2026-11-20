@@ -337,8 +337,8 @@ describe('library sources', () => {
     expect(SOURCES.filter(s => !s.available).map(s => s.id)).toEqual([]);
   });
 
-  test('Dicta, Otzaria, Wikisource and the Sofer Library are extra sources the reader turns on (extras/), off by default', () => {
-    expect(SOURCES.filter(s => s.extra && s.available).map(s => s.id)).toEqual(['dicta', 'otzaria', 'wikisource', 'sofer_library']);
+  test('Dicta, Otzaria, Wikisource, the Sofer Library and Pninim are extra sources the reader turns on (extras/), off by default', () => {
+    expect(SOURCES.filter(s => s.extra && s.available).map(s => s.id)).toEqual(['dicta', 'otzaria', 'wikisource', 'sofer_library', 'pninim']);
     expect(SOURCES.filter(s => s.extra).every(s => !s.enabled)).toBe(true);
   });
 });

@@ -14,7 +14,7 @@
 // The extra sources' books then download one at a time in the background (extrasQueue.js).
 import * as extras from './extras';
 import * as shomer from './shomer';
-import { SOURCES } from './sources';
+import { SOURCES, READY_MADE } from './sources';
 import SIZES from './fullLibrarySizes.json';
 
 export const FULL_LIBRARY = 'COMPLETE LIBRARY';
@@ -36,7 +36,7 @@ const average = map => {
 
 /** A catalogue entry's download in kB (full_library_sizes.js has the same rule) */
 export function sizeOfEntry(b, sizes = SIZES) {
-  if (b.source === 'sofer_library') {
+  if (READY_MADE.has(b.source)) {
     return Math.round([b, ...(b.companions || [])].reduce((n, e) => n + (e.size || 0), 0) / 1024);
   }
   const map = sizes[b.source] || {};
@@ -44,7 +44,9 @@ export function sizeOfEntry(b, sizes = SIZES) {
   return map[key] || average(map);
 }
 
-export const ratioOf = (id, sizes = SIZES) => (sizes.ratios || {})[id] || 1;
+// (a library ready made as the Sofer Library is - Pninim - takes as much room as it does for its download)
+export const ratioOf = (id, sizes = SIZES) => (sizes.ratios || {})[id]
+  || (READY_MADE.has(id) && (sizes.ratios || {}).sofer_library) || 1;
 
 /**
  * {downloadMB, storedMB} of a book whose download is known (the Sofer Library's catalogue, or the
@@ -53,7 +55,7 @@ export const ratioOf = (id, sizes = SIZES) => (sizes.ratios || {})[id] || 1;
 export function knownBookSize(b, sizes = SIZES) {
   if (!b) { return null; }
   let kB = 0;
-  if (b.source === 'sofer_library') {
+  if (READY_MADE.has(b.source)) {
     kB = sizeOfEntry(b, sizes);
   } else {
     const key = b.source === 'otzaria' ? b.heTitle : b.id;

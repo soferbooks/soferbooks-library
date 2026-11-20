@@ -87,8 +87,8 @@ beforeEach(async () => {
 
 describe('the parts and their sizes', () => {
   test('Sefaria\'s library and every extra source', () => {
-    expect(fullLibraryParts()).toEqual(['sefaria', 'dicta', 'otzaria', 'wikisource', 'sofer_library']);
-    expect(fullLibrarySources()).toEqual(['dicta', 'otzaria', 'wikisource', 'sofer_library']);
+    expect(fullLibraryParts()).toEqual(['sefaria', 'dicta', 'otzaria', 'wikisource', 'sofer_library', 'pninim']);
+    expect(fullLibrarySources()).toEqual(['dicta', 'otzaria', 'wikisource', 'sofer_library', 'pninim']);
   });
 
   test('a book\'s download: the table\'s size (Otzaria by Hebrew name, Dicta by file), the Sofer Library\'s own, else the average', () => {
@@ -137,7 +137,7 @@ describe('the background download', () => {
     expect(extras.downloadBook).not.toHaveBeenCalled();
     await onPackageChosen(FULL_LIBRARY, queue);
     await run();
-    expect(Object.keys(extras.enabled).sort()).toEqual(['dicta', 'otzaria', 'sofer_library', 'wikisource']);
+    expect(Object.keys(extras.enabled).sort()).toEqual(['dicta', 'otzaria', 'pninim', 'sofer_library', 'wikisource']);
     expect(extras.downloads).toEqual(['Dicta A', 'Otz A', 'Otz B', 'Sofer A']);
     expect(extras.downloads).not.toContain('Hidden');
     expect(queue.getState()).toMatchObject({ running: false, status: 'done' });

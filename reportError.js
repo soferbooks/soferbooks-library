@@ -23,6 +23,8 @@ export const CORRECTIONS = {
   wikisource: { name: 'Wikisource', email: null },
   // the Sofer Library (extras/sofer.js): SoferBooks' own copies
   sofer_library: { name: 'Sofer Library', email: FALLBACK_EMAIL },
+  // Pninim's own books (extras/pninim.js): their notice asks for errors at contact@pninim.org
+  pninim: { name: 'Pninim', email: 'contact@pninim.org' },
 };
 
 export const sourceOfVersion = version => (version && version.librarySource) || 'sefaria';

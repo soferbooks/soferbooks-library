@@ -21,6 +21,7 @@ import { sizeOfEntry, ratioOf, partBooks } from './fullLibrary';
 import { freeBytes, cleanWork, LOW_SPACE_BYTES, LowSpaceError } from './storage';
 import { pruneSearchFilesIfOff } from './searchPrefs';
 import { CONCURRENCY } from './downloadPool';
+import { READY_MADE } from './sources';
 
 export const STORAGE_KEY = 'extrasQueue';
 export const POLITE_MS = 1500;           // between two Wikisource books
@@ -31,7 +32,7 @@ export const MAX_TRIES = 2;
 
 const politeDelayFor = sourceId => {
   if (!timing.polite || timing.polite <= 0) { return 0; }
-  if (sourceId === 'sofer_library') { return 0; }
+  if (READY_MADE.has(sourceId)) { return 0; }
   if (sourceId === 'dicta' || sourceId === 'otzaria') { return Math.min(timing.polite, 100); }
   return timing.polite;
 };

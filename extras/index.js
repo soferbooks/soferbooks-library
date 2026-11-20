@@ -51,6 +51,8 @@ import dicta from './dicta';
 import wikisource, {withCurrentShelf} from './wikisource';
 import chok from './chok';
 import soferLibrary from './sofer';
+import pninim from './pninim';
+import {READY_MADE} from '../sources';
 import {bookFiles, setEnglishNameLookup} from './schema7';
 import * as links from './links';
 import {chooseBooks, addToToc, categoryNames, replacementForRef, redirectNameResults as redirectNames} from './catalog';
@@ -62,7 +64,7 @@ import {loadOfflineSearch} from '../searchPrefs';
 
 // (chok: Chok LeYisrael, one book from Otzaria's library, turned on by its learning schedule - no
 //  switch in Settings: extras/chok.js)
-export const EXTRA_SOURCES = {[otzaria.id]: otzaria, [dicta.id]: dicta, [wikisource.id]: wikisource, [chok.id]: chok, [soferLibrary.id]: soferLibrary};
+export const EXTRA_SOURCES = {[otzaria.id]: otzaria, [dicta.id]: dicta, [wikisource.id]: wikisource, [chok.id]: chok, [soferLibrary.id]: soferLibrary, [pninim.id]: pninim};
 export const ENABLED_KEY = 'extraSources';
 export const CATALOG_MAX_AGE = 7 * 24 * 3600 * 1000;   // a week, as Sefaria's own update check
 const LIBRARY_DIR = `${FileSystem.documentDirectory}library/`;
@@ -112,7 +114,7 @@ export function englishTitleOf(title) {
   const english = name => typeof name === 'string' && /[A-Za-z]/.test(name) && !/[֐-׿]/.test(name);
   // (the catalogue's English name, from Sofer's schema - else the title itself, when English)
   if (english(b.enTitle)) { return b.enTitle; }
-  if (b.source !== 'sofer_library') { return null; }
+  if (!READY_MADE.has(b.source)) { return null; }
   return english(title) ? title : null;
 }
 
@@ -902,7 +904,7 @@ export function repairReadyMadeLinks(titles) {
       for (const title of titles) {
         const entry = books[title];
         const rec = state.installed[title];
-        if (!entry || !rec || rec.source !== soferLibrary.id) { continue; }
+        if (!entry || !rec || !READY_MADE.has(rec.source)) { continue; }
         const existing = await links.readLinks(title);
         const needsCommRepair = entry.dependence === 'Commentary' && Array.isArray(entry.base_text_titles) &&
           entry.base_text_titles.length > 0 && (!existing || (!(existing.links || []).length && !(existing.inferred || []).length));

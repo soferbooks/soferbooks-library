@@ -196,7 +196,8 @@ const ExtraLibrary = ({ source, langStyle, theme, isHebrew, open, onToggle }) =>
       <Radio selected={shownInLibrary && shown === 'open'} text={strings.libraries.when_opened} onPress={toOpen}
         langStyle={langStyle} theme={theme} testID={`library-${id}-open`} disabled={busy} />
       <Radio selected={shownInLibrary && shown === 'all'} text={strings.libraries.all_books}
-        detail={strings.formatString(strings.libraries.size_books, {books: (all.books || 0).toLocaleString(), size: formatSize(all.downloadKB)})}
+        // (a library whose size is not known until its catalogue is read - Pninim, before it is chosen: none shown)
+        detail={all.books ? strings.formatString(strings.libraries.size_books, {books: all.books.toLocaleString(), size: formatSize(all.downloadKB)}) : null}
         onPress={toAll} langStyle={langStyle} theme={theme} testID={`library-${id}-all`} disabled={busy || offline} />
       <Radio selected={shownInLibrary && shown === 'some'} text={strings.libraries.some_books} onPress={() => setSome(true)}
         langStyle={langStyle} theme={theme} testID={`library-${id}-some`} disabled={busy || offline} />

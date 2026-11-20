@@ -75,6 +75,8 @@ export function entryFor(b) {
     firstSection: b.firstSection || b.title,
   };
   if (b.dependence) { entry.dependence = b.dependence; }
+  // (an edition's notes its licence asks to keep with it: Pninim's notice, extras/pninim.js)
+  if (typeof b.versionNotesInHebrew === 'string' && b.versionNotesInHebrew) { entry.versionNotesInHebrew = b.versionNotesInHebrew; }
   if (b.base_text_titles) { entry.base_text_titles = b.base_text_titles; }
   // its English name (English interfaces show it) and its other names (a title search finds the
   // book by them: "Return to Your Homes" -> Shuvu Lachem LeOhaleichem, whose English edition it is)
@@ -261,12 +263,13 @@ export async function downloadBundleArchive(url, expectedMd5 = null, {isCancelle
   }
 }
 
-export async function fetchBundleDocs(entries, {onBook, isCancelled = () => false} = {}) {
-  const bundle = await hostedBundle();
+export async function fetchBundleDocs(entries, {onBook, isCancelled = () => false, bundleOf = hostedBundle, urlOf = fileUrl} = {}) {
+  // (bundleOf, urlOf: another library hosted alike - extras/pninim.js)
+  const bundle = await bundleOf();
   if (!bundle || !bundle.file || !entries.length) { return false; }
   let unpacked;
   try {
-    unpacked = await downloadBundleArchive(fileUrl(bundle.file), bundle.md5 || null, {isCancelled});
+    unpacked = await downloadBundleArchive(urlOf(bundle.file), bundle.md5 || null, {isCancelled});
   } catch (e) {
     console.log('sofer library: bundle fallback to per-book downloads:', e && e.message);
     return false;
@@ -320,7 +323,7 @@ export async function bookZipFiles(entry, {job = null, share = null, url = bookU
  * The book and the books that come with it (its editors' notes), several zips at once
  * (downloadPool.js), each a share of the whole by size
  */
-export async function fetchBook(entry, job = null) {
+export async function fetchBook(entry, job = null, urlOf = bookUrl) {
   if (entry.kind === 'sefaria-json') { return appBookDoc(entry, job); }
   const all = [entry, ...(entry.companions || [])];
   const total = all.reduce((n, e) => n + (e.size || 1), 0);
@@ -332,34 +335,37 @@ export async function fetchBook(entry, job = null) {
       if (job) { job.progress(Math.round((100 * got.reduce((a, b) => a + b, 0)) / total), 100, 'percent'); }
     };
     if (job) { job.check(); }
-    return {entry: e, files: await bookZipFiles(e, {job, share})};
+    return {entry: e, files: await bookZipFiles(e, {job, share, url: urlOf(e)})};
   });
   if (job) { job.check(); }
   return {book: out[0], companions: out.slice(1)};
 }
 
-/** The book's editions marked as this library's (its error reports go to SoferBooks) */
-export function withSource(files, title) {
+/**
+ * The book's editions marked as this library's (its error reports go to SoferBooks); `edition`:
+ * what another library hosted alike adds to them (Pninim's licence and notice: extras/pninim.js)
+ */
+export function withSource(files, title, id = ID, edition = {}) {
   const name = `${title}_index.json`;
   const index = files[name];
   if (!index) { return files; }
   return {
     ...files,
-    [name]: {...index, librarySource: ID, versions: (index.versions || []).map(v => ({...v, librarySource: ID}))},
+    [name]: {...index, librarySource: id, versions: (index.versions || []).map(v => ({...v, ...edition, librarySource: id}))},
   };
 }
 
 /** What extras/index.js puts in the library: the files as they came (nothing to convert) */
-export function convert(entry, doc) {
+export function convert(entry, doc, id = ID, editionOf = () => ({})) {
   if (entry.kind === 'sefaria-json') { return null; }      // (converted from its JSON: toTree)
   return {
-    files: withSource(doc.book.files, entry.title),
+    files: withSource(doc.book.files, entry.title, id, editionOf(entry)),
     firstSection: entry.firstSection || entry.title,
     companions: (doc.companions || []).map(c => ({
       entry: {title: c.entry.title, heTitle: c.entry.heTitle, categories: c.entry.categories,
         heCategories: c.entry.heCategories, ...(c.entry.dependence ? {dependence: c.entry.dependence} : {}),
         ...(c.entry.base_text_titles ? {base_text_titles: c.entry.base_text_titles} : {})},
-      files: withSource(c.files, c.entry.title),
+      files: withSource(c.files, c.entry.title, id, editionOf(c.entry)),
       firstSection: c.entry.firstSection || c.entry.title,
     })),
   };
