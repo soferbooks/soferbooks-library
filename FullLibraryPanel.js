@@ -58,7 +58,7 @@ export const partFits = (part, free) => free === null || free === undefined
 
 const kB = bytes => (bytes || 0) / 1024;
 
-const QueueStatus = ({ langStyle, theme, isHebrew, onCancel }) => {
+export const QueueStatus = ({ langStyle, theme, isHebrew, onCancel }) => {
   const st = queue.getState();
   const sef = sefariaStatus();
   const sefariaUnderWay = sef.chosen && sef.downloading;

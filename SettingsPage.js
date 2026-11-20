@@ -49,10 +49,10 @@ import {
 import { loadOfflineSearch, setOfflineSearch } from './searchPrefs';
 import Sefaria from "./sefaria";
 import * as FileSystem from 'expo-file-system/legacy';
-import { ContentFilterSettings, LibrarySourcesSettings } from './shomer/ContentFilterSettings';
+import { ContentFilterSettings } from './shomer/ContentFilterSettings';
 import { NakdanSettings } from './reader/NakdanNotices';
 import { onPackageChosen, FULL_LIBRARY } from './fullLibrary';
-import { FullLibraryPanel } from './FullLibraryPanel';
+import { LibrariesSettings } from './LibrariesSettings';
 import ReaderAppContext from './context';
 import { loadTabs } from './tabs/tabStorage';
 import {
@@ -463,64 +463,21 @@ const SettingsPage = ({ close, openUri }) => {
 
           <View style={[styles.readerDisplayOptionsMenuDivider, styles.settingsDivider, theme.readerDisplayOptionsMenuDivider]}/>
           <ContentFilterSettings langStyle={langStyle} />
-          <LibrarySourcesSettings langStyle={langStyle} />
           <NakdanSettings langStyle={langStyle} />
           <AppIconShortcutsSettings langStyle={langStyle} />
 
           <View style={[styles.readerDisplayOptionsMenuDivider, styles.settingsDivider, theme.readerDisplayOptionsMenuDivider]}/>
-          <View>
-            <Text style={[langStyle, styles.settingsSectionHeader, theme.tertiaryText]}>{strings.settings.offline_access}</Text>
-          </View>
-
-          {wereBooksDownloaded() ?
-            <View>
-              <SystemButton
-                onPress={checkUpdatesForSettings}
-                text={updatesDisabled ? strings.download.checking : strings.download.check_for_updates}
-                isLoading={updatesDisabled}
-              />
-
-              <SystemButton
-                onPress={() => {
-                  Alert.alert(
-                    strings.download.delete_library,
-                    strings.download.confirm_delete_library_message,
-                    [{text: strings.common.yes, onPress: deleteLibrary}, {text: strings.common.no}]
-                  )
-                }}
-                text={strings.download.delete_library}
-              />
-
-              {DEBUG_MODE ? <TouchableOpacity style={styles.button} onPress={() => {
-                console.log('pressed Mess up Library');
-                getLocalBookList().then(books => {
-                  deleteBooks(books).then(() => console.log('finished messing up library'));
-                })
-              }}>
-                <Text style={[langStyle, styles.buttonText]}>Mess up Library</Text>
-              </TouchableOpacity> : null}
-            </View>
-            : null
-          }
-          {
-            DEBUG_MODE ?
-              <View>
-                <TouchableOpacity style={styles.button} onPress={() => FileSystem.getInfoAsync(FILE_DIRECTORY).then(x => console.log(
-                  `${x.filter(f => f.endsWith('zip')).length} files on disk`
-                ))}>
-                  <Text style={[langStyle, styles.buttonText]}>Check Disk</Text>
-                </TouchableOpacity>
-              </View>
-              : null
-          }
-          <FullLibraryPanel
+          {/* every library's books in one place: Sefaria's and the others' (LibrariesSettings.js) */}
+          <LibrariesSettings
             langStyle={langStyle}
-            onDownloadSefaria={async () => {
-              const pkg = PackagesState[FULL_LIBRARY];
-              if (pkg && !pkg.clicked) { await onPackagePress(pkg, {withExtras: false}); }
+            sefaria={{
+              onPackagePress,
+              isDisabledObj,
+              deleteLibrary,
+              checkUpdates: checkUpdatesForSettings,
+              updatesBusy: updatesDisabled,
             }}
           />
-          <OfflinePackageList isDisabledObj={isDisabledObj} onPackagePress={onPackagePress} />
           <View style={[styles.readerDisplayOptionsMenuDivider, styles.settingsDivider, styles.underOfflinePackages, theme.readerDisplayOptionsMenuDivider]}/>
           <TouchableWithoutFeedback onPress={() => {
             if (numPressesDebug < 6) { setNumPressesDebug(prev => prev + 1); }

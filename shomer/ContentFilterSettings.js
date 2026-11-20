@@ -185,7 +185,7 @@ export const ExtraSourceRow = ({ source, langStyle, theme, interfaceLanguage }) 
       <View style={local.groupRow}>
         <View style={local.groupText}>
           <Text style={[langStyle, theme.text]}>{name}</Text>
-          <Text style={[langStyle, theme.secondaryText, local.detail]}>{strings.extras.source_detail}</Text>
+          <Text style={[langStyle, theme.secondaryText, local.detail]}>{strings.libraries.status_when_opened}</Text>
           {on ? <Text style={[langStyle, theme.secondaryText, local.detail]}>
             {countString(strings.extras.downloaded_count, strings.extras.downloaded_count_one, downloaded)}
           </Text> : null}
@@ -212,35 +212,6 @@ export const ExtraSourceRow = ({ source, langStyle, theme, interfaceLanguage }) 
           <ExtraDownloadStatus title={t} theme={theme} langStyle={langStyle} />
         </View>
       ))}
-    </View>
-  );
-};
-
-export const LibrarySourcesSettings = ({ langStyle }) => {
-  const { themeStr, interfaceLanguage } = useContext(GlobalStateContext);
-  const theme = getTheme(themeStr);
-  return (
-    <View style={styles.settingsSection} testID="library-sources-settings">
-      <Text style={[langStyle, styles.settingsSectionHeader, theme.tertiaryText]}>{strings.library_sources.header}</Text>
-      <Text style={[langStyle, theme.secondaryText, local.detail]}>{strings.library_sources.description}</Text>
-      {SOURCES.map(s => (s.extra
-        ? <ExtraSourceRow key={s.id} source={s} langStyle={langStyle} theme={theme} interfaceLanguage={interfaceLanguage} />
-        : (
-        <View key={s.id} style={local.groupRow}>
-          <View style={local.groupText}>
-            <Text style={[langStyle, theme.text]}>
-              {interfaceLanguage === 'hebrew' ? s.heName : s.name}
-              {s.available ? '' : `  (${strings.library_sources.coming_soon})`}
-            </Text>
-            {s.enabled ? <Text style={[langStyle, theme.secondaryText, local.detail]}>{strings.library_sources.always_on}</Text> : null}
-          </View>
-          {/* Sefaria is always on: shown as on (not greyed out as disabled); switching it off
-              does nothing */}
-          {s.enabled
-            ? <Switch value onValueChange={() => {}} accessibilityLabel={s.name} accessibilityHint={strings.library_sources.always_on} />
-            : <Switch value={false} disabled accessibilityLabel={s.name} />}
-        </View>
-      )))}
     </View>
   );
 };

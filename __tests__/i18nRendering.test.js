@@ -450,12 +450,12 @@ describe('Settings screen', () => {
         'settings.preferred_custom', 'settings.sephardi', 'settings.ashkenazi',
         'settings.calendar_location', 'settings.outside_israel', 'settings.israel',
         'settings.download_network_setting', 'settings.wifi_only', 'settings.mobile_network',
-        'settings.offline_access', 'settings.system',
+        'settings.system',
+        'libraries.header', 'libraries.description', 'libraries.sefaria', 'libraries.status_online',
+        'full_library.wifi_only',
         'settings.app_version',
         // ("Fine-tune the filter" starts closed: its hint and groups are in the Content filter tests)
         'filter.section_header', 'filter.description', 'filter.groups_header',
-        'library_sources.header', 'library_sources.description',
-        'library_sources.always_on', 'extras.source_detail',
         'settings.nakdan_header', 'settings.nakdan_always', 'settings.nakdan_always_detail',
         'settings.nakdan_credit',
         'settings.app_icon_shortcuts', 'settings.app_icon_shortcuts_desc', 'settings.app_icon_shortcuts_empty',
@@ -868,6 +868,18 @@ describe('"Offline search" (Settings)', () => {
   });
 });
 
+describe('Libraries (Settings): the other libraries rows', () => {
+  test('a library in the library: its status and choices, opened, in both languages', () => {
+    const ex = require('../extras');
+    ex._reset({ enabled: { dicta: true } });
+    const { LibrariesSettings } = require('../LibrariesSettings');
+    expectScreenLocalizes(wrap(LibrariesSettings, { langStyle: {} }),
+      ['libraries.status_when_opened', 'libraries.when_opened', 'libraries.hide', 'libraries.status_hidden'],
+      { interact: inst => inst.root.findByProps({ testID: 'library-dicta-toggle' }).props.onPress() });
+    ex._reset({});
+  });
+});
+
 describe('Home page', () => {
   const homeProps = {
     categories: [], setCategories: noop, openRef: noop,
@@ -1225,6 +1237,13 @@ describe('Truncated link previews', () => {
  */
 describe('Strings with placeholders', () => {
   const SUBSTITUTIONS = {
+    'libraries.status_all': { size: '1.5 GB' },
+    'libraries.status_some': { parts: 'Tanakh, Mishnah' },
+    'libraries.status_books': { done: 12, total: 708, size: '40 MB' },
+    'libraries.downloading': { done: 12, total: 708 },
+    'libraries.size_download': { size: '1.5 GB' },
+    'libraries.size_books': { books: 708, size: '677 MB' },
+    'libraries.delete_category_confirm': { count: 12 },
     'a11y.change_language_to': { language: 'Hebrew' },
     'a11y.setting_option': { setting: 'Font Size', option: 'Larger' },
     'common.open_item': { item: 'Genesis' },
@@ -1511,10 +1530,10 @@ describe('Settings screen with the library downloaded', () => {
     stubPackagesState();
   });
 
-  test('renders the offline-library controls in both languages', () => {
+  test('renders Sefaria choices, opened, in both languages', () => {
     expectScreenLocalizes(settings(), [
-      'download.check_for_updates', 'download.delete_library',
-    ]);
+      'libraries.sefaria_online', 'libraries.all_books', 'libraries.some_books', 'download.check_for_updates',
+    ], { interact: inst => inst.root.findByProps({ testID: 'library-sefaria-toggle' }).props.onPress() });
   });
 });
 
@@ -1527,13 +1546,17 @@ describe('Alerts from the settings page', () => {
   });
   afterEach(() => { Alert.alert.mockRestore(); });
 
-  const renderSettings = () => {
+  // (Sefaria's row opened, and its "Some books" when `some`: where its packages are)
+  const renderSettings = ({ some = false } = {}) => {
     let inst;
     act(() => {
       inst = renderer.create(wrap(SettingsPage, { close: noop, openUri: noop })());
     });
+    act(() => { inst.root.findByProps({ testID: 'library-sefaria-toggle' }).props.onPress(); });
+    if (some) { act(() => { inst.root.findByProps({ testID: 'library-sefaria-some' }).props.onPress(); }); }
     return inst;
   };
+  const pkgRow = (inst, name) => inst.root.findByProps({ testID: `library-sefaria-pkg-${name}` });
 
   /** Presses the button whose visible label is `id`. */
   const pressLabelled = (inst, id) => {
@@ -1564,11 +1587,10 @@ describe('Alerts from the settings page', () => {
     }
   };
 
-  test('deleting the library asks for confirmation in both languages', async () => {
+  test('choosing to read Sefaria online asks before deleting its books, in both languages', async () => {
     await expectAlertLocalizes(
-      () => pressLabelled(renderSettings(), 'download.delete_library'),
-      ['download.delete_library', 'download.confirm_delete_library_message',
-       'common.yes', 'common.no']
+      () => { const inst = renderSettings(); act(() => { inst.root.findByProps({ testID: 'library-sefaria-none' }).props.onPress(); }); },
+      ['libraries.sefaria', 'libraries.delete_sefaria_confirm', 'common.cancel', 'common.ok']
     );
   });
 
@@ -1580,8 +1602,7 @@ describe('Alerts from the settings page', () => {
     await withNetworkState(CELLULAR, () => withTimersUnderControl(() => expectAlertLocalizes(
       async () => {
         const inst = renderSettings();
-        const row = inst.root.findAll(n => n.props.enText === 'COMPLETE LIBRARY')[0];
-        await act(async () => { await row.props.onPress(); });
+        await act(async () => { await inst.root.findByProps({ testID: 'library-sefaria-all' }).props.onPress(); });
       },
       ['download.blocked_by_network', 'download.blocked_by_network_settings_message',
        'common.ok']
@@ -1593,11 +1614,8 @@ describe('Alerts from the settings page', () => {
       async () => {
         // Tapping "Torah" while "Tanakh" is already downloaded explains that it is included
         // in the parent package rather than starting a second download.
-        const inst = renderSettings();
-        // The outermost node carrying the row's title is the button; `enText` is threaded
-        // down through several layers below it.
-        const row = inst.root.findAll(n => n.props.enText === 'Torah')[0];
-        await act(async () => { await row.props.onPress(); });
+        const inst = renderSettings({ some: true });
+        await act(async () => { await pkgRow(inst, 'Torah').props.onPress(); });
       },
       ['download.already_downloaded', 'download.are_included_in', 'common.ok']
     ));
@@ -1607,9 +1625,8 @@ describe('Alerts from the settings page', () => {
     await withTimersUnderControl(() => expectAlertLocalizes(
       async () => {
         // "Tanakh" is downloaded and is nobody's child, so tapping it offers to remove it.
-        const inst = renderSettings();
-        const row = inst.root.findAll(n => n.props.enText === 'Tanakh')[0];
-        await act(async () => { await row.props.onPress(); });
+        const inst = renderSettings({ some: true });
+        await act(async () => { await pkgRow(inst, 'Tanakh').props.onPress(); });
       },
       ['common.delete', 'download.are_you_sure_delete_package', 'common.yes', 'common.no']
     ));
@@ -2096,6 +2113,8 @@ describe('The app-wide error alert', () => {
 const NOT_YET_COVERED = [
   // the alert before deleting the search files (shown on pressing Off; Alert is not rendered)
   'settings.offline_search_off_confirm',
+  // the alert on unticking a category one of whose books is downloaded (Alert is not rendered)
+  'libraries.delete_category_confirm_one',
   // ---------------------------------------------------------------------------------------
   // Filter groups with no books in the library (shomer/groupExamples.json) are not listed in
   // Settings; "and 1 more" shows only for a group with exactly five; the shown/hidden words
@@ -2174,14 +2193,13 @@ const NOT_YET_COVERED = [
   // shomer/ContentFilterSettings.js: the "(coming soon)" after a library source that is not
   // available yet. Since the Sofer Library works (2026-11-11) every source is available, so no
   // render shows it; kept for the next source registered before it works.
-  'library_sources.coming_soon',
 
   // FullLibraryPanel.js (Settings) and the first-launch offer: rendered in
   // __tests__/fullLibrary.test.js (the panel's parts, sizes, total and queue controls); the
   // Settings screen render above does not load the packages it needs.
   'full_library.header', 'full_library.description', 'full_library.part_sefaria',
   'full_library.download', 'full_library.pause', 'full_library.resume', 'full_library.cancel',
-  'full_library.wifi_only', 'full_library.waiting_wifi', 'full_library.paused', 'full_library.offer_parts',
+  'full_library.waiting_wifi', 'full_library.paused', 'full_library.offer_parts',
   'full_library.cancelled_title', 'full_library.part_no_room',
 
   // storage.js (QA round 14): the alert when a download does not fit on the phone - raised from

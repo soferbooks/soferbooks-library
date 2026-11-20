@@ -36,8 +36,10 @@ const politeDelayFor = sourceId => {
   return timing.polite;
 };
 
-// {sources: [id], pausedSources: [id], running, paused, pausedBy ('user' | 'low_space'), wifiOnly, failed: {title: tries}}
-let state = {sources: [], pausedSources: [], running: false, paused: false, pausedBy: null, wifiOnly: true, failed: {}};
+// {sources: [id], pausedSources: [id], running, paused, pausedBy ('user' | 'low_space'), wifiOnly, failed: {title: tries},
+//  categories: {id: [category key]} - a source downloading only some of its books (Settings,
+//  LibrariesSettings.js: "Some books"); a source not there downloads all its books}
+let state = {sources: [], pausedSources: [], running: false, paused: false, pausedBy: null, wifiOnly: true, failed: {}, categories: {}};
 let status = 'idle';                     // idle | downloading | waiting_network | paused | done
 const inFlight = new Set();              // the titles downloading now
 let freeAtPause = null;                  // bytes free when it paused for space
@@ -67,8 +69,36 @@ async function load() {
   return loaded;
 }
 
+/** A book's category, as "Some books" lists them: its first category (Sefaria's top ones for the extra sources) */
+export const categoryKeyOf = b => ((b && b.categories && b.categories[0]) || 'Other');
+
+/** The categories chosen for a source ("Some books"), or null (all its books) */
+export const chosenCategories = id => ((state.categories || {})[id] || null);
+
 /** The books of a source the queue brings (fullLibrary.partBooks: its count is of the same books) */
-export const booksOf = id => partBooks(id);
+export const booksOf = id => {
+  const cats = chosenCategories(id);
+  const all = partBooks(id);
+  return cats ? all.filter(b => cats.includes(categoryKeyOf(b))) : all;
+};
+
+/** The books of one of a source's categories */
+export const booksOfCategory = (id, key) => partBooks(id).filter(b => categoryKeyOf(b) === key);
+
+/** A source's categories: [{key, en, he, books, kB}] (most books first) */
+export function categoriesOf(id) {
+  const by = new Map();
+  for (const b of partBooks(id)) {
+    const key = categoryKeyOf(b);
+    if (!by.has(key)) {
+      by.set(key, {key, en: key, he: (b.heCategories && b.heCategories[0]) || key, books: 0, kB: 0});
+    }
+    const c = by.get(key);
+    c.books += 1;
+    c.kB += sizeOfEntry(b);
+  }
+  return [...by.values()].sort((a, b) => b.books - a.books);
+}
 
 /** {done, total, doneKB, totalKB} of a source's books */
 export function progressOf(id) {
@@ -186,7 +216,8 @@ async function run() {
   for (const id of [...(state.sources || [])]) {
     if (!state.running || state.paused) { break; }
     if (!(await networkAllows())) { break; }
-    if (typeof extras.installHostedBundle === 'function') {
+    // (a ready-made bundle is the whole source: only when all its books are wanted)
+    if (typeof extras.installHostedBundle === 'function' && !chosenCategories(id)) {
       try {
         status = 'downloading';
         notify();
@@ -222,6 +253,36 @@ function startLoop() {
   }
   return loop;
 }
+
+/**
+ * What Settings chose for a source (LibrariesSettings.js): 'all' its books, 'some' (`categories`),
+ * or 'open' (each book when it is opened: the queue leaves it). Downloads in the background.
+ */
+export async function choose(id, mode, categories = null) {
+  await load();
+  const cats = {...(state.categories || {})};
+  if (mode === 'some') { cats[id] = [...(categories || [])]; } else { delete cats[id]; }
+  state = {...state, categories: cats};
+  if (mode === 'open') {
+    await save();
+    await removeSources([id]);
+    return;
+  }
+  await extras.loadExtras();
+  if (!extras.isEnabled(id)) {
+    try { await extras.setSourceEnabled(id, true); } catch (e) { console.log(`full library: ${id}`, e); }
+  }
+  const sources = state.sources.includes(id) ? state.sources : [...state.sources, id];
+  state = {...state, sources, pausedSources: (state.pausedSources || []).filter(x => x !== id),
+    running: true, paused: false, pausedBy: null};
+  freeAtPause = null;
+  await save();
+  notify();
+  startLoop();
+}
+
+/** 'all' | 'some' | 'open' for a source, as chosen in Settings */
+export const choiceOf = id => (!(state.sources || []).includes(id) ? 'open' : chosenCategories(id) ? 'some' : 'all');
 
 /** Download every book of these extra sources (turned on first), in the background */
 export async function start(sources) {
