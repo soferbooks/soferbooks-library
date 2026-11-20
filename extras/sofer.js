@@ -99,13 +99,13 @@ let lastBundle = null;
  * on the app's own release, converted on the phone (toTree). `replaces`: Sefaria's copy, which this
  * one is used instead of (extras/catalog.js: the library, links and refs open ours).
  */
-export const APP_BOOKS_URL = `https://github.com/${REPO}/releases/download/sofer-app-books-2026-11-20`;
+export const APP_BOOKS_URL = `https://github.com/${REPO}/releases/download/sofer-app-books-2026-11-20b`;
 export const APP_BOOKS = [{
   source: ID,
   id: 'app:siddur-edot-hamizrach',
   kind: 'sefaria-json',
-  hash: 'fe0192d0845c054857238e48f87e2557',
-  md5: 'fe0192d0845c054857238e48f87e2557',
+  hash: '6bdd56d18746d235c2421ba2fbe94774',
+  md5: '6bdd56d18746d235c2421ba2fbe94774',
   title: 'Siddur Edot HaMizrach (SoferBooks)',
   enTitle: 'Siddur Edot HaMizrach',
   heTitle: 'סידור נוסח עדות המזרח',
@@ -114,7 +114,7 @@ export const APP_BOOKS = [{
   license: 'CC-BY-SA',
   file: 'siddur-edot-hamizrach-sofer.zip',
   url: `${APP_BOOKS_URL}/siddur-edot-hamizrach-sofer.zip`,
-  size: 1067900,
+  size: 1067758,
   versionTitle: 'SoferBooks (Shaliehsaboo edition, Wikisource)',
   versionSource: 'https://he.wikisource.org/wiki/סידור_(מהדורת_מרדכי_שליח_ציבור)',
   preferred: true,

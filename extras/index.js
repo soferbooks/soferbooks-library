@@ -183,10 +183,11 @@ export function loadExtras() {
       }
       // (SoferBooks' own editions - extras/sofer.js APP_BOOKS - in a catalogue kept from before them)
       const sl = catalogs[soferLibrary.id];
+      // (always this version's entries for them: a newer copy - its hash - is then offered as an update)
       if (sl && Array.isArray(sl.entries)) {
-        const have = new Set(sl.entries.map(e => e.title));
-        const add = (soferLibrary.APP_BOOKS || []).filter(b => !have.has(b.title)).map(b => ({...b}));
-        if (add.length) { catalogs[soferLibrary.id] = {...sl, entries: sl.entries.concat(add)}; }
+        const app = (soferLibrary.APP_BOOKS || []).map(b => ({...b}));
+        const titles = new Set(app.map(b => b.title));
+        catalogs[soferLibrary.id] = {...sl, entries: sl.entries.filter(e => !titles.has(e.title)).concat(app)};
       }
     })();
   }
