@@ -210,9 +210,23 @@ export async function saveLinks(title, data) {
 }
 
 export async function removeLinks(title) {
-  await FileSystem.deleteAsync(linksFile(title), {idempotent: true}).catch(() => {});
-  invalidate();
+  // (kept aside until the index on the phone has taken out this book's records - readyOnDisk -
+  //  instead of the whole index made again: 20 minutes on the 32-bit tablet, with no connections
+  //  of the extra books meanwhile, after Otzaria's copies were deleted - 2026-11-20)
+  const info = await FileSystem.getInfoAsync(linksFile(title)).catch(() => null);
+  if (info && info.exists) {
+    await FileSystem.makeDirectoryAsync(REMOVED_DIR(), {intermediates: true}).catch(() => {});
+    try {
+      await FileSystem.moveAsync({from: linksFile(title), to: `${REMOVED_DIR()}${md5(title)}.json`});
+    } catch (e) {
+      await FileSystem.deleteAsync(linksFile(title), {idempotent: true}).catch(() => {});
+      invalidate();
+      return;
+    }
+  }
+  invalidate(title, {removed: true});
 }
+const REMOVED_DIR = () => `${DIR()}removed/`;
 
 /**
  * A downloaded book's links, from its source (source.linksOf(entry, text) says where), kept on the
@@ -505,10 +519,15 @@ let index = null;           // Map: section ref -> [{anchor, other, otherHe, com
 let building = null;
 let generation = 0;
 
-export function invalidate(title = null) {
+export function invalidate(title = null, {removed = false} = {}) {
   index = null;
   building = null;
   generation += 1;
+  // (a book deleted: its records are taken out of the index when next needed - removeLinks)
+  if (removed) {
+    if (typeof disk !== 'undefined') { disk.shards.clear(); }
+    return;
+  }
   // (the index on the phone: a book's links saved - downloaded, updated - are added to it when next
   //  needed; anything else - a book deleted - has it made again. Kept so across a restart too.)
   if (typeof disk !== 'undefined') { disk.shards.clear(); }
@@ -707,10 +726,9 @@ async function buildOnDisk(titles) {
  * their pending ones by the lines of the books they point to, their obvious connections). A book
  * updated keeps its earlier records too until the index is next made whole (a book deleted).
  */
-async function appendOnDisk(m, added, titles) {
-  const dir = INDEX_DIR();
+/** The index's records a book's links file makes ({shard: {section: [record]}}), and whether it is a commentary */
+async function recordsOf(f, titles, lineBooks = new Map()) {
   const buckets = new Map();
-  const commentaries = new Set(m.commentaries || []);
   const add = (anchor, other, otherHe, commentary, confidence) => {
     const section = sectionOf(anchor);
     if (!section) { return; }
@@ -723,7 +741,6 @@ async function appendOnDisk(m, added, titles) {
     add(l.a, l.t, l.th, l.r === 'commentary', l.c);
     add(l.t, l.a, l.ah, l.r === 'base', l.c);
   };
-  const lineBooks = new Map();
   const linesOf = async name => {
     if (lineBooks.has(name)) { return lineBooks.get(name); }
     let found = null;
@@ -734,27 +751,76 @@ async function appendOnDisk(m, added, titles) {
     lineBooks.set(name, found);
     return found;
   };
+  (f.links || []).forEach(both);
+  for (const p of f.pending || []) {
+    const g = await linesOf(normTitle(p.book));
+    const at = g && g.lines[p.line];
+    if (!at || !g.leaves[at[0]]) { continue; }
+    const leaf = g.leaves[at[0]];
+    both({a: p.a, ah: p.ah, t: `${leaf[0]}:${at[1]}`, th: `${leaf[1]} ${at[1]}`, r: p.r});
+  }
+  (f.inferred || []).forEach(both);
+  const commentary = (f.links || []).some(l => l.r === 'base') || (f.pending || []).some(p => p.r === 'base') || (f.inferred || []).length > 0;
+  return {buckets, commentary};
+}
+
+async function appendOnDisk(m, added, titles) {
+  const dir = INDEX_DIR();
+  const commentaries = new Set(m.commentaries || []);
+  const lineBooks = new Map();
   for (const t of added) {
     const f = await readJSON(linksFile(t));
     if (!f) { continue; }
-    (f.links || []).forEach(both);
-    for (const p of f.pending || []) {
-      const g = await linesOf(normTitle(p.book));
-      const at = g && g.lines[p.line];
-      if (!at || !g.leaves[at[0]]) { continue; }
-      const leaf = g.leaves[at[0]];
-      both({a: p.a, ah: p.ah, t: `${leaf[0]}:${at[1]}`, th: `${leaf[1]} ${at[1]}`, r: p.r});
-    }
-    (f.inferred || []).forEach(both);
-    if ((f.links || []).some(l => l.r === 'base') || (f.pending || []).some(p => p.r === 'base') || (f.inferred || []).length) {
-      commentaries.add(f.title || t);
-    }
+    const {buckets, commentary} = await recordsOf(f, titles, lineBooks);
+    if (commentary) { commentaries.add(f.title || t); }
+    await flushBuckets(dir, buckets);
     await yieldToUI();
   }
-  await flushBuckets(dir, buckets);
   const manifest = {...m, key: titlesKey(titles), titles: [...titles], made: Date.now(), commentaries: [...commentaries]};
   await FileSystem.writeAsStringAsync(`${dir}manifest.json`, JSON.stringify(manifest));
   return manifest;
+}
+
+/**
+ * Books deleted since the index was made: the records their links files made taken out of it
+ * (removed: [{title, f}]; the other books' records stay, as a whole rebuild would make them).
+ */
+async function removeFromDisk(m, removed, titles) {
+  const dir = INDEX_DIR();
+  const gone = new Set(removed.map(r => r.f.title || r.title).concat(removed.map(r => r.title)));
+  const lineBooks = new Map();
+  const key = r => `${r.anchor}|${r.other}|${!!r.commentary}`;
+  for (const {f} of removed) {
+    const {buckets} = await recordsOf(f, titles, lineBooks);
+    for (const [shard, sections] of buckets) {
+      const path = shardFile(dir, shard);
+      const have = await readJSON(path);
+      if (!have) { continue; }
+      for (const [section, recs] of Object.entries(sections)) {
+        if (!have[section]) { continue; }
+        const drop = new Set(recs.map(key));
+        have[section] = have[section].filter(r => !drop.has(key(r)));
+        if (!have[section].length) { delete have[section]; }
+      }
+      await FileSystem.writeAsStringAsync(path, JSON.stringify(have));
+      await yieldToUI();
+    }
+  }
+  return {...m, key: titlesKey(titles), titles: [...titles], made: Date.now(),
+    commentaries: (m.commentaries || []).filter(t => !gone.has(t))};
+}
+
+/** The deleted books' links files kept aside for removeFromDisk: [{title, f, path}] */
+async function removedFiles() {
+  const dir = REMOVED_DIR();
+  let names = [];
+  try { names = await FileSystem.readDirectoryAsync(dir); } catch (e) { return []; }
+  const out = [];
+  for (const n of names.filter(x => x.endsWith('.json'))) {
+    const f = await readJSON(`${dir}${n}`);
+    if (f) { out.push({title: f.title, f, path: `${dir}${n}`}); }
+  }
+  return out;
 }
 
 /** The index on the phone for these books: made (or made again) when it is not theirs */
@@ -769,13 +835,23 @@ export function readyOnDisk(titles) {
     // (the same books, and no link of them changed since: a change marks the index - invalidate)
     const changed = !!(await readJSON(`${DIR()}changed.json`));
     const added = (await readJSON(`${DIR()}added.json`)) || [];
-    if (m && m.key === key && !changed && !added.length) { disk.checked = gen; return m; }
-    // (books downloaded or updated since, and nothing deleted: their records added to the index)
+    const removed = await removedFiles();
+    const dropRemoved = async () => {
+      for (const r of removed) { await FileSystem.deleteAsync(r.path, {idempotent: true}).catch(() => {}); }
+    };
+    if (m && m.key === key && !changed && !added.length && !removed.length) { disk.checked = gen; return m; }
+    // (books downloaded, updated or deleted since: their records added to the index, or taken out)
     const had = new Set(m && m.titles ? m.titles : []);
+    const removedTitles = new Set(removed.map(r => r.title));
     const onlyAdded = m && !changed && Array.isArray(m.titles)
-      && titles.every(t => had.has(t) || added.includes(t)) && m.titles.every(t => titles.includes(t));
+      && titles.every(t => had.has(t) || added.includes(t))
+      && m.titles.every(t => titles.includes(t) || removedTitles.has(t));
     if (onlyAdded) {
-      const made = await appendOnDisk(m, added.filter(t => titles.includes(t)), titles);
+      const gone = removed.filter(r => had.has(r.title) && !titles.includes(r.title));
+      const kept = gone.length ? await removeFromDisk(m, gone, titles) : m;
+      const made = await appendOnDisk(kept, added.filter(t => titles.includes(t)), titles);
+      await dropRemoved();
+      lastIndexWork = 'incremental';
       disk.manifest = made;
       disk.commentaries = new Set(made.commentaries || []);
       disk.shards.clear();
@@ -786,6 +862,8 @@ export function readyOnDisk(titles) {
       return made;
     }
     const made = await buildOnDisk(titles);
+    await dropRemoved();
+    lastIndexWork = 'whole';
     disk.manifest = made;
     disk.commentaries = new Set(made.commentaries || []);
     disk.shards.clear();
@@ -896,3 +974,5 @@ export function withExtraLinks(response, extra) {
 
 // (tests)
 export function _reset() { invalidate(); }
+let lastIndexWork = null;
+export const _lastIndexWork = () => lastIndexWork;

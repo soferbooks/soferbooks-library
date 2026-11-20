@@ -23,6 +23,24 @@ test('the links index is kept on the phone: made, a downloaded book added to it,
   expect(map.get('Genesis 1').map(r => r.other)).toEqual(['Book B, S1:3']);
 });
 
+test('a deleted book\'s records come out of the index alone (no rebuild: 20 minutes on the 32-bit tablet)', async () => {
+  links._reset();
+  await links.saveLinks('Book A', { title: 'Book A', links: [link('Genesis 1:1', 'Book A, S1:1', 'base')] });
+  await links.saveLinks('Book B', { title: 'Book B', links: [link('Genesis 1:1', 'Book B, S1:3', 'base')] });
+  let map = await links.sectionIndex(['Book A', 'Book B'], 'Genesis 1');
+  expect(map.get('Genesis 1').map(r => r.other).sort()).toEqual(['Book A, S1:1', 'Book B, S1:3']);
+
+  await links.removeLinks('Book A');
+  map = await links.sectionIndex(['Book B'], 'Genesis 1');
+  expect(map.get('Genesis 1').map(r => r.other)).toEqual(['Book B, S1:3']);
+  // (taken out of the index as it was: no whole rebuild; the deleted book no longer a commentary)
+  expect(links._lastIndexWork()).toBe('incremental');
+  expect([...links.commentaryTitles()]).toEqual(['Book B']);
+  // the book's own section: its records gone too
+  map = await links.sectionIndex(['Book B'], 'Book A, S1');
+  expect(map.get('Book A, S1')).toEqual([]);
+});
+
 test('a section is kept in its book\'s file', () => {
   expect(links.shardOf('Niddah 2b')).toBe('Niddah');
   expect(links.shardOf('Shulchan Arukh, Orach Chayim 447')).toBe('Shulchan Arukh, Orach Chayim');
