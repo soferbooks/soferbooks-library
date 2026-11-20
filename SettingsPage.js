@@ -55,7 +55,7 @@ import { onPackageChosen, FULL_LIBRARY } from './fullLibrary';
 import { LibrariesSettings } from './LibrariesSettings';
 import ReaderAppContext from './context';
 import { loadTabs } from './tabs/tabStorage';
-import {
+import { shownTitle,
   MAX_APP_ICON_SHORTCUTS,
   getShortcutPinnedIds,
   loadShortcutPinnedIds,
@@ -290,7 +290,7 @@ export const AppIconShortcutsSettings = ({ langStyle }) => {
         <View style={{ flexDirection: isHeb ? 'row-reverse' : 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8 }}>
           {tabs.map(tab => {
             const pinned = pinnedIds.includes(tab.id);
-            const label = (isHeb && tab.heTitle) ? tab.heTitle : tab.title;
+            const label = (isHeb && tab.heTitle) ? tab.heTitle : shownTitle(tab.title);
             return (
               <TouchableOpacity
                 key={tab.id}

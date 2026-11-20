@@ -13,6 +13,17 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
  * so it opens the tab at the latest place read in it.
  */
 
+/** A book's name as shown in English: an extra book's own English name (the siddur's, without
+ *  its edition) where it has one, else its title */
+export const shownTitle = title => {
+  try {
+    const extras = require('../extras');
+    return (extras.englishTitleOf && extras.englishTitleOf(title)) || title;
+  } catch (e) {
+    return title;
+  }
+};
+
 export const TAB_SHORTCUT_PREFIX = 'soferbooks://tab/';
 export const MAX_APP_ICON_SHORTCUTS = 4;
 export const SHORTCUT_PINS_STORAGE_KEY = 'appIconShortcutTabIds.v1';
@@ -137,7 +148,7 @@ export const selectAppIconShortcuts = (
     id: shortcutIdForTab(tab.id),
     tabId: tab.id,
     pinnedToShortcut,
-    label: (isHeb && tab.heTitle) ? tab.heTitle : tab.title,
+    label: (isHeb && tab.heTitle) ? tab.heTitle : shownTitle(tab.title),
     sublabel: (isHeb && tab.heRef) ? tab.heRef : (tab.ref || ''),
     url: tabShortcutUrl(tab.id, tab.title),
   }));
