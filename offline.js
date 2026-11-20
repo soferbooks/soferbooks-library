@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 import md5 from 'md5';
 import * as FileSystem from 'expo-file-system/legacy';
-import { safeUnzip as unzip, safeExtractPrefix } from './storage';   // (checks the zip first; fails as an error, never a crash)
+import { safeUnzip as unzip, safeExtractPrefix, uriName } from './storage';   // (checks the zip first; fails as an error, never a crash)
 import LinkContent from './LinkContent';
 import {ERRORS} from "./errors";
 import {loadJSONFile} from "./DownloadControl";
@@ -819,16 +819,17 @@ const _JSONSectionPath = function(sectionRef, vtitle, lang) {
     return _JSONSourcePath(_sectionFileName(sectionRef, vtitle, lang));
 };
 
+// (a title with "?", "#" or "%" escaped in the address: storage.uriName)
 const _JSONSourcePath = function(fileName) {
-    return (FileSystem.documentDirectory + "/" + fileName + ".json");
+    return (FileSystem.documentDirectory + "/" + uriName(fileName) + ".json");
 };
 
 const _indexJSONPath = function(fileName) {
-    return FileSystem.documentDirectory + "/" + fileName + "_index.json";
+    return FileSystem.documentDirectory + "/" + uriName(fileName) + "_index.json";
 };
 
 const _zipSourcePath = function(fileName) {
-    return (FileSystem.documentDirectory + "/library/" + fileName + ".zip");
+    return (FileSystem.documentDirectory + "/library/" + uriName(fileName) + ".zip");
 };
 
 const processFileData = function(ref, textContent) {

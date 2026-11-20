@@ -1,7 +1,7 @@
 'use strict';
 
 import * as FileSystem from 'expo-file-system/legacy';
-import {WORK_DIR, safeUnzip, replaceFile, hasRoom, freeBytes, MARGIN_BYTES, LOW_SPACE_BYTES} from './storage';
+import {WORK_DIR, safeUnzip, replaceFile, hasRoom, freeBytes, MARGIN_BYTES, LOW_SPACE_BYTES, uriName} from './storage';
 import strings from './LocalizedStrings'
 import {Alert, Platform} from 'react-native';
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -609,7 +609,7 @@ async function unzipBundle(bundleSessionLocation) {
   try {
     await safeUnzip(bundleSessionLocation, dir);
     for (const name of await FileSystem.readDirectoryAsync(dir)) {
-      await replaceFile(`${dir}${name}`, `${FILE_DIRECTORY}/${name}`);
+      await replaceFile(`${dir}${uriName(name)}`, `${FILE_DIRECTORY}/${uriName(name)}`);
     }
   } finally {
     await FileSystem.deleteAsync(dir, {idempotent: true}).catch(() => {});

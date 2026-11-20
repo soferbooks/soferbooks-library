@@ -936,7 +936,8 @@ export async function extraLinksFor(sectionRef) {
     const titles = installedTitles().filter(t => !state.installed[t].companionOf);
     if (!titles.length) { return []; }
     await repairReadyMadeLinks(titles);
-    return links.relatedFromIndex(await links.ready(titles), sectionRef);
+    // (the index kept on the phone: only this section's book is read - links.sectionIndex)
+    return links.relatedFromIndex(await links.sectionIndex(titles, sectionRef), sectionRef);
   } catch (e) {
     console.log('extras: links of', sectionRef, e);
     return [];

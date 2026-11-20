@@ -206,7 +206,7 @@ async function writeJSON(path, data) {
 export const readLinks = title => readJSON(linksFile(title));
 export async function saveLinks(title, data) {
   await writeJSON(linksFile(title), data);
-  invalidate();
+  invalidate(title);
 }
 
 export async function removeLinks(title) {
@@ -226,7 +226,7 @@ export async function collect({title, heTitle, tree, where, fetchCitations, stil
     // (a book that came ready made - the Sofer Library's: only the links its files give)
     const data = {v: VERSION, title, heTitle, links: own, pending: []};
     await writeJSON(linksFile(title), data).catch(e => console.log('extras: links', e));
-    invalidate();
+    invalidate(title);
     return {data, later: Promise.resolve(false)};
   }
   const passages = passagesOf(tree, title, heTitle);
@@ -254,7 +254,7 @@ export async function collect({title, heTitle, tree, where, fetchCitations, stil
     }
   }
   await writeJSON(linksFile(title), data).catch(e => console.log('extras: links', e));
-  invalidate();
+  invalidate(title);
   let later = Promise.resolve(false);
   if (where && where.dictaPages && fetchCitations) {
     later = (async () => {
@@ -265,7 +265,7 @@ export async function collect({title, heTitle, tree, where, fetchCitations, stil
         const now = (await readJSON(linksFile(title))) || data;
         now.links = (now.links || []).concat(cites);
         await writeJSON(linksFile(title), now);
-        invalidate();
+        invalidate(title);
         return true;
       } catch (e) {
         console.log('extras: Dicta\'s citations of', title, e);
@@ -505,11 +505,25 @@ let index = null;           // Map: section ref -> [{anchor, other, otherHe, com
 let building = null;
 let generation = 0;
 
-export function invalidate() {
+export function invalidate(title = null) {
   index = null;
   building = null;
   generation += 1;
+  // (the index on the phone: a book's links saved - downloaded, updated - are added to it when next
+  //  needed; anything else - a book deleted - has it made again. Kept so across a restart too.)
+  if (typeof disk !== 'undefined') { disk.shards.clear(); }
+  if (title) {
+    markedTitles = markedTitles.then(async () => {
+      const list = (await readJSON(`${DIR()}added.json`)) || [];
+      if (!list.includes(title)) { list.push(title); }
+      await writeJSON(`${DIR()}added.json`, list);
+    }).catch(() => {});
+    return;
+  }
+  FileSystem.makeDirectoryAsync(DIR(), {intermediates: true}).catch(() => {})
+    .then(() => FileSystem.writeAsStringAsync(`${DIR()}changed.json`, '1')).catch(() => {});
 }
+let markedTitles = Promise.resolve();
 
 /** The section of a passage ref: all but its last number ("X 4:8" -> "X 4"); null for a section */
 export function sectionOf(ref) {
@@ -560,11 +574,254 @@ export function buildIndex(files) {
 }
 
 /** The downloaded extra books that are commentaries (a Set; empty until the index is read) */
-export const commentaryTitles = () => (index && index.commentaries) || new Set();
+export const commentaryTitles = () => (disk.commentaries || (index && index.commentaries) || new Set());
+
+// ---------------------------------------------------------------- the index on the phone's storage
+// (2026-11-20, the 32-bit tablet: the index above, all 1,971 books' links in one Map, took the app
+// from 156 MB to 1 GB of its 2 GB and 87 s at every start.) The same records (buildIndex's) are
+// kept on the phone instead, one file per book of the passages they are on ("Niddah", "Shulchan
+// Arukh, Orach Chayim", an extra book's keyed parts), made by reading the link files one at a time,
+// and kept from one start to the next until a book's links change. A section's links are read from
+// its book's file alone.
+const INDEX_DIR = () => `${FileSystem.documentDirectory}library/_extras/links-index/`;
+const INDEX_VERSION = 1;
+const FLUSH_EVERY = 100000;       // records kept in memory before they are written to their files (about 20 MB)
+const SHARDS_KEPT = 6;            // books' files kept in memory (the book being read, its commentaries)
+const disk = {manifest: null, commentaries: null, building: null, shards: new Map(), checked: null};
+
+/** The book a section is in, as the index files are kept: the section without its last part */
+export const shardOf = section => String(section || '').replace(/,? [^ ]+$/, '') || String(section || '');
+const shardFile = (dir, shard) => `${dir}${md5(shard)}.json`;
+const titlesKey = titles => md5([...(titles || [])].sort().join('\n'));
+
+/** The index on the phone, as last made (its manifest), or null */
+async function diskManifest() {
+  if (disk.manifest) { return disk.manifest; }
+  const m = await readJSON(`${INDEX_DIR()}manifest.json`);
+  if (m && m.v === INDEX_VERSION) {
+    disk.manifest = m;
+    disk.commentaries = new Set(m.commentaries || []);
+  }
+  return disk.manifest;
+}
+
+/** Write the records of `buckets` ({shard: {section: [record]}}) into their files in `dir` */
+async function flushBuckets(dir, buckets, fresh = null) {
+  for (const [shard, sections] of buckets) {
+    const path = shardFile(dir, shard);
+    // (a book's file written for the first time in a build starts empty: nothing of the last index stays)
+    const first = fresh && !fresh.has(shard);
+    if (fresh) { fresh.add(shard); }
+    const have = first ? {} : ((await readJSON(path)) || {});
+    for (const [section, recs] of Object.entries(sections)) {
+      const list = have[section] || [];
+      const keys = new Set(list.map(r => `${r.anchor}|${r.other}`));
+      for (const r of recs) {
+        const k = `${r.anchor}|${r.other}`;
+        if (!keys.has(k)) { keys.add(k); list.push(r); }     // (the first record of two passages wins)
+      }
+      have[section] = list;
+    }
+    await FileSystem.writeAsStringAsync(path, JSON.stringify(have));
+    await yieldToUI();
+  }
+  buckets.clear();
+}
+
+/** Make the index on the phone from the books' link files, a file at a time */
+async function buildOnDisk(titles) {
+  // (made in place; its manifest is written last, so an index half made - the app closed meanwhile
+  //  - is never used: it is made again)
+  const dir = INDEX_DIR();
+  disk.manifest = null;
+  await FileSystem.deleteAsync(dir, {idempotent: true}).catch(() => {});
+  await FileSystem.makeDirectoryAsync(dir, {intermediates: true}).catch(() => {});
+  // the books other books' pending links point to (by line): only their lines are kept
+  const needed = new Set();
+  const commentaries = [];
+  for (const t of titles) {
+    const f = await readJSON(linksFile(t));
+    if (!f) { continue; }
+    (f.pending || []).forEach(p => needed.add(normTitle(p.book)));
+    if ((f.links || []).some(l => l.r === 'base') || (f.pending || []).some(p => p.r === 'base') || (f.inferred || []).length) {
+      commentaries.push(f.title || t);
+    }
+    await yieldToUI();
+  }
+  const byName = new Map();
+  if (needed.size) {
+    for (const t of titles) {
+      const f = await readJSON(linksFile(t));
+      if (f && f.lines && f.leaves && f.heTitle && needed.has(normTitle(f.heTitle))) {
+        byName.set(normTitle(f.heTitle), {lines: f.lines, leaves: f.leaves});
+      }
+      await yieldToUI();
+    }
+  }
+  const buckets = new Map();
+  const fresh = new Set();
+  let count = 0;
+  const add = async (anchor, other, otherHe, commentary, confidence) => {
+    const section = sectionOf(anchor);
+    if (!section) { return; }
+    const shard = shardOf(section);
+    if (!buckets.has(shard)) { buckets.set(shard, {}); }
+    const b = buckets.get(shard);
+    (b[section] = b[section] || []).push({anchor: rangeStart(anchor), other, otherHe, commentary, ...(confidence ? {confidence} : {})});
+    count += 1;
+    if (count >= FLUSH_EVERY) { count = 0; await flushBuckets(dir, buckets, fresh); }
+  };
+  const both = async l => {
+    await add(l.a, l.t, l.th, l.r === 'commentary', l.c);
+    await add(l.t, l.a, l.ah, l.r === 'base', l.c);
+  };
+  // the books' own links (and their pending ones, by line) first; the obvious connections last
+  for (const pass of ['own', 'inferred']) {
+    for (const t of titles) {
+      const f = await readJSON(linksFile(t));
+      if (!f) { continue; }
+      if (pass === 'own') {
+        for (const l of f.links || []) { await both(l); }
+        for (const p of f.pending || []) {
+          const g = byName.get(normTitle(p.book));
+          const at = g && g.lines[p.line];
+          if (!at || !g.leaves[at[0]]) { continue; }
+          const leaf = g.leaves[at[0]];
+          await both({a: p.a, ah: p.ah, t: `${leaf[0]}:${at[1]}`, th: `${leaf[1]} ${at[1]}`, r: p.r});
+        }
+      } else {
+        for (const l of f.inferred || []) { await both(l); }
+      }
+      await yieldToUI();
+    }
+    await flushBuckets(dir, buckets, fresh);
+    count = 0;
+  }
+  const manifest = {v: INDEX_VERSION, key: titlesKey(titles), titles: [...titles], made: Date.now(), commentaries};
+  await FileSystem.writeAsStringAsync(`${dir}manifest.json`, JSON.stringify(manifest));
+  return manifest;
+}
+
+/**
+ * Books downloaded or updated since the index was made: their records added to it (their own links,
+ * their pending ones by the lines of the books they point to, their obvious connections). A book
+ * updated keeps its earlier records too until the index is next made whole (a book deleted).
+ */
+async function appendOnDisk(m, added, titles) {
+  const dir = INDEX_DIR();
+  const buckets = new Map();
+  const commentaries = new Set(m.commentaries || []);
+  const add = (anchor, other, otherHe, commentary, confidence) => {
+    const section = sectionOf(anchor);
+    if (!section) { return; }
+    const shard = shardOf(section);
+    if (!buckets.has(shard)) { buckets.set(shard, {}); }
+    const b = buckets.get(shard);
+    (b[section] = b[section] || []).push({anchor: rangeStart(anchor), other, otherHe, commentary, ...(confidence ? {confidence} : {})});
+  };
+  const both = l => {
+    add(l.a, l.t, l.th, l.r === 'commentary', l.c);
+    add(l.t, l.a, l.ah, l.r === 'base', l.c);
+  };
+  const lineBooks = new Map();
+  const linesOf = async name => {
+    if (lineBooks.has(name)) { return lineBooks.get(name); }
+    let found = null;
+    for (const t of titles) {
+      const f = await readJSON(linksFile(t));
+      if (f && f.lines && f.leaves && f.heTitle && normTitle(f.heTitle) === name) { found = {lines: f.lines, leaves: f.leaves}; break; }
+    }
+    lineBooks.set(name, found);
+    return found;
+  };
+  for (const t of added) {
+    const f = await readJSON(linksFile(t));
+    if (!f) { continue; }
+    (f.links || []).forEach(both);
+    for (const p of f.pending || []) {
+      const g = await linesOf(normTitle(p.book));
+      const at = g && g.lines[p.line];
+      if (!at || !g.leaves[at[0]]) { continue; }
+      const leaf = g.leaves[at[0]];
+      both({a: p.a, ah: p.ah, t: `${leaf[0]}:${at[1]}`, th: `${leaf[1]} ${at[1]}`, r: p.r});
+    }
+    (f.inferred || []).forEach(both);
+    if ((f.links || []).some(l => l.r === 'base') || (f.pending || []).some(p => p.r === 'base') || (f.inferred || []).length) {
+      commentaries.add(f.title || t);
+    }
+    await yieldToUI();
+  }
+  await flushBuckets(dir, buckets);
+  const manifest = {...m, key: titlesKey(titles), titles: [...titles], made: Date.now(), commentaries: [...commentaries]};
+  await FileSystem.writeAsStringAsync(`${dir}manifest.json`, JSON.stringify(manifest));
+  return manifest;
+}
+
+/** The index on the phone for these books: made (or made again) when it is not theirs */
+export function readyOnDisk(titles) {
+  if (disk.building) { return disk.building; }
+  const key = titlesKey(titles);
+  if (disk.manifest && disk.manifest.key === key && disk.checked === generation) { return Promise.resolve(disk.manifest); }
+  const gen = generation;
+  disk.building = (async () => {
+    const m = await diskManifest();
+    await markedTitles;
+    // (the same books, and no link of them changed since: a change marks the index - invalidate)
+    const changed = !!(await readJSON(`${DIR()}changed.json`));
+    const added = (await readJSON(`${DIR()}added.json`)) || [];
+    if (m && m.key === key && !changed && !added.length) { disk.checked = gen; return m; }
+    // (books downloaded or updated since, and nothing deleted: their records added to the index)
+    const had = new Set(m && m.titles ? m.titles : []);
+    const onlyAdded = m && !changed && Array.isArray(m.titles)
+      && titles.every(t => had.has(t) || added.includes(t)) && m.titles.every(t => titles.includes(t));
+    if (onlyAdded) {
+      const made = await appendOnDisk(m, added.filter(t => titles.includes(t)), titles);
+      disk.manifest = made;
+      disk.commentaries = new Set(made.commentaries || []);
+      disk.shards.clear();
+      if (gen === generation) {
+        disk.checked = gen;
+        await FileSystem.deleteAsync(`${DIR()}added.json`, {idempotent: true}).catch(() => {});
+      }
+      return made;
+    }
+    const made = await buildOnDisk(titles);
+    disk.manifest = made;
+    disk.commentaries = new Set(made.commentaries || []);
+    disk.shards.clear();
+    if (gen === generation) {
+      disk.checked = gen;
+      await FileSystem.deleteAsync(`${DIR()}changed.json`, {idempotent: true}).catch(() => {});
+      await FileSystem.deleteAsync(`${DIR()}added.json`, {idempotent: true}).catch(() => {});
+    }
+    return made;
+  })().finally(() => { disk.building = null; });
+  return disk.building;
+}
+
+/** Whether the index on the phone is ready for a section's links to be read at once */
+export const isDiskReady = () => !!disk.manifest && disk.checked === generation && !disk.building;
+
+/** A section's records from the index on the phone (its book's file) - a Map, as relatedFromIndex takes */
+export async function sectionIndex(titles, section) {
+  await readyOnDisk(titles);
+  const shard = shardOf(section);
+  let recs = disk.shards.get(shard);
+  if (!recs) {
+    recs = (await readJSON(shardFile(INDEX_DIR(), shard))) || {};
+    disk.shards.set(shard, recs);
+    if (disk.shards.size > SHARDS_KEPT) { disk.shards.delete(disk.shards.keys().next().value); }
+  } else {
+    disk.shards.delete(shard);
+    disk.shards.set(shard, recs);
+  }
+  return new Map([[section, recs[section] || []]]);
+}
+
 
 /** Read the link files of the downloaded books (titles) into the index, once until invalidated */
 /** Whether the downloaded books' links are read already (ready() resolves at once) */
-export const isReady = () => !!index;
+export const isReady = () => isDiskReady();
 
 export function ready(titles) {
   if (index) { return Promise.resolve(index); }

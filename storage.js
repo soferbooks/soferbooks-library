@@ -78,13 +78,16 @@ export async function cleanWork(name = null) {
 }
 
 /** Unzip `zipPath` into `dest`, after checking it is there and not empty. Throws UnzipError. */
+// (the zip library takes a path as it is, without undoing uriName's escapes)
+export const plainPath = p => String(p).replace(/%3F/g, '?').replace(/%23/g, '#').replace(/%25/g, '%');
+
 export async function safeUnzip(zipPath, dest) {
   let info = null;
   try { info = await FileSystem.getInfoAsync(zipPath); } catch (e) { info = null; }
   if (!info || !info.exists) { throw new UnzipError(`no zip at ${zipPath}`); }
   if (!info.size) { throw new UnzipError(`empty zip at ${zipPath}`); }
   try {
-    return await unzip(zipPath, dest);
+    return await unzip(plainPath(zipPath), plainPath(dest));
   } catch (e) {
     throw new UnzipError(`could not unzip ${zipPath}: ${(e && e.message) || e}`);
   }
@@ -98,7 +101,7 @@ export async function safeExtractPrefix(zipPath, dest, prefix) {
   if (!info || !info.exists) { throw new UnzipError(`no zip at ${zipPath}`); }
   if (!info.size) { throw new UnzipError(`empty zip at ${zipPath}`); }
   try {
-    return await extractPrefix(zipPath, dest, prefix);
+    return await extractPrefix(plainPath(zipPath), plainPath(dest), prefix);
   } catch (e) {
     throw new UnzipError(`could not extract ${prefix} from ${zipPath}: ${(e && e.message) || e}`);
   }
@@ -108,6 +111,13 @@ export async function safeExtractPrefix(zipPath, dest, prefix) {
  * Put the complete file `from` at `to`: the old copy is moved aside first and deleted only once
  * the new one is in place (put back if the move fails).
  */
+/**
+ * A file name as part of a file address: "?", "#" and "%" escaped. Without this a book whose title
+ * has a "?" ("Will We Have Jewish Grandchildren? ...") was read as an address with a query, so it
+ * was never moved into the library and the download retried for ever (tablet, 2026-11-20).
+ */
+export const uriName = name => String(name).replace(/%/g, '%25').replace(/\?/g, '%3F').replace(/#/g, '%23');
+
 export async function replaceFile(from, to) {
   const aside = `${to}.old`;
   let had = false;
