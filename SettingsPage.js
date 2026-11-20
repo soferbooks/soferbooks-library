@@ -44,7 +44,9 @@ import {
   isDownloadAllowed,
   FILE_DIRECTORY, downloadUpdate,
   packageFits, lowSpaceNotification,
+  syncSoferBooksPacks,
 } from './DownloadControl';
+import { loadOfflineSearch, setOfflineSearch } from './searchPrefs';
 import Sefaria from "./sefaria";
 import * as FileSystem from 'expo-file-system/legacy';
 import { ContentFilterSettings, LibrarySourcesSettings } from './shomer/ContentFilterSettings';
@@ -318,6 +320,46 @@ export const AppIconShortcutsSettings = ({ langStyle }) => {
   );
 };
 
+/**
+ * Offline search on or off (searchPrefs.js). Off (the default) keeps no search files - on the
+ * 32-bit tablet they were 6.65 GB of the app's 9.6 GB - and search goes to Sefaria online.
+ */
+export const OfflineSearchSetting = ({ langStyle }) => {
+  const globalState = useContext(GlobalStateContext);
+  const theme = getTheme(globalState.themeStr);
+  const [on, setOn] = useState(null);
+  useEffect(() => { loadOfflineSearch().then(setOn); }, []);
+  if (on === null) { return null; }
+  const choose = value => {
+    if (value === on) { return; }
+    const apply = async () => {
+      setOn(value);
+      await setOfflineSearch(value);
+      if (value) { syncSoferBooksPacks(globalState.downloadNetworkSetting).catch(() => {}); }
+    };
+    if (value) { apply(); return; }
+    Alert.alert(strings.settings.offline_search, strings.settings.offline_search_off_confirm, [
+      { text: strings.common.cancel, style: 'cancel' },
+      { text: strings.common.ok, onPress: apply },
+    ]);
+  };
+  return (
+    <View style={styles.settingsSection} testID="offline-search-setting">
+      <Text style={[langStyle, styles.settingsSectionHeader, theme.tertiaryText]}>{strings.settings.offline_search}</Text>
+      <ButtonToggleSet
+        options={[
+          { name: 'on', text: strings.common.on, onPress: () => choose(true) },
+          { name: 'off', text: strings.common.off, onPress: () => choose(false) },
+        ]}
+        lang={globalState.interfaceLanguage}
+        active={on ? 'on' : 'off'} />
+      <Text style={[langStyle, theme.secondaryText, { fontSize: 13, marginTop: 6, marginHorizontal: 4 }]}>
+        {on ? strings.settings.offline_search_on_note : strings.settings.offline_search_off_note}
+      </Text>
+    </View>
+  );
+};
+
 export const SefariaLinksSetting = ({ langStyle }) => {
   const globalState = useContext(GlobalStateContext);
   const theme = getTheme(globalState.themeStr);
@@ -496,6 +538,7 @@ const SettingsPage = ({ close, openUri }) => {
           }}>
             <Text style={[langStyle, styles.settingsSectionHeader, theme.tertiaryText]}>{strings.settings.system}</Text>
           </TouchableWithoutFeedback>
+          <OfflineSearchSetting langStyle={langStyle} />
           <SefariaLinksSetting langStyle={langStyle} />
           <AppVersionSection
             versionNumber={VersionNumber.appVersion}

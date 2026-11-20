@@ -666,6 +666,7 @@ describe('opening a book that is not downloaded', () => {
 
   test('large Otzaria book (Ohr HaYashar scale) downloads, converts, zips, and indexes for search cleanly', async () => {
     jest.resetModules();
+    require('../searchPrefs')._setOfflineSearchForTests(true);   // (the fresh module reads it again)
     const ex = require('../extras');
     const FS = require('expo-file-system/legacy');
     FS.clear();

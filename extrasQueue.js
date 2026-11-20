@@ -19,6 +19,7 @@ import NetInfo from '@react-native-community/netinfo';
 import * as extras from './extras';
 import { sizeOfEntry, ratioOf, partBooks } from './fullLibrary';
 import { freeBytes, cleanWork, LOW_SPACE_BYTES, LowSpaceError } from './storage';
+import { pruneSearchFilesIfOff } from './searchPrefs';
 import { CONCURRENCY } from './downloadPool';
 
 export const STORAGE_KEY = 'extrasQueue';
@@ -192,6 +193,8 @@ async function run() {
         await extras.installHostedBundle(id, {
           isCancelled: () => !state.running || state.paused || !(state.sources || []).includes(id),
         });
+        // (a ready-made bundle brings its books' search lines: not kept while offline search is off)
+        await pruneSearchFilesIfOff();
       } catch (e) {
         if (e instanceof LowSpaceError || (e && e.name === 'LowSpaceError')) {
           await pauseForSpace(e.free);

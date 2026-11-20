@@ -58,6 +58,7 @@ import {bookLines} from '../localSearch';
 import {clearOfflineSearchCache} from '../offlineSearch';
 import * as shomer from '../shomer';
 import {WORK_DIR, ensureRoom, replaceFile, MB, safeUnzip} from '../storage';
+import {loadOfflineSearch} from '../searchPrefs';
 
 // (chok: Chok LeYisrael, one book from Otzaria's library, turned on by its learning schedule - no
 //  switch in Settings: extras/chok.js)
@@ -417,7 +418,8 @@ async function writeBook(title, files, job = null) {
   }
   if (job) { job.check(); }
   if (showSteps) { job.progress(92, 100, 'percent'); }
-  const lines = await searchLines(files, job);
+  // (offline search off - searchPrefs.js: the book is read, not searched, on the phone)
+  const lines = (await loadOfflineSearch()) ? await searchLines(files, job) : [];
   if (job) { job.check(); }
   if (lines.length) {
     await FileSystem.writeAsStringAsync(`${LIBRARY_DIR}${title}_search.txt`, `${lines.join('\n')}\n`);

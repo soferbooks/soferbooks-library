@@ -23,7 +23,8 @@ import he from '../i18n/he.json';
 import TestContextWrapper from '../TestContextWrapper';
 import { GlobalStateContext, DispatchContext, DEFAULT_STATE } from '../StateManager';
 import { iconData } from '../IconData';
-import SettingsPage, { SefariaLinksSetting } from '../SettingsPage';
+import SettingsPage, { SefariaLinksSetting, OfflineSearchSetting } from '../SettingsPage';
+import { _setOfflineSearchForTests } from '../searchPrefs';
 import ConnectionsPanel from '../ConnectionsPanel';
 import ConnectionsPanelHeader from '../ConnectionsPanelHeader';
 import TextList from '../TextList';
@@ -850,6 +851,20 @@ describe('"Open Sefaria links in this app" (Settings, Android)', () => {
   test('renders its button and explanation in both languages', () => {
     expectScreenLocalizes(wrap(SefariaLinksSetting, { langStyle: {} }),
       ['settings.open_sefaria_links', 'settings.open_sefaria_links_explanation']);
+  });
+});
+
+describe('"Offline search" (Settings)', () => {
+  afterEach(() => { _setOfflineSearchForTests(true); });
+  test('off: its name and what off means, in both languages', async () => {
+    _setOfflineSearchForTests(false);
+    await expectSettledScreenLocalizes(wrap(OfflineSearchSetting, { langStyle: {} }),
+      ['settings.offline_search', 'settings.offline_search_off_note']);
+  });
+  test('on: what on means, in both languages', async () => {
+    _setOfflineSearchForTests(true);
+    await expectSettledScreenLocalizes(wrap(OfflineSearchSetting, { langStyle: {} }),
+      ['settings.offline_search', 'settings.offline_search_on_note']);
   });
 });
 
@@ -2079,6 +2094,8 @@ describe('The app-wide error alert', () => {
  * scenario — do not append to this list without a reason written down.
  */
 const NOT_YET_COVERED = [
+  // the alert before deleting the search files (shown on pressing Off; Alert is not rendered)
+  'settings.offline_search_off_confirm',
   // ---------------------------------------------------------------------------------------
   // Filter groups with no books in the library (shomer/groupExamples.json) are not listed in
   // Settings; "and 1 more" shows only for a group with exactly five; the shown/hidden words

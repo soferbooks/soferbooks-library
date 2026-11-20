@@ -9,3 +9,7 @@ jest.mock('@react-native-community/netinfo', () => mockRNCNetInfo);
 //   addListener: jest.fn(),
 //   removeListeners: jest.fn()
 // };
+
+// Offline search is off by default in the app (searchPrefs.js); the tests of search files,
+// packs and conversions were written with it on
+require('./searchPrefs')._setOfflineSearchForTests(true);

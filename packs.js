@@ -29,6 +29,7 @@ import {releasesBaseUrl} from './sources';
 import {CORRECTIONS_DIR, clearCorrectionsCache} from './corrections';
 import {clearOfflineSearchCache} from './offlineSearch';
 import {syncLocalSearch} from './localSearch';
+import {loadOfflineSearch} from './searchPrefs';
 
 export const MANIFEST_FORMAT = 1;
 export const STATE_KEY = 'soferbooksPacks';
@@ -238,7 +239,10 @@ async function _syncPacks(selected, {isHidden = null, base = releasesBaseUrl()} 
   const manifest = await fetchManifest(base);
   if (!manifest) { return null; }
   const state = await loadPackState();
+  // (offline search off - searchPrefs.js: only the corrections; search goes online)
+  const searchOn = await loadOfflineSearch();
   const plan = planPacks(manifest, selected, state, await presentOnDisk(manifest));
+  if (!searchOn) { plan.shards = []; plan.indexes = []; plan.removeIndexes = []; }
   const assetBase = assetBaseUrl(base, manifest);
   const next = {
     tag: manifest.tag,
@@ -322,6 +326,6 @@ async function _syncPacks(selected, {isHidden = null, base = releasesBaseUrl()} 
   clearOfflineSearchCache();
   // the versions the release may not host: their search lines are made on the phone, from
   // its own Sefaria zips, in the background (localSearch.js)
-  syncLocalSearch((manifest.search && manifest.search.local_titles) || [], {isHidden}).catch(() => {});
+  if (searchOn) { syncLocalSearch((manifest.search && manifest.search.local_titles) || [], {isHidden}).catch(() => {}); }
   return {tag: manifest.tag, downloaded, failed};
 }
