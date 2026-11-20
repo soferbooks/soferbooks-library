@@ -803,8 +803,18 @@ function ensureQueueInferredHook(eq) {
  * and of any book whose base is now another. One at a time; never throws.
  */
 let inferring = Promise.resolve();
+let wholeWaiting = null;
 export function refreshInferred(changed = null) {
-  inferring = inferring.then(() => inferNow(changed)).catch(e => console.log('extras: inferred links', e));
+  // (a pass over every book that has not started yet covers this one too: books deleted one after
+  //  another - extras.dropSuperseded, five on the 32-bit tablet, 2026-11-20 - queued five passes of
+  //  minutes each, and the downloads waited behind them)
+  if (wholeWaiting) { return wholeWaiting; }
+  const run = () => {
+    if (changed === null) { wholeWaiting = null; }
+    return inferNow(changed);
+  };
+  inferring = inferring.then(run).catch(e => console.log('extras: inferred links', e));
+  if (changed === null) { wholeWaiting = inferring; }
   return inferring;
 }
 

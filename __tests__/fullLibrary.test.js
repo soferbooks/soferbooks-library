@@ -200,6 +200,25 @@ describe('the background download', () => {
     await run();
     expect(extras.downloads).toEqual(['Otz B']);
   });
+
+  test('a finished download goes on at the next start when its libraries have new books (Pninim: its better copies)', async () => {
+    await AsyncStorage.setItem(queue.STORAGE_KEY, JSON.stringify({ sources: ['otzaria'], running: false, paused: false, wifiOnly: true, failed: { 'Otz B': 2 } }));
+    extras.installed = { 'Otz A': 'otzaria' };
+    queue._reset({}, { polite: 0, retry: 0 });
+    await queue._resetLoaded();
+    await queue.resumeIfRunning();
+    await run();
+    expect(extras.downloads).toEqual(['Otz B']);
+  });
+
+  test('not when the reader paused it', async () => {
+    await AsyncStorage.setItem(queue.STORAGE_KEY, JSON.stringify({ sources: ['otzaria'], running: true, paused: true, pausedBy: 'user', wifiOnly: true, failed: {} }));
+    extras.installed = { 'Otz A': 'otzaria' };
+    queue._reset({}, { polite: 0, retry: 0 });
+    await queue._resetLoaded();
+    await queue.resumeIfRunning();
+    expect(extras.downloads).toEqual([]);
+  });
 });
 
 const renderPanel = async () => {

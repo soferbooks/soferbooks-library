@@ -63,7 +63,10 @@ async function load() {
     loaded = (async () => {
       try {
         const saved = JSON.parse(await AsyncStorage.getItem(STORAGE_KEY));
-        if (saved) { state = {...state, ...saved, failed: saved.failed || {}}; }
+        // (the books that failed are tried again at each start: a failure for a passing reason - the
+        //  app replaced mid-download, the connection dropped - had left three of Pninim's books never
+        //  downloaded, the queue showing "2 of 5" for good: the 32-bit tablet, 2026-11-20)
+        if (saved) { state = {...state, ...saved, failed: {}}; }
       } catch (e) { /* nothing saved */ }
     })();
   }
@@ -222,9 +225,12 @@ async function run() {
       try {
         status = 'downloading';
         notify();
+        const t0 = Date.now();
+        console.log('full library: bundle of', id);
         await extras.installHostedBundle(id, {
           isCancelled: () => !state.running || state.paused || !(state.sources || []).includes(id),
         });
+        console.log('full library: bundle of', id, 'done in', Date.now() - t0, 'ms');
         // (a ready-made bundle brings its books' search lines: not kept while offline search is off)
         await pruneSearchFilesIfOff();
       } catch (e) {
@@ -398,9 +404,16 @@ export async function resumeIfRunning() {
   await load();
   // (nothing downloads yet: what a download left half done is of no use - storage.js)
   await cleanWork('extras');
-  if (state.running && !state.paused && state.sources.length) {
+  if (!state.paused && state.sources.length) {
     await extras.loadExtras();
-    startLoop();
+    // (also when it had finished: a library chosen "All books" may have new books since - Pninim's
+    //  better copies, three books the finished queue never took: the 32-bit tablet, 2026-11-20)
+    if (!state.running && nextBook()) {
+      console.log('full library: books to download since it finished');
+      state = {...state, running: true};
+      await save();
+    }
+    if (state.running) { startLoop(); }
   } else if (state.running && state.paused) {
     status = 'paused';
   }
