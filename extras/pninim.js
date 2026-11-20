@@ -26,6 +26,26 @@ export const CONVERTER_VERSION = 1;
 
 let lastBundle = null;
 
+/**
+ * The books whose copy here is better than another source's copy of the same text (the owner,
+ * 2026-11-20: "always use better versions"), with the names of those copies (Otzaria's, from
+ * Pninim's own files: "Otzaria (Pninim)") and their notes. Compared 2026-11-20: Otzaria's Asifat
+ * Zekenim is a fragment (10 thousand letters against 4.5 million); Birkei Yosef is one book here
+ * with both parts; the others the same text, laid out by the website's import with their notes.
+ * Not Artzot HaChaim: Otzaria's has its two commentaries (המאיר לארץ, ארץ יהודה) linked to it
+ * passage by passage (1,323 links), which this copy - one book with them inside - does not.
+ */
+export const BETTER_THAN = {
+  'Birkei Yosef': ['ברכי יוסף על אורח חיים', 'ברכי יוסף על יורה דעה', 'הערות על ברכי יוסף על אורח חיים'],
+  'Midrash Talpiot': ['מדרש תלפיות חלק א', 'הערות על מדרש תלפיות חלק א'],
+  'Asifat Zekenim': ['הערות על אסיפת זקנים'],
+  'Ezra LeHavin': ['הערות על עזרה להבין'],
+  'Tzeidah LaDerekh': [],
+};
+
+/** An entry with this version's preference (the catalogue kept on the phone has the one it was fetched with) */
+export const currentEntry = e => (e && BETTER_THAN[e.title] ? {...e, preferred: true, replaces: BETTER_THAN[e.title]} : e);
+
 /** pninim-catalog.json -> the catalogue's entries (the Sofer Library's format, this library's) */
 export function parseCatalog(text) {
   const catalog = typeof text === 'string' ? JSON.parse(text) : text;
@@ -33,7 +53,7 @@ export function parseCatalog(text) {
     throw new Error('pninim: not a catalogue this app reads');
   }
   lastBundle = catalog.bundle && catalog.bundle.file ? catalog.bundle : null;
-  const ours = e => ({...e, source: ID, license: LICENSE,
+  const ours = e => currentEntry({...e, source: ID, license: LICENSE,
     ...(e.companions ? {companions: e.companions.map(c => ({...c, source: ID, license: LICENSE}))} : {})});
   return catalog.books.map(sofer.entryFor).filter(Boolean).map(ours);
 }
@@ -67,6 +87,7 @@ export default {
   converterVersion: CONVERTER_VERSION,
   catalogUrl: CATALOG_URL,
   parseCatalog,
+  currentEntry,
   bookUrl,
   fetchBook: (entry, job) => sofer.fetchBook(entry, job, bookUrl),
   fetchBundleDocs: (entries, opts = {}) => sofer.fetchBundleDocs(entries, {...opts, bundleOf: hostedBundle, urlOf: fileUrl}),

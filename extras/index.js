@@ -80,6 +80,7 @@ let catalogs = {};         // {sourceId: {fetchedAt, entries}}
 let state = {installed: {}, blocked: {}};
 let books = {};            // {title: entry}: the extra books in the library now
 let replaced = {};         // {Sefaria's title: title}: Sefaria's books a preferred book is used instead of
+let superseded = {};       // {downloaded title: title}: another source's copies a preferred book is used instead of
 let loaded = null;
 const listeners = new Set();
 
@@ -218,6 +219,8 @@ export function applyToToc(toc) {
   const chosen = chooseBooks(toc, lists, state);
   books = chosen.books;
   replaced = chosen.replaced;
+  superseded = chosen.superseded || {};
+  if (Object.keys(superseded).length) { setTimeout(() => { dropSuperseded(); }, 0); }
   for (const [title, rec] of Object.entries(state.installed)) {    // (books made with another: its notes)
     if (rec.companionOf && books[rec.companionOf] && rec.entry) { books[title] = {...withCurrentShelf(rec.entry), source: rec.source, title}; }
   }
@@ -1080,6 +1083,26 @@ export async function deleteBook(title) {
   for (const t of titles) { await removeFiles(t); }
   if (companions.length) { await reloadToc(); }   // (its notes book leaves the library with it)
   refreshInferred(null);               // (the books that were on it lose those connections)
+}
+
+/**
+ * A downloaded book another source's better copy is now used instead of (a preferred book:
+ * Pninim's own copies over Otzaria's of their text - the owner, 2026-11-20: "always use better
+ * versions") is deleted once that copy is downloaded, so the phone does not keep both.
+ */
+let dropping = null;
+export function dropSuperseded() {
+  if (!dropping) {
+    dropping = (async () => {
+      for (const [old, by] of Object.entries(superseded)) {
+        if (state.installed[old] && !state.installed[old].companionOf && isDownloaded(by)) {
+          console.log('extras: deleting', old, '- used instead:', by);
+          await deleteBook(old);
+        }
+      }
+    })().catch(e => console.log('extras: superseded books', e)).finally(() => { dropping = null; });
+  }
+  return dropping;
 }
 
 // The content filter applies to these books too: a book it hides is not kept on the phone

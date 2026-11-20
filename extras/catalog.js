@@ -50,7 +50,9 @@ export function namesInToc(toc) {
  * Returns {books: {title: entry}, skipped: {duplicate: n, blocked: n}, replaced: {title: title}}:
  * replaced, the toc's (Sefaria's) books a `preferred` book is used instead of - any whose Hebrew
  * or English name is one of its names (heTitle, names, replaces), as nameKey compares them - and
- * the chosen book's title. addToToc leaves those out of the toc.
+ * the chosen book's title. addToToc leaves those out of the toc. superseded: {title: title} the
+ * downloaded books another source's preferred book is now used instead of (its title), which the
+ * phone need not keep once that one is downloaded (extras/index.js dropSuperseded).
  */
 export function chooseBooks(toc, catalogs, {installed = {}, blocked = {}} = {}) {
   const {names, titles} = namesInToc(toc);
@@ -64,6 +66,8 @@ export function chooseBooks(toc, catalogs, {installed = {}, blocked = {}} = {}) 
     if (b.heTitle) { heByTitle[b.title] = b.heTitle; }
   });
   const replaced = {};
+  const superseded = {};
+  const preferredBy = {};        // {a preferred book's name: its title}
   const books = {};
   const skipped = {duplicate: 0, blocked: 0};
   const keepTitle = {};
@@ -90,7 +94,12 @@ export function chooseBooks(toc, catalogs, {installed = {}, blocked = {}} = {}) 
       // (looked up, not found by walking the whole toc for every entry: that took 15 s at every
       //  start on the 32-bit tablet - 2,000 extra books x 7,000 of Sefaria's, 2026-11-20)
       const theirs = new Set(ousts.filter(t => heByTitle[t]).map(t => normTitle(heByTitle[t])));
-      if (!name || all.some(n => names.has(n) && !theirs.has(n))) { skipped.duplicate += 1; continue; }
+      if (!name || all.some(n => names.has(n) && !theirs.has(n))) {
+        skipped.duplicate += 1;
+        const by = keepTitle[key] && all.map(n => preferredBy[n]).find(Boolean);
+        if (by && by !== keepTitle[key]) { superseded[keepTitle[key]] = by; }
+        continue;
+      }
       all.concat((entry.replaces || []).map(normTitle)).forEach(n => names.add(n));
       ousts.forEach(t => titles.delete(String(t).toLowerCase()));
       let title = keepTitle[key];
@@ -102,9 +111,10 @@ export function chooseBooks(toc, catalogs, {installed = {}, blocked = {}} = {}) 
       titles.add(title.toLowerCase());
       books[title] = {...entry, source: entry.source || source, title};
       ousts.forEach(t => { replaced[t] = title; });
+      if (entry.preferred) { all.concat((entry.replaces || []).map(normTitle)).forEach(n => { preferredBy[n] = title; }); }
     }
   }
-  return {books, skipped, replaced};
+  return {books, skipped, replaced, superseded};
 }
 
 /** The toc without these books (categories left empty by it dropped); the toc given is not changed */

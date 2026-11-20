@@ -42,3 +42,36 @@ describe('Pninim library (extras/pninim.js)', () => {
     expect(editionOf({})).not.toHaveProperty('versionNotesInHebrew');
   });
 });
+
+describe('Pninim\'s better copies (the owner, 2026-11-20: "always use better versions")', () => {
+  const { chooseBooks } = require('../extras/catalog');
+  const { currentEntry, BETTER_THAN } = require('../extras/pninim');
+  const otz = (id, heTitle) => ({source: 'otzaria', id, title: heTitle, heTitle, categories: ['Halakhah']});
+
+  test('used instead of Otzaria\'s copies of their text; Artzot HaChaim stays Otzaria\'s (its linked commentaries)', () => {
+    const pn = parseCatalog({...CATALOG, books: [
+      book('Birkei Yosef', 'ברכי יוסף'), book('Asifat Zekenim', 'אסיפת זקנים'), book('Artzot HaChaim', 'ארצות החיים')]});
+    const catalogs = {
+      otzaria: [otz('o1', 'ברכי יוסף על אורח חיים'), otz('o2', 'ברכי יוסף על יורה דעה'), otz('o3', 'אסיפת זקנים'),
+        otz('o4', 'ארצות החיים'), otz('o5', 'הערות על אסיפת זקנים')],
+      pninim: pn,
+    };
+    const installed = {'ברכי יוסף על אורח חיים': {source: 'otzaria', id: 'o1'}, 'אסיפת זקנים': {source: 'otzaria', id: 'o3'},
+      'ארצות החיים': {source: 'otzaria', id: 'o4'}, 'הערות על אסיפת זקנים': {source: 'otzaria', id: 'o5'}};
+    const {books, superseded} = chooseBooks([], catalogs, {installed});
+    expect(books['Birkei Yosef'].source).toBe('pninim');
+    expect(books['ברכי יוסף על אורח חיים']).toBeUndefined();
+    expect(books['ברכי יוסף על יורה דעה']).toBeUndefined();
+    expect(books['Asifat Zekenim'].source).toBe('pninim');
+    expect(books['ארצות החיים'].source).toBe('otzaria');
+    expect(books['Artzot HaChaim']).toBeUndefined();
+    // (the downloaded copies the phone need not keep once Pninim's are there)
+    expect(superseded).toEqual({'ברכי יוסף על אורח חיים': 'Birkei Yosef', 'אסיפת זקנים': 'Asifat Zekenim',
+      'הערות על אסיפת זקנים': 'Asifat Zekenim'});
+  });
+
+  test('a catalogue kept on the phone from before gets the preference too', () => {
+    expect(currentEntry({title: 'Birkei Yosef'})).toMatchObject({preferred: true, replaces: BETTER_THAN['Birkei Yosef']});
+    expect(currentEntry({title: 'Artzot HaChaim'})).not.toHaveProperty('preferred');
+  });
+});
