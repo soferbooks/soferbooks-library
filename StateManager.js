@@ -5,6 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import iPad from './isIPad';
 import themeWhite from './ThemeWhite';
 import themeBlack from './ThemeBlack';
+import themeCream from './ThemeCream';
 import strings from './LocalizedStrings';
 import * as shomer from './shomer';
 import { defaultConfig, withDefault } from './shomer/presets';
@@ -400,7 +401,8 @@ const initAsyncStorage = dispatch => {
 
 const GlobalStateContext = React.createContext(null);
 const DispatchContext = React.createContext(null);
-const getTheme = themeStr => (themeStr === 'white' ? themeWhite : themeBlack);
+// (three: light, cream - the light one on warm paper, owner 2026-11-20 - and dark)
+const getTheme = themeStr => (themeStr === 'cream' ? themeCream : themeStr === 'white' ? themeWhite : themeBlack);
 
 export {
   DEFAULT_STATE,

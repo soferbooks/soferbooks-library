@@ -26,7 +26,7 @@ export const AboutPage = ({ close, openUri }) => {
             <ScrollView contentContainerStyle={{paddingHorizontal: 30, paddingBottom: 40}}>
                 <BackButtonRow onPress={close} />
                 <Header titleKey={'about.about_soferbooks'} />
-                <SoferBooksLogo size={'large'} dark={themeStr !== 'white'} hebrew={interfaceLanguage === 'hebrew'} style={styles.aboutLogo} />
+                <SoferBooksLogo size={'large'} dark={themeStr === 'black'} hebrew={interfaceLanguage === 'hebrew'} style={styles.aboutLogo} />
                 <InterfaceText stringKey={'about.soferbooks_intro'} extraStyles={body} />
                 <InterfaceText stringKey={'about.kollel'} extraStyles={body} />
                 <InterfaceText stringKey={'about.texts_courtesy'} extraStyles={body} />

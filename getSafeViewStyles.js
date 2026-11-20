@@ -21,7 +21,8 @@ export const getSafeViewStyleAndStatusBarBackground = ({menuOpen:menu, navigatio
     if (cat) {
         if (cat === "N/A") {
             safeViewStyle = defaultSafeViewStyle;
-            statusBarBackgroundColor = isWhiteTheme ? "white" : "#333331";
+            // (the page's own colour: white, or cream)
+            statusBarBackgroundColor = isWhiteTheme ? ((defaultSafeViewStyle && defaultSafeViewStyle.backgroundColor) || "white") : "#333331";
         } else {
             statusBarBackgroundColor = Sefaria.palette.categoryColor(cat);
             safeViewStyle = {backgroundColor: statusBarBackgroundColor};

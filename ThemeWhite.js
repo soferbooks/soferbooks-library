@@ -27,7 +27,8 @@ let Colors = {
   buttonBlue: '#0B71E7',
 }
 
-export default StyleSheet.create({
+/** The light look from a set of colours: the white theme, and the cream one (ThemeCream.js) */
+export const makeLightTheme = Colors => StyleSheet.create({
   container: {
     backgroundColor: Colors.mainBackground
   },
@@ -235,3 +236,6 @@ export default StyleSheet.create({
     borderColor: Colors.lightGrey,
   },
 });
+
+export const lightColors = Colors;
+export default makeLightTheme(Colors);

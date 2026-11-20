@@ -29,7 +29,7 @@ class ReaderDisplayOptionsMenu extends React.Component {
     vowelToggleAvailable:            PropTypes.oneOf([VOCALIZATION.TAAMIM_AND_NIKKUD, VOCALIZATION.NIKKUD, VOCALIZATION.NONE]),
     interfaceLanguage:               PropTypes.oneOf(['hebrew', 'english']).isRequired,
     textLanguage:                    PropTypes.oneOf(['hebrew', 'english', 'bilingual']),
-    themeStr:                        PropTypes.oneOf(['white', 'black']),
+    themeStr:                        PropTypes.oneOf(['white', 'cream', 'black']),
     showAliyot:                      PropTypes.bool.isRequired,
     setTextFlow:                     PropTypes.func,
     setTextLanguage:                 PropTypes.func,
@@ -167,9 +167,9 @@ class ReaderDisplayOptionsMenu extends React.Component {
       {
         label: strings.reader.color,
         onPress: this.props.setTheme,
-        buttons:["white","black"],
-        colors:["#ffffff", "#444444"],
-        names: [strings.a11y.theme_light, strings.a11y.theme_dark],
+        buttons:["white", "cream", "black"],
+        colors:["#ffffff", "#F3E9D2", "#444444"],
+        names: [strings.a11y.theme_light, strings.a11y.theme_cream, strings.a11y.theme_dark],
         currVal: this.props.themeStr,
         parametrized: true
       },

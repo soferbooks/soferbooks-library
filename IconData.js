@@ -17,7 +17,8 @@ class IconData {
     }
 
     _getColorKey(themeStr, isSelected) {
-        return `${themeStr}${isSelected ? "_selected" : ""}`;
+        // (the cream theme is a light one: the light theme's icons)
+        return `${themeStr === 'cream' ? 'white' : themeStr}${isSelected ? "_selected" : ""}`;
     }
 
     static _load_icons() {

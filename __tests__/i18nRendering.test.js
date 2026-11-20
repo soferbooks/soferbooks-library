@@ -727,7 +727,7 @@ describe('Reader display options menu', () => {
         'a11y.setting_option', 'languages.english', 'languages.hebrew', 'settings.bilingual',
         'a11y.layout_segmented', 'a11y.layout_continuous', 'a11y.layout_stacked',
         'a11y.layout_side_by_side', 'a11y.layout_side_by_side_reversed',
-        'a11y.theme_light', 'a11y.theme_dark', 'a11y.font_smaller', 'a11y.font_larger',
+        'a11y.theme_light', 'a11y.theme_cream', 'a11y.theme_dark', 'a11y.font_smaller', 'a11y.font_larger',
         'a11y.vocalization_all', 'a11y.vocalization_vowels', 'a11y.vocalization_none',
       ]
     );

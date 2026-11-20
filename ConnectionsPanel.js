@@ -41,7 +41,7 @@ class ConnectionsPanel extends React.PureComponent {
   static propTypes = {
     textToc:              PropTypes.object,
     theme:                PropTypes.object.isRequired,
-    themeStr:             PropTypes.oneOf(["white", "black"]).isRequired,
+    themeStr:             PropTypes.oneOf(["white", "cream", "black"]).isRequired,
     interfaceLanguage:        PropTypes.oneOf(["english", "hebrew"]).isRequired,
     fontSize:             PropTypes.number.isRequired,
     openRef:              PropTypes.func.isRequired,

@@ -160,7 +160,7 @@ const TopLevelCategory = ({item: tocItem, setCategories}) => {
 
 const HomeLogo = () => {
     const { themeStr, interfaceLanguage } = useGlobalState();
-    return <SoferBooksLogo dark={themeStr !== 'white'} hebrew={interfaceLanguage === 'hebrew'} />;
+    return <SoferBooksLogo dark={themeStr === 'black'} hebrew={interfaceLanguage === 'hebrew'} />;
 };
 
 // "Browse the library": Misc's Header, with the home-page heading font

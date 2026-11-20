@@ -492,8 +492,10 @@ class ReaderApp extends React.PureComponent {
   }
 
   initFiles = () => {
+    const t0 = Date.now();
     Promise.all([Sefaria.util.deleteUnzippedFiles(), this.loadReaderPrefs()])
     .then(() => Sefaria.init(this.props.dispatch)).then(() => {
+        console.log('startup: ready in', Date.now() - t0, 'ms');   // (the device log: how long the splash stays)
         setTimeout(BootSplash.hide, 700);
         this.setState({
           loaded: true,
@@ -3551,7 +3553,7 @@ ${strings.formatString(strings.extras.download_size, size)}` : '';
 
   render() {
     // StatuBar comment: can't figure out how to get barStyle = light-content to be respected on Android
-    const { safeViewStyle, statusBarBackgroundColor, statusBarStyle } = getSafeViewStyleAndStatusBarBackground(this.state, this.props.theme.mainTextPanel, this.props.themeStr === "white");
+    const { safeViewStyle, statusBarBackgroundColor, statusBarStyle } = getSafeViewStyleAndStatusBarBackground(this.state, this.props.theme.mainTextPanel, this.props.themeStr !== "black");
     const readerAppContextData = this._getContextValue();
 
     return (

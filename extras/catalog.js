@@ -55,11 +55,13 @@ export function namesInToc(toc) {
 export function chooseBooks(toc, catalogs, {installed = {}, blocked = {}} = {}) {
   const {names, titles} = namesInToc(toc);
   const tocByName = {};          // {nameKey: [the toc's titles]}
+  const heByTitle = {};          // {the toc's title: its Hebrew name}
   walkBooks(toc, b => {
     for (const n of [b.title, b.heTitle]) {
       const k = n && nameKey(n);
       if (k) { (tocByName[k] = tocByName[k] || []).push(b.title); }
     }
+    if (b.heTitle) { heByTitle[b.title] = b.heTitle; }
   });
   const replaced = {};
   const books = {};
@@ -85,8 +87,9 @@ export function chooseBooks(toc, catalogs, {installed = {}, blocked = {}} = {}) 
       //  is used instead of them)
       const ousts = !entry.preferred || !name ? [] : [...new Set([entry.heTitle, ...(entry.names || []),
         ...(entry.replaces || [])].flatMap(n => tocByName[nameKey(n)] || []))].filter(t => !(t in replaced));
-      const theirs = new Set();
-      walkBooks(toc, b => { if (ousts.includes(b.title) && b.heTitle) { theirs.add(normTitle(b.heTitle)); } });
+      // (looked up, not found by walking the whole toc for every entry: that took 15 s at every
+      //  start on the 32-bit tablet - 2,000 extra books x 7,000 of Sefaria's, 2026-11-20)
+      const theirs = new Set(ousts.filter(t => heByTitle[t]).map(t => normTitle(heByTitle[t])));
       if (!name || all.some(n => names.has(n) && !theirs.has(n))) { skipped.duplicate += 1; continue; }
       all.concat((entry.replaces || []).map(normTitle)).forEach(n => names.add(n));
       ousts.forEach(t => titles.delete(String(t).toLowerCase()));
