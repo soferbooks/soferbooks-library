@@ -5,10 +5,10 @@ import com.facebook.react.bridge.NativeModule
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.uimanager.ViewManager
 
-/** Registers PinnedShortcutsModule (added by hand in MainApplication.getPackages). */
+/** Registers app-specific native modules (added by hand in MainApplication.getPackages). */
 class PinnedShortcutsPackage : ReactPackage {
     override fun createNativeModules(reactContext: ReactApplicationContext): List<NativeModule> =
-        listOf(PinnedShortcutsModule(reactContext))
+        listOf(PinnedShortcutsModule(reactContext), SoferDeviceProfileModule(reactContext))
 
     override fun createViewManagers(reactContext: ReactApplicationContext): List<ViewManager<*, *>> =
         emptyList()

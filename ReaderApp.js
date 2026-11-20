@@ -11,6 +11,7 @@ import {
   View,
   StatusBar,
   Platform,
+  NativeModules,
   BackHandler,
   UIManager,
   Linking,
@@ -144,6 +145,10 @@ import {
 import { ERRORS } from "./errors";
 
 const ViewPort = Dimensions.get('window');
+// Unknown Android profiles take the conservative path so a legacy 32-bit build does not
+// start the optional linked-commentary warm-up while opening Resources.
+const isLowMemoryAndroid = Platform.OS === 'android'
+  && NativeModules.SoferDeviceProfile?.isLowMemoryAndroid !== false;
 
 /**
  * Is the tapped passage (section, segment) another one than the passage the connections panel
@@ -1243,7 +1248,12 @@ class ReaderApp extends React.PureComponent {
             relatedObj = Sefaria.links.postProcessRelatedResponse(response, offset, currSection.length);
           }
           Sefaria.cacheCommentatorListBySection(ref, relatedObj);
-          if (!isSheet) {
+          if (!isSheet && !isLowMemoryAndroid) {
+            // Optional linked-commentary prewarming can fan out to five commentaries and
+            // several sections each. On low-memory Android devices, that competes with the
+            // Resources panel's link data. Rashi and (for Gemara) Steinsaltz still use the
+            // separate book-level prewarming in prewarmSection; selected resources still
+            // load normally when opened. Tabs and saved places are unaffected.
             prewarmLinkedCommentaries(sectionRefForState, prevState.next, relatedObj);
           }
 
