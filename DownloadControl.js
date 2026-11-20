@@ -1081,6 +1081,9 @@ async function downloadPackage(packageName, networkSetting) {
     Tracker.removeDownload(true);
     return
   }
+  // SoferBooks' own editions (the Sephardi siddur with shva na) come with Sefaria's books (extras.downloadAppEditions)
+  extras.downloadAppEditions().catch(() => {});
+
   await schemaCheckAndPurge();  // necessary for maintaining consistency
   const netState = await NetInfo.fetch();
   if (!isDownloadAllowed(netState, networkSetting)) {

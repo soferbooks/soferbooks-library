@@ -102,7 +102,8 @@ describe('the Sofer Library source', () => {
   });
 
   test('the catalogue: each book with its shelf, licence and the notes book that comes with it', () => {
-    const entries = parseCatalog(JSON.stringify(CATALOG));
+    // (the app's own editions come after the release's books: extras/sofer.js APP_BOOKS)
+    const entries = parseCatalog(JSON.stringify(CATALOG)).filter(e => e.kind !== 'sefaria-json');
     expect(entries.map(e => e.title)).toEqual([POEMS, 'Tur, Test Part']);
     const [poems, tur] = entries;
     expect(poems).toMatchObject({
@@ -142,7 +143,7 @@ describe('the Sofer Library source', () => {
 
   test('its books are listed on the shelves of their kind (a new "שירה ופיוט" shelf for poems)', () => {
     const sefariaToc = [{category: 'Halakhah', heCategory: 'הלכה', contents: [{title: 'Tur', heTitle: 'טור'}]}];
-    const {books} = chooseBooks(sefariaToc, {[ID]: parseCatalog(CATALOG)});
+    const {books} = chooseBooks(sefariaToc, {[ID]: parseCatalog(CATALOG).filter(e => e.kind !== 'sefaria-json')});
     expect(Object.keys(books).sort()).toEqual([POEMS, 'Tur, Test Part'].sort());
     const toc = addToToc(sefariaToc, books);
     const halakhah = toc.find(c => c.category === 'Halakhah');

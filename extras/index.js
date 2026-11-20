@@ -181,6 +181,13 @@ export function loadExtras() {
         const hasInstalled = Object.values(state.installed).some(r => r.source === id);
         if (enabled[id] || hasInstalled) { catalogs[id] = await readJSON(catalogFile(id), null); }
       }
+      // (SoferBooks' own editions - extras/sofer.js APP_BOOKS - in a catalogue kept from before them)
+      const sl = catalogs[soferLibrary.id];
+      if (sl && Array.isArray(sl.entries)) {
+        const have = new Set(sl.entries.map(e => e.title));
+        const add = (soferLibrary.APP_BOOKS || []).filter(b => !have.has(b.title)).map(b => ({...b}));
+        if (add.length) { catalogs[soferLibrary.id] = {...sl, entries: sl.entries.concat(add)}; }
+      }
     })();
   }
   return loaded;
@@ -461,6 +468,41 @@ export function makeMissingSearchFiles({isCancelled = () => false} = {}) {
     })().finally(() => { makingSearch = null; });
   }
   return makingSearch;
+}
+
+/**
+ * SoferBooks' own editions (extras/sofer.js APP_BOOKS: the Sephardi siddur with shva na) come with
+ * any download of Sefaria's books (owner, 2026-11-20): the Sofer Library turned on and each one
+ * downloaded, in the background. Never throws.
+ */
+export async function downloadAppEditions() {
+  try {
+    await loadExtras();
+    if (!isEnabled(soferLibrary.id)) { await setSourceEnabled(soferLibrary.id, true); }
+    for (const b of soferLibrary.APP_BOOKS || []) {
+      if (isExtraTitle(b.title) && needsDownload(b.title)) { await downloadBook(b.title).catch(e => console.log('extras: our edition', b.title, e)); }
+    }
+  } catch (e) {
+    console.log('extras: our editions', e);
+  }
+}
+
+/**
+ * Once, at the first start with this version: the Sofer Library turned on (its books listed, each
+ * downloaded when opened), so SoferBooks' Sephardi siddur is the one the library shows in place of
+ * Sefaria's (owner, 2026-11-20). A reader who turns it off later keeps it off.
+ */
+export const DEFAULTS_KEY = 'extrasDefaults.v1';
+export async function applyDefaultSources() {
+  try {
+    if (await AsyncStorage.getItem(DEFAULTS_KEY)) { return false; }
+    await loadExtras();
+    if (!isEnabled(soferLibrary.id)) { await setSourceEnabled(soferLibrary.id, true); }
+    await AsyncStorage.setItem(DEFAULTS_KEY, '1');
+    return true;
+  } catch (e) {
+    return false;   // (no network: tried again next start)
+  }
 }
 
 /** The books made with `title` (its editors' notes) */

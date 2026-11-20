@@ -58,7 +58,7 @@ const SEFARIA_TOC = [
 ];
 
 describe('Wikisource books from the Sofer Library (Megillat Antiochus, Chashukei Chemed)', () => {
-  const entries = parseCatalog(CATALOG);
+  const entries = parseCatalog(CATALOG).filter(e => e.kind !== 'sefaria-json');   // (without the app's own editions)
 
   test('the phone\'s Wikisource leaves them to the Sofer Library', () => {
     const left = Object.fromEntries(WIKISOURCE.left_out.map(x => [x.page, x.why]));

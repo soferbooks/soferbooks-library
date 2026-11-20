@@ -29,7 +29,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import {safeUnzip as unzip, WORK_DIR} from '../storage';
 import {withRetry, mapLimit, CONCURRENCY} from '../downloadPool';
 import md5 from 'md5';
-import {safe} from './tree';
+import {safe, Node} from './tree';
 
 export const ID = 'sofer_library';
 export const REPO = 'soferbooks/soferbooks-library-data';
@@ -93,14 +93,92 @@ export function entryFor(b) {
 
 let lastBundle = null;
 
-/** sofer-library-catalog.json -> the catalogue's entries */
+/**
+ * SoferBooks' own editions that the app adds to the Sofer Library itself (owner, 2026-11-20: "our
+ * siddur with shva na and all", the default Sephardi siddur): one file in Sefaria's JSON format each,
+ * on the app's own release, converted on the phone (toTree). `replaces`: Sefaria's copy, which this
+ * one is used instead of (extras/catalog.js: the library, links and refs open ours).
+ */
+export const APP_BOOKS_URL = `https://github.com/${REPO}/releases/download/sofer-app-books-2026-11-20`;
+export const APP_BOOKS = [{
+  source: ID,
+  id: 'app:siddur-edot-hamizrach',
+  kind: 'sefaria-json',
+  hash: 'fe0192d0845c054857238e48f87e2557',
+  md5: 'fe0192d0845c054857238e48f87e2557',
+  title: 'Siddur Edot HaMizrach (SoferBooks)',
+  enTitle: 'Siddur Edot HaMizrach',
+  heTitle: 'סידור נוסח עדות המזרח',
+  categories: ['Liturgy', 'Siddur'],
+  heCategories: ['סדר התפילה', 'סידור'],
+  license: 'CC-BY-SA',
+  file: 'siddur-edot-hamizrach-sofer.zip',
+  url: `${APP_BOOKS_URL}/siddur-edot-hamizrach-sofer.zip`,
+  size: 1067900,
+  versionTitle: 'SoferBooks (Shaliehsaboo edition, Wikisource)',
+  versionSource: 'https://he.wikisource.org/wiki/סידור_(מהדורת_מרדכי_שליח_ציבור)',
+  preferred: true,
+  replaces: ['Siddur Edot HaMizrach', 'סידור עדות המזרח'],
+  firstSection: 'Siddur Edot HaMizrach (SoferBooks), S1',
+}];
+export const SIDDUR_TITLE = APP_BOOKS[0].title;
+
+/** sofer-library-catalog.json -> the catalogue's entries (and the app's own editions) */
 export function parseCatalog(text) {
   const catalog = typeof text === 'string' ? JSON.parse(text) : text;
   if (!catalog || catalog.format !== CATALOG_FORMAT || !Array.isArray(catalog.books)) {
     throw new Error('sofer library: not a catalogue this app reads');
   }
   lastBundle = catalog.bundle && catalog.bundle.file ? catalog.bundle : null;
-  return catalog.books.map(entryFor).filter(Boolean);
+  const books = catalog.books.map(entryFor).filter(Boolean);
+  const have = new Set(books.map(b => b.title));
+  return books.concat(APP_BOOKS.filter(b => !have.has(b.title)).map(b => ({...b})));
+}
+
+/** An app edition's file: downloaded, checked, unzipped -> {json} (Sefaria's format) */
+async function appBookDoc(entry, job) {
+  const dir = `${WORK_DIR}extras/`;
+  const base = `${dir}app-${md5(entry.id)}`;
+  await FileSystem.makeDirectoryAsync(dir, {intermediates: true}).catch(() => {});
+  try {
+    const res = await withRetry(async () => {
+      if (job) { job.check(); }
+      const r = await download(entry.url, `${base}.zip`, job, null);
+      if (r.status >= 500) { throw new Error(`sofer library: HTTP ${r.status} for ${entry.url}`); }
+      return r;
+    }, {shouldRetry: e => !(job && job.cancelled) && !(e && e.name === 'DownloadCancelledError')});
+    if (res.status < 200 || res.status >= 300) { throw new Error(`sofer library: HTTP ${res.status} for ${entry.url}`); }
+    if (entry.md5) {
+      const info = await FileSystem.getInfoAsync(`${base}.zip`, {md5: true});
+      if (info && info.md5 && info.md5 !== entry.md5) { throw new Error(`sofer library: ${entry.title} did not arrive whole`); }
+    }
+    await FileSystem.makeDirectoryAsync(`${base}/`, {intermediates: true}).catch(() => {});
+    await unzip(`${base}.zip`, `${base}/`);
+    return {json: JSON.parse(await FileSystem.readAsStringAsync(`${base}/book.json`))};
+  } finally {
+    await FileSystem.deleteAsync(`${base}.zip`, {idempotent: true}).catch(() => {});
+    await FileSystem.deleteAsync(`${base}/`, {idempotent: true}).catch(() => {});
+  }
+}
+
+/**
+ * A book in Sefaria's JSON format ({schema, text}) as the library's tree: each part of its schema
+ * (a heading, or a section of paragraphs: the siddur's tefillot) in order -> [tree, author].
+ */
+export function sefariaJsonTree(json) {
+  const root = new Node('');
+  const heOf = n => (n.heTitle || ((n.titles || []).find(t => t.lang === 'he' && t.primary) || (n.titles || []).find(t => t.lang === 'he') || {}).text || n.key);
+  const add = (parent, node, text) => {
+    const here = parent.addChild(heOf(node));
+    if (Array.isArray(node.nodes) && node.nodes.length) {
+      for (const child of node.nodes) { add(here, child, text && typeof text === 'object' ? text[child.key] : null); }
+      return;
+    }
+    const flat = x => (Array.isArray(x) ? x.flatMap(flat) : (typeof x === 'string' && x.trim() ? [x] : []));
+    flat(text).forEach(p => here.addPara(p));
+  };
+  for (const node of (json && json.schema && json.schema.nodes) || []) { add(root, node, json.text && json.text[node.key]); }
+  return [root, ''];
 }
 
 export async function hostedBundle(fetchFn = (...a) => fetch(...a)) {
@@ -243,6 +321,7 @@ export async function bookZipFiles(entry, {job = null, share = null, url = bookU
  * (downloadPool.js), each a share of the whole by size
  */
 export async function fetchBook(entry, job = null) {
+  if (entry.kind === 'sefaria-json') { return appBookDoc(entry, job); }
   const all = [entry, ...(entry.companions || [])];
   const total = all.reduce((n, e) => n + (e.size || 1), 0);
   const got = all.map(() => 0);
@@ -272,6 +351,7 @@ export function withSource(files, title) {
 
 /** What extras/index.js puts in the library: the files as they came (nothing to convert) */
 export function convert(entry, doc) {
+  if (entry.kind === 'sefaria-json') { return null; }      // (converted from its JSON: toTree)
   return {
     files: withSource(doc.book.files, entry.title),
     firstSection: entry.firstSection || entry.title,
@@ -356,11 +436,13 @@ export function linksOf(entry, doc) {
 }
 
 export function versionOf(entry) {
-  return {versionTitle: 'Sofer Library', versionSource: HOME_URL, license: entry.license, librarySource: ID};
+  return {versionTitle: entry.versionTitle || 'Sofer Library', versionSource: entry.versionSource || HOME_URL,
+    license: entry.license, librarySource: ID};
 }
 
 export default {
   id: ID,
+  APP_BOOKS,
   converterVersion: CONVERTER_VERSION,
   catalogUrl: CATALOG_URL,
   parseCatalog,
@@ -368,8 +450,8 @@ export default {
   fetchBook,
   fetchBundleDocs,
   convert,
-  // (never called: convert takes the place of the conversion)
-  toTree: () => { throw new Error('sofer library: its books come ready made'); },
+  // (the app's own editions only - the others come ready made: convert)
+  toTree: doc => sefariaJsonTree(doc && doc.json),
   // (the licences are checked when the release is built: build_sofer_library.py)
   isRestricted: () => false,
   versionOf,

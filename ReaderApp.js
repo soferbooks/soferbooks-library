@@ -343,6 +343,8 @@ class ReaderApp extends React.PureComponent {
     scheduleStorageReport();  // (where the phone's space goes, in the device log: storageReport.js)
     // offline search off (the default; Settings): search files still on the phone are deleted
     setTimeout(() => { pruneSearchFilesIfOff().catch(() => {}); }, 20000);
+    // the Sofer Library on once (SoferBooks' Sephardi siddur in place of Sefaria's)
+    setTimeout(() => { extras.applyDefaultSources().catch(() => {}); }, 15000);
     // leaving the app: write the tabs' places now (the debounced save may never run if Android
     // then stops the app), so every tab - pinned ones above all - reopens at its latest place
     this._appStateSubscription = AppState.addEventListener?.('change', next => {
