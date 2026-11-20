@@ -48,7 +48,9 @@ export async function setOfflineSearch(on) {
   loaded = Promise.resolve(enabled);
   await AsyncStorage.setItem(OFFLINE_SEARCH_KEY, enabled ? 'on' : 'off').catch(() => {});
   for (const fn of listeners) { try { fn(enabled); } catch (e) { /* a listener's own problem */ } }
-  if (!enabled) { await removeSearchFiles(); }
+  if (!enabled) { await removeSearchFiles(); return; }
+  // (the other libraries' books already on the phone: their search lines made again, in the background)
+  try { require('./extras').makeMissingSearchFiles().catch(() => {}); } catch (e) { /* not loaded */ }
 }
 
 /**

@@ -224,15 +224,92 @@ export function versionOf(entry, text) {
   };
 }
 
+// ---------------------------------------------------------------- all the books in one download
+// SoferBooks' copy of every book offered, as Otzaria publishes them, in one zip on its GitHub
+// (tools/library-export/build_otzaria_release.js; owner, 2026-11-20). A book is taken from it
+// while Otzaria's hash of it is the one there; otherwise (Otzaria changed it since) the book is
+// fetched from Otzaria's own server, as before.
+export const HOSTED_REPO = 'soferbooks/soferbooks-library-data';
+export const HOSTED_TAG = 'otzaria-2026-11-20';
+export const HOSTED_URL = `https://github.com/${HOSTED_REPO}/releases/download/${HOSTED_TAG}`;
+export const HOSTED_INDEX = 'otzaria-index.json';
+
+let hostedIndex = null;
+/** The release's index ({file, size, md5, books: {path: {hash, text, links}}}), or null */
+export async function hostedOtzariaIndex(fetchFn = (...a) => fetch(...a)) {
+  if (hostedIndex) { return hostedIndex; }
+  try {
+    const res = await fetchFn(`${HOSTED_URL}/${HOSTED_INDEX}`);
+    if (!res || !res.ok) { return null; }
+    const index = await res.json();
+    if (!index || index.format !== 1 || !index.books) { return null; }
+    hostedIndex = index;
+    return index;
+  } catch (e) {
+    return null;
+  }
+}
+export const _resetHostedIndex = () => { hostedIndex = null; };
+
+/** The entries the release has as they are now (Otzaria's hash the same) */
+export const inBundle = (entries, index) => (entries || []).filter(e => {
+  const b = index && index.books && index.books[e.id];
+  return !!b && (!e.hash || !b.hash || b.hash === e.hash);
+});
+
+/**
+ * Download the release's zip once and give each book in it to onBook(entry, {text, links}), as if
+ * fetched from Otzaria. false when there is none (or no room for it): the books then come one by one.
+ */
+export async function fetchBundleDocs(entries, {onBook, isCancelled = () => false} = {}) {
+  const FileSystem = require('expo-file-system/legacy');
+  const {hasRoom} = require('../storage');
+  const {downloadBundleArchive} = require('./sofer');
+  const index = await hostedOtzariaIndex();
+  const wanted = inBundle(entries, index);
+  if (!wanted.length) { return false; }
+  // (the zip and the files unzipped from it, about 4.5 times the zip, with room to spare)
+  if (!(await hasRoom((index.size || 0) * 4.5))) { return false; }
+  let unpacked;
+  try {
+    unpacked = await downloadBundleArchive(`${HOSTED_URL}/${index.file}`, index.md5 || null, {isCancelled});
+  } catch (e) {
+    console.log('otzaria: bundle fallback to per-book downloads:', e && e.message);
+    return false;
+  }
+  try {
+    for (const entry of wanted) {
+      if (isCancelled()) { break; }
+      const b = index.books[entry.id];
+      try {
+        const text = await FileSystem.readAsStringAsync(`${unpacked.dir}${b.text}`);
+        const links = b.links ? await FileSystem.readAsStringAsync(`${unpacked.dir}${b.links}`).catch(() => null) : null;
+        await onBook(entry, {text, links});
+      } catch (e) {
+        console.log('otzaria: bundle entry skipped for', entry.heTitle, e && e.message);
+      }
+    }
+    return true;
+  } finally {
+    await unpacked.cleanup();
+  }
+}
+
+// (a book is its text, or - from the release - {text, links})
+const textOf = doc => (doc && typeof doc === 'object' ? doc.text : doc);
+
 export default {
   id: ID,
   converterVersion: CONVERTER_VERSION,
   catalogUrl: CATALOG_URL,
   parseCatalog,
   bookUrl,
-  toTree: text => otzariaTree(text),
-  isRestricted,
-  versionOf,
+  fetchBundleDocs,
+  toTree: doc => otzariaTree(textOf(doc)),
+  isRestricted: doc => isRestricted(textOf(doc)),
+  versionOf: (entry, doc) => versionOf(entry, textOf(doc)),
   // where the book's connections come from (extras/links.js): Otzaria's links of this file
-  linksOf: entry => (entry.links === false ? {} : {otzariaPath: entry.id}),
+  // (from the release when the book came from it: no request)
+  linksOf: (entry, doc) => (entry.links === false ? {}
+    : {otzariaPath: entry.id, ...(doc && typeof doc === 'object' && doc.links ? {otzariaLinks: doc.links} : {})}),
 };

@@ -238,10 +238,15 @@ export async function collect({title, heTitle, tree, where, fetchCitations, stil
   }
   if (where && where.otzariaPath && lines) {
     try {
-      const url = linksUrlForPath(where.otzariaPath);
-      const response = url ? await fetch(url) : null;
-      if (response && response.ok) {
-        const raw = JSON.parse((await response.text()).replace(/^﻿/, ''));
+      // (from the Otzaria release's zip when the book came from it, else from Otzaria's server)
+      let body = typeof where.otzariaLinks === 'string' ? where.otzariaLinks : null;
+      if (body === null) {
+        const url = linksUrlForPath(where.otzariaPath);
+        const response = url ? await fetch(url) : null;
+        if (response && response.ok) { body = await response.text(); }
+      }
+      if (body !== null) {
+        const raw = JSON.parse(body.replace(/^﻿/, ''));
         Object.assign(data, mapOtzariaLinks(raw, lines, passages, heTitle));
       }
     } catch (e) {

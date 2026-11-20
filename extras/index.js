@@ -426,6 +426,43 @@ async function writeBook(title, files, job = null) {
   }
 }
 
+/**
+ * Offline search turned on (searchPrefs.js): the search lines of the downloaded books that have
+ * none, made again from their zips on the phone, one book at a time. Returns how many were made.
+ */
+let makingSearch = null;
+export function makeMissingSearchFiles({isCancelled = () => false} = {}) {
+  if (!makingSearch) {
+    makingSearch = (async () => {
+      await loadExtras();
+      let made = 0;
+      for (const title of downloadedBooks()) {
+        if (isCancelled() || !(await loadOfflineSearch())) { break; }
+        const out = `${LIBRARY_DIR}${title}_search.txt`;
+        if ((await FileSystem.getInfoAsync(out).catch(() => ({}))).exists) { continue; }
+        const dir = `${TMP_DIR}search-${md5(title)}/`;
+        try {
+          await FileSystem.makeDirectoryAsync(dir, {intermediates: true}).catch(() => {});
+          await safeUnzip(`${LIBRARY_DIR}${title}.zip`, dir);
+          const files = {};
+          for (const name of (await FileSystem.readDirectoryAsync(dir)).filter(n => n.endsWith('.json'))) {
+            files[name] = JSON.parse(await FileSystem.readAsStringAsync(`${dir}${name}`));
+          }
+          const lines = await searchLines(files);
+          if (lines.length) { await FileSystem.writeAsStringAsync(out, `${lines.join('\n')}\n`); made += 1; }
+        } catch (e) {
+          console.log('extras: search lines of', title, e);
+        } finally {
+          await FileSystem.deleteAsync(dir, {idempotent: true}).catch(() => {});
+        }
+        await yieldFrame();
+      }
+      return made;
+    })().finally(() => { makingSearch = null; });
+  }
+  return makingSearch;
+}
+
 /** The books made with `title` (its editors' notes) */
 const companionsOf = title => Object.keys(state.installed).filter(t => state.installed[t].companionOf === title);
 
