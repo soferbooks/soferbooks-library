@@ -1304,7 +1304,7 @@ Sefaria.util = {
     }
   },
   hebrewInEnglish: function(text, whatToReturn) {
-    const regEx = /(^|[\s\[\]().,;:*?!\-—"'<>])((?:[\u0591-\u05c9\u05d0-\u05ea]+[()\[\]\s'"\u05f3\u05f4]{0,2})+)(?![^<]+>)([\s\[\]().,;:*?!\-—"'<>]|$)/g
+    const regEx = /(^|[\s\[\]().,;:*?!\-—"'<>])((?:[\u0591-\u05c9\u05d0-\u05ea\ufe00]+[()\[\]\s'"\u05f3\u05f4]{0,2})+)(?![^<]+>)([\s\[\]().,;:*?!\-—"'<>]|$)/g
     if (whatToReturn == "string") {
       // wrap all Hebrew strings with <span class="hebrew">
       text = text.replace(/<span dir="rtl">(.*?)<\/span>/g, '<span class="hebrew">\u2067$1\u2069</span>');
@@ -1372,6 +1372,7 @@ Sefaria.util = {
     }
     return text;
   },
+  drawsShvaNa: true,
   getDisplayableHTML: function(text, lang, isSheet, clickableWords) {
     if (typeof(text) !== 'string') {
       return '';
@@ -1380,7 +1381,13 @@ Sefaria.util = {
     text = Sefaria.util.filterOutItags(text);
     text = text.replace(/\u200e/g, '');  // remove invisible LTR mark that can ruin display
     if (lang === 'hebrew') {
-      text = text.replace(/\u05c8/g, '\u05b0').replace(/\u05c9/g, '\u05bc');
+      // the shva na and dagesh chazak (U+05C8 / U+05C9, tanach/shvaNa.js): phones before 2025's
+      // Unicode break the line around them, so they are drawn as a shva / dagesh followed by
+      // VARIATION SELECTOR-1, which the app's fonts make the marked forms
+      // (tools/fonts/addShvaNaSequences.py); without those fonts, as a plain shva / dagesh
+      text = Sefaria.util.drawsShvaNa
+        ? text.replace(/\u05c8/g, '\u05b0\ufe00').replace(/\u05c9/g, '\u05bc\ufe00')
+        : text.replace(/\u05c8/g, '\u05b0').replace(/\u05c9/g, '\u05bc');
     }
     text = text.trim();
     let html;

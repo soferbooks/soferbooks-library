@@ -14,6 +14,7 @@ import {
     offlineTitleExists,
 } from "./offline";
 import api from "./api";
+import { markSection } from "./tanach/shvaNa";
 import * as shomer from "./shomer";
 import * as extras from "./extras";
 import {
@@ -45,6 +46,24 @@ export const withPreferredHebrew = (ref, versions) => {
 };
 
 export const loadText = function(ref, context, versions, fallbackOnDefaultVersions=true, failSilently=false) {
+    // (Tanach: the shva na and dagesh chazak SoferBooks prints - tanach/shvaNa.js)
+    return loadTextPreferred(ref, context, versions, fallbackOnDefaultVersions, failSilently)
+        .then(data => withShvaNa(ref, data));
+};
+
+const withShvaNa = (ref, data) => {
+    try {
+        if (data && data.textContent) {
+            const title = data.textContent.indexTitle || titleOfRef(ref);
+            return {...data, textContent: markSection(data.textContent, title)};
+        }
+    } catch (e) {
+        console.log('shva na:', e);
+    }
+    return data;
+};
+
+const loadTextPreferred = function(ref, context, versions, fallbackOnDefaultVersions=true, failSilently=false) {
     const asked = versions;
     versions = withPreferredHebrew(ref, versions);
     if (versions !== asked) {
