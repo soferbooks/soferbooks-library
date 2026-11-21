@@ -7,10 +7,13 @@
 // The helpers below cover what does not go through the TOC: versions/translations, search hits,
 // autocomplete, related sheets, downloads, and the "hidden by your filter" message.
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as FileSystem from 'expo-file-system/legacy';
+import md5 from 'md5';
 import { normalize, withDefault } from './presets';
 import {
-  match, filterToc, versionMatch, filterVersions as filterVersionList, sheetMatch,
+  match, filterToc, versionMatch, filterVersions as filterVersionList, sheetMatch, seenAnswers, seedAnswers,
 } from './matcher';
+import RULES_JSON from './rules.json';
 
 export const STORAGE_KEY = 'contentFilter';  // same key StateManager persists the setting under
 
@@ -37,7 +40,60 @@ export async function loadConfig() {
   } catch (e) {
     console.log('content filter: could not read settings', e);
   }
+  answersLoading = loadAnswers();     // (read beside the library's list: answersReady)
   return config;
+}
+let answersLoading = Promise.resolve();
+/** The kept answers read (before the toc is filtered) */
+export const answersReady = () => answersLoading;
+
+// ---------- the answers kept from one start to the next ----------
+// (the library's 8,500 names go through the filter at every start: 1.5 s on the 32-bit tablet,
+//  2026-11-21. An answer depends only on the name, the settings and the rules, so the answers are
+//  kept in a file under a key made of those settings and rules, and only new names are worked out.)
+const ANSWERS_VERSION = 2;          // (raise it when matcher.js answers differently)
+// (in a folder of its own: the loose .json files at the top are deleted at every start -
+//  Sefaria.util.deleteUnzippedFiles)
+const ANSWERS_DIR = () => `${FileSystem.documentDirectory}contentFilter/`;
+const ANSWERS_FILE = () => `${ANSWERS_DIR()}answers.json`;
+let rulesSign = null;
+let answersKept = 0;
+let answersKeptKey = null;
+const answersKey = cfg => {
+  if (!rulesSign) { rulesSign = md5(JSON.stringify(RULES_JSON)); }
+  return md5(`${ANSWERS_VERSION}|${rulesSign}|${JSON.stringify(cfg)}`);
+};
+async function loadAnswers() {
+  if (!config || !config.active || typeof FileSystem.readAsStringAsync !== 'function' || !FileSystem.documentDirectory) { return; }
+  try {
+    const saved = JSON.parse(await FileSystem.readAsStringAsync(ANSWERS_FILE()));
+    if (saved && saved.key === answersKey(config) && Array.isArray(saved.none) && Array.isArray(saved.hits)) {
+      seedAnswers(config, saved.none.map(k => [k, null]).concat(saved.hits));
+      answersKept = saved.none.length + saved.hits.length;
+      answersKeptKey = saved.key;
+    }
+  } catch (e) { /* none kept yet */ }
+}
+let savingAnswers = null;
+function saveAnswersSoon() {
+  if (savingAnswers || !config || !config.active || !FileSystem.documentDirectory) { return; }
+  savingAnswers = setTimeout(() => {
+    savingAnswers = null;
+    try {
+      const answers = seenAnswers(config);
+      const key = answersKey(config);
+      if (key === answersKeptKey && answers.length <= answersKept) { return; }
+      answersKept = answers.length;
+      answersKeptKey = key;
+      FileSystem.makeDirectoryAsync(ANSWERS_DIR(), {intermediates: true}).catch(() => {})
+        // (most names hide nothing: kept as a plain list)
+        .then(() => FileSystem.writeAsStringAsync(ANSWERS_FILE(), JSON.stringify({key,
+          none: answers.filter(([, v]) => !v).map(([k]) => k), hits: answers.filter(([, v]) => v)})))
+        .catch(e => console.log('content filter: could not keep the answers', e));
+    } catch (e) {
+      console.log('content filter: could not keep the answers', e);
+    }
+  }, 10000);
 }
 
 // Apply a new setting (already persisted by the caller). Returns true if anything changed.
@@ -57,6 +113,7 @@ export function applyToToc(toc) {
   const hidden = {};
   const filtered = filterToc(config, toc, hidden);
   hiddenBooks = hidden;
+  saveAnswersSoon();
   return filtered;
 }
 

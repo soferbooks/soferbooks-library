@@ -23,11 +23,25 @@ export function safe(name) {
 }
 
 /** For finding the same sefer under slightly different spellings: importers.norm_title */
+// (each name worked out once, and a name with nothing to change returned as it is: at every start
+//  the library's 8,500 names and the extra sources' 2,000 are compared - 27,000 calls, most of a
+//  second on the 32-bit tablet, 2026-11-21)
+const NORM_SEEN = new Map();
+const NEEDS_NORM = /[-\u2013\u05BE\u0591-\u05C9"'\u05F4\u05F3\u201D\u201C\u2018\u2019,.()[\]]|\s\s|[^\S ]|^ | $/;
 export function normTitle(t) {
-  let s = String(t || '').replace(/[-\u2013\u05BE]/g, ' ');   // a maqaf or dash joins words
-  s = s.replace(NIKUD, '');
-  s = s.replace(/["'\u05F4\u05F3\u201D\u201C\u2018\u2019,.()[\]]/g, '');
-  return s.replace(/\s+/g, ' ').trim();
+  const raw = String(t || '');
+  const seen = NORM_SEEN.get(raw);
+  if (seen !== undefined) { return seen; }
+  let s = raw;
+  if (NEEDS_NORM.test(raw)) {
+    s = raw.replace(/[-\u2013\u05BE]/g, ' ');   // a maqaf or dash joins words
+    s = s.replace(NIKUD, '');
+    s = s.replace(/["'\u05F4\u05F3\u201D\u201C\u2018\u2019,.()[\]]/g, '');
+    s = s.replace(/\s+/g, ' ').trim();
+  }
+  if (NORM_SEEN.size > 50000) { NORM_SEEN.clear(); }
+  NORM_SEEN.set(raw, s);
+  return s;
 }
 
 /** Tags taken out: importers._plain */

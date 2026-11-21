@@ -315,7 +315,8 @@ global.Sefaria = {
     }
   },
   _loadTOC: function() {
-    return Promise.all([openFileInSources("toc.json"), extras.loadExtras().catch(() => {})]).then(([data]) => {
+    // (the content filter's kept answers read beside them: shomer.answersReady)
+    return Promise.all([openFileInSources("toc.json"), extras.loadExtras().catch(() => {}), shomer.answersReady()]).then(([data]) => {
       // the extra sources' books (Otzaria ...) join Sefaria's toc first, so the content filter
       // covers them too
       let toc = data;

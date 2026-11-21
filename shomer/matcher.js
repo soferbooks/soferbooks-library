@@ -74,6 +74,15 @@ export function match(cfg, text, href, rules = RULES) {
 }
 
 const SEEN_MAX = 50000;
+
+// The answers worked out so far for a config (the default rules): [[name, answer]], to keep them
+// from one start to the next (shomer/index.js) - and to give them back
+export const seenAnswers = cfg => (cfg && cfg.active ? [...compiled(cfg, RULES).seen.entries()] : []);
+export function seedAnswers(cfg, entries) {
+  if (!cfg || !cfg.active || !Array.isArray(entries)) { return; }
+  const seen = compiled(cfg, RULES).seen;
+  for (const [k, v] of entries) { if (typeof k === 'string' && !seen.has(k)) { seen.set(k, v || null); } }
+}
 // config -> {rules -> compiled}; configs are replaced, never changed (presets.normalize)
 const compiledCache = new WeakMap();
 function compiled(cfg, rules) {
@@ -95,12 +104,20 @@ function compiled(cfg, rules) {
     // letter or digit is always checked).
     c.byFirstWord = new Map();
     c.always = new Set();
+    c.byTitle = new Map();
     for (const rule of c.rules) {
       for (const t of rule.terms) {
         const first = t.match(FIRST_WORD);
         if (!first) { c.always.add(rule); continue; }
         if (!c.byFirstWord.has(first[0])) { c.byFirstWord.set(first[0], new Set()); }
         c.byFirstWord.get(first[0]).add(rule);
+      }
+      // (and its whole titles: a name looks up its own beginnings - isTitle - instead of every
+      //  rule's titles being tried on it; the content filter's pass over the library took 1.5 s
+      //  of every start on the 32-bit tablet - 2026-11-21)
+      for (const t of rule.titles || []) {
+        if (!c.byTitle.has(t)) { c.byTitle.set(t, new Set()); }
+        c.byTitle.get(t).add(rule);
       }
     }
     byRules.set(rules, c);
@@ -126,20 +143,37 @@ function matchCompiled(c, text, href) {
     const rs = c.byFirstWord.get(w);
     if (rs) { maybe = maybe || new Set(); rs.forEach(x => maybe.add(x)); }
   }
-  let names = null;
-  for (const r of c.rules) {
-    const termsMayMatch = c.always.has(r) || (maybe !== null && maybe.has(r));
-    if (!termsMayMatch && !(r.titles && r.titles.length)) { continue; }
-    if (r.exceptions.some(x => hay.includes(x))) { continue; }
-    if (termsMayMatch && r.terms.some(t => hasWord(hay, t))) { return { reason: r.name, translation: r.translation, group: r.group }; }
-    if (r.titles && r.titles.length) {
-      names = names || namesOf(decode(text || ''), href);
-      if (r.titles.some(t => names.some(n => isTitle(n, t)))) {
-        return { reason: r.name, translation: r.translation, group: r.group };
+  // the rules one of whose whole titles is this name, or what it refers into (isTitle)
+  let titled = null;
+  if (c.byTitle.size) {
+    for (const n of namesOf(decode(text || ''), href)) {
+      for (const p of titlesIn(n)) {
+        const rs = c.byTitle.get(p);
+        if (rs) { titled = titled || new Set(); rs.forEach(x => titled.add(x)); }
       }
     }
   }
+  for (const r of c.rules) {
+    const termsMayMatch = c.always.has(r) || (maybe !== null && maybe.has(r));
+    const titleMatches = titled !== null && titled.has(r);
+    if (!termsMayMatch && !titleMatches) { continue; }
+    if (r.exceptions.some(x => hay.includes(x))) { continue; }
+    if (termsMayMatch && r.terms.some(t => hasWord(hay, t))) { return { reason: r.name, translation: r.translation, group: r.group }; }
+    if (titleMatches) { return { reason: r.name, translation: r.translation, group: r.group }; }
+  }
   return null;
+}
+
+// Every t with isTitle(name, t): the name itself, and its beginnings that a reference goes on from
+// ("orot" in "orot 1:2", "orot.1", "orot, introduction")
+const REF_REST = /^(?:[.,:]|\s+\d)/;
+function titlesIn(name) {
+  const out = [name];
+  for (let i = 1; i < name.length; i++) {
+    const ch = name[i];
+    if ((ch === '.' || ch === ',' || ch === ':' || /\s/.test(ch)) && REF_REST.test(name.slice(i))) { out.push(name.slice(0, i)); }
+  }
+  return out;
 }
 
 // ---------- Applying the match to the app's data ----------

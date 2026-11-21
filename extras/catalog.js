@@ -55,15 +55,40 @@ export function namesInToc(toc) {
  * phone need not keep once that one is downloaded (extras/index.js dropSuperseded).
  */
 export function chooseBooks(toc, catalogs, {installed = {}, blocked = {}} = {}) {
-  const {names, titles} = namesInToc(toc);
-  const tocByName = {};          // {nameKey: [the toc's titles]}
-  const heByTitle = {};          // {the toc's title: its Hebrew name}
-  walkBooks(toc, b => {
-    for (const n of [b.title, b.heTitle]) {
-      const k = n && nameKey(n);
-      if (k) { (tocByName[k] = tocByName[k] || []).push(b.title); }
+  // One walk of the toc. tocByName only for the names a preferred book may oust (its names, other
+  // names, the copies it replaces): every English name of the 8,500 normalised for a handful of
+  // lookups took most of a second of each start on the 32-bit tablet (2026-11-21)
+  const wanted = new Set();
+  const wantedStart = new Set();
+  for (const list of Object.values(catalogs)) {
+    for (const e of list || []) {
+      if (!e || !e.preferred) { continue; }
+      for (const n of [e.heTitle, ...(e.names || []), ...(e.replaces || [])]) {
+        const k = n && nameKey(n);
+        if (k) { wanted.add(k); wantedStart.add(k.slice(0, 3)); }
+      }
     }
-    if (b.heTitle) { heByTitle[b.title] = b.heTitle; }
+  }
+  const PLAIN_START = /^[a-z0-9א-ת]{3}/;
+  const names = new Set();
+  const titles = new Set();
+  const tocByName = {};          // {nameKey: [the toc's titles]} - the wanted names only
+  const heByTitle = {};          // {the toc's title: its Hebrew name}
+  const want = (k, title) => { if (wanted.has(k)) { (tocByName[k] = tocByName[k] || []).push(title); } };
+  walkBooks(toc, b => {
+    if (b.heTitle) {
+      const he = normTitle(b.heTitle);
+      names.add(he);
+      heByTitle[b.title] = b.heTitle;
+      if (wanted.size) { want(he.toLowerCase(), b.title); }
+    }
+    const low = String(b.title).toLowerCase();
+    titles.add(low);
+    // (an English name is normalised only when it may be a wanted one: its start, as it would be)
+    if (wanted.size && b.title && (!PLAIN_START.test(low) || wantedStart.has(low.slice(0, 3)))) {
+      const k = nameKey(b.title);
+      if (k) { want(k, b.title); }
+    }
   });
   const replaced = {};
   const superseded = {};
