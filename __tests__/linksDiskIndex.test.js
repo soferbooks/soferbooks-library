@@ -68,3 +68,12 @@ test('a section is kept in its book\'s file', () => {
   expect(links.shardOf('Shulchan Arukh, Orach Chayim 447')).toBe('Shulchan Arukh, Orach Chayim');
   expect(links.shardOf('Book B, S1')).toBe('Book B');
 });
+
+test('a book\'s links changing moves the generation on (the sections\' links kept until then are dropped)', async () => {
+  const before = links.linksGeneration();
+  await links.saveLinks('Book E', { title: 'Book E', links: [link('Genesis 3:1', 'Book E, S1:1')] });
+  expect(links.linksGeneration()).toBeGreaterThan(before);
+  const mid = links.linksGeneration();
+  await links.removeLinks('Book E');
+  expect(links.linksGeneration()).toBeGreaterThan(mid);
+});

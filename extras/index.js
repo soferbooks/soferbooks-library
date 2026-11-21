@@ -961,14 +961,22 @@ export function repairReadyMadeLinks(titles) {
 }
 
 /** The downloaded extra books' links of a section (both ends: theirs and the passages they explain) */
+// (a section's links kept until a book's links change: the panel asks for both pages of a spread,
+//  again and again, as it opens - 2026-11-21)
+const sectionLinks = new Map();
 export async function extraLinksFor(sectionRef) {
   try {
     await loadExtras();
     const titles = installedTitles().filter(t => !state.installed[t].companionOf);
     if (!titles.length) { return []; }
     await repairReadyMadeLinks(titles);
+    const key = `${links.linksGeneration()}|${titles.length}|${sectionRef}`;
+    if (sectionLinks.has(key)) { return sectionLinks.get(key); }
     // (the index kept on the phone: only this section's book is read - links.sectionIndex)
-    return links.relatedFromIndex(await links.sectionIndex(titles, sectionRef), sectionRef);
+    const out = links.relatedFromIndex(await links.sectionIndex(titles, sectionRef), sectionRef);
+    if (sectionLinks.size > 40) { sectionLinks.clear(); }
+    sectionLinks.set(key, out);
+    return out;
   } catch (e) {
     console.log('extras: links of', sectionRef, e);
     return [];

@@ -583,6 +583,8 @@ async function linksTo(f, base, files, loadSection, loadIndex = null) {
 let index = null;           // Map: section ref -> [{anchor, other, otherHe, commentary}]
 let building = null;
 let generation = 0;
+/** Changes whenever a book's links change (extras/index.js keeps each section's links until then) */
+export const linksGeneration = () => generation;
 
 export function invalidate(title = null, {removed = false} = {}) {
   index = null;
@@ -676,7 +678,18 @@ const disk = {manifest: null, commentaries: null, building: null, shards: new Ma
 /** The book a section is in, as the index files are kept: the section without its last part */
 export const shardOf = section => String(section || '').replace(/,? [^ ]+$/, '') || String(section || '');
 const shardFile = (dir, shard) => `${dir}${md5(shard)}.json`;
-const titlesKey = titles => md5([...(titles || [])].sort().join('\n'));
+// (the same list of books as last time: its key not worked out again - 2,000 titles sorted and
+//  hashed at every section's links, a quarter of a second each on the 32-bit tablet, 2026-11-21)
+let lastTitles = null;
+let lastTitlesKey = null;
+const titlesKey = titles => {
+  const joined = (titles || []).join('\n');
+  if (joined !== lastTitles) {
+    lastTitles = joined;
+    lastTitlesKey = md5([...(titles || [])].sort().join('\n'));
+  }
+  return lastTitlesKey;
+};
 
 /** The index on the phone, as last made (its manifest), or null */
 async function diskManifest() {
