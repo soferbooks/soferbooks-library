@@ -13,7 +13,6 @@ import Sefaria from "./sefaria";
 import {LearningSchedulesBoxFactory} from "./learningSchedules/LearningSchedulesBox";
 import strings, {stringPair} from "./LocalizedStrings";
 import * as extras from "./extras";
-import {SOURCES} from "./sources";
 
 /**
  * Return modified categories for cases with category toggles
@@ -126,12 +125,11 @@ class DisplayTocItem {
 
     getDescriptionFromTocItem = tocItem => {
         if (!this.isCategory && extras.isExtraTitle(tocItem.title)) {
-            // a book of an extra source (Otzaria ...): which source, and whether it must be
-            // downloaded before it can be read (it has no online reader)
-            const source = SOURCES.find(s => s.id === tocItem.librarySource) || {};
-            const badge = extras.isDownloaded(tocItem.title) ? null : strings.extras.download_to_read_badge;
-            const line = (name, lang) => [name, badge && strings.getString('extras.download_to_read_badge', lang)].filter(Boolean).join(' · ');
-            return { en: line(source.name, 'en'), he: line(source.heName, 'he') };
+            // a book of an extra source (Otzaria ...): whether it must be downloaded before it can be
+            // read (it has no online reader). Not which library it came from (owner, 2026-11-21: "why
+            // do we need to mark where it came from?" - the book's contents page says so)
+            if (extras.isDownloaded(tocItem.title)) { return { en: '', he: '' }; }
+            return { en: strings.getString('extras.download_to_read_badge', 'en'), he: strings.getString('extras.download_to_read_badge', 'he') };
         }
         return {
             en: tocItem.enShortDesc,

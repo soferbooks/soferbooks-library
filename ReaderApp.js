@@ -112,7 +112,6 @@ import { HE_TITLE as CHOK_HE_TITLE } from "./extras/chok";
 import { isChokSheetRef, keysOfChokRef, chokSheetRef, chokRows, chokTitles, WEEK_DAY_KEYS as CHOK_WEEK_DAY_KEYS, parseKey as parseChokKey } from "./learningSchedules/chokSheet";
 import { SCHEDULE_TITLE as CHOK_SCHEDULE_TITLE, DAYS as CHOK_DAYS, THURSDAY_NIGHT as CHOK_THURSDAY_NIGHT } from "./learningSchedules/chokDay";
 import { loadText as loadTextOfRef, loadRelated as loadRelatedOfRef } from "./offlineOnline";
-import { scheduleStorageReport } from "./storageReport";
 import { pruneSearchFilesIfOff } from "./searchPrefs";
 import ScheduleSequenceBar from "./learningSchedules/ScheduleSequenceBar";
 import {
@@ -340,7 +339,6 @@ class ReaderApp extends React.PureComponent {
     });
     this._extrasSubscription = extras.subscribe(this._onExtrasChanged);
     this._extraLinksSubscription = extras.onExtraLinksReady(this._onExtraLinksReady);
-    scheduleStorageReport();  // (where the phone's space goes, in the device log: storageReport.js)
     // offline search off (the default; Settings): search files still on the phone are deleted
     setTimeout(() => { pruneSearchFilesIfOff().catch(() => {}); }, 20000);
     // the Sofer Library on once (SoferBooks' Sephardi siddur in place of Sefaria's)
