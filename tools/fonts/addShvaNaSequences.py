@@ -8,7 +8,11 @@ VARIATION SELECTOR-1 (U+FE00), which every phone lays out as a mark of the lette
 adds to each font
   - an empty glyph for U+FE00 (it is never seen), and
   - a ccmp ligature, first in the feature: shva + U+FE00 -> shevana, dagesh + U+FE00 -> dageshxazaq.
-Nothing else in the font changes. Run again after the fonts are synced from SoferShared:
+A letter the font draws with its dagesh as one glyph (betdagesh ...) has its dagesh taken into it
+before that ligature is reached, so it also gets one of its own: betdagesh + U+FE00 ->
+betdagesh.xazaq, the glyph U+05C9 itself gives (2026-11-22: the dagesh chazak showed as a plain
+dagesh on those letters). Nothing else in the font changes. Run again after the fonts are synced
+from SoferShared:
 
     python -I tools/fonts/addShvaNaSequences.py android/app/src/main/assets/fonts
 """
@@ -33,12 +37,16 @@ def patch(path: Path) -> str:
     if any(g not in names for g in list(PAIRS) + list(PAIRS.values())):
         return f"{path.name}: no shva na glyphs, left as it is"
     gsub = font["GSUB"].table
-    # (already done: the ligature is there)
+    # (already done: the ligature is there - the letters' own added if they are not)
     for lookup in gsub.LookupList.Lookup:
         for st in lookup.SubTable:
             if getattr(st, "ligatures", None) and "sheva" in st.ligatures and any(
                     VS_GLYPH in lig.Component for lig in st.ligatures["sheva"]):
-                return f"{path.name}: already has it"
+                added = _letters(font, st)
+                if not added:
+                    return f"{path.name}: already has it"
+                font.save(path)
+                return f"{path.name}: dagesh chazak by U+FE00 on {added} letters drawn with their dagesh"
     # the empty glyph for U+FE00
     if VS_GLYPH not in names:
         order = font.getGlyphOrder() + [VS_GLYPH]
@@ -60,6 +68,7 @@ def patch(path: Path) -> str:
         lig.Component = [VS_GLYPH]
         lig.LigGlyph = marked
         st.ligatures[base] = [lig]
+    _letters(font, st)
     lookup = ot.Lookup()
     lookup.LookupType = 4
     lookup.LookupFlag = 0
@@ -78,6 +87,22 @@ def patch(path: Path) -> str:
         return f"{path.name}: no ccmp feature, left as it is"
     font.save(path)
     return f"{path.name}: shva na and dagesh chazak by U+FE00 ({added} ccmp)"
+
+
+def _letters(font, st) -> int:
+    """betdagesh + U+FE00 -> betdagesh.xazaq for every letter drawn with its dagesh (added to `st`)"""
+    names = set(font.getGlyphOrder())
+    added = 0
+    for name in font.getGlyphOrder():
+        marked = f"{name}.xazaq"
+        if name == "dagesh" or marked not in names or name in st.ligatures:
+            continue
+        lig = ot.Ligature()
+        lig.Component = [VS_GLYPH]
+        lig.LigGlyph = marked
+        st.ligatures[name] = [lig]
+        added += 1
+    return added
 
 
 def main() -> None:

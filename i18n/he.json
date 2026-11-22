@@ -123,8 +123,6 @@
     "errors.prompt_open_on_web_message": "הטקסט הזה אינו זמין כרגע באפליקציה, האם תרצו לפתוח אותו באתר האינטרנט?",
     "errors.text_unavailable": "טקסט לא זמין",
     "errors.text_unavailable_from_web_message": "הטקסט אותו ביקשת אינו זמין כרגע מwww.sefaria.org.",
-    "extras.delete_book": "מחיקת העותק שהורד",
-    "extras.delete_book_message": "למחוק את הספר מהמכשיר? הוא יישאר בספרייה ואפשר יהיה להוריד אותו שוב.",
     "extras.delete_books": "מחק ספרים שירדו",
     "extras.download_failed_message": "לא ניתן היה להוריד את הספר. בדקו את החיבור ונסו שוב.",
     "extras.download_to_read_badge": "להורדה לפני קריאה",

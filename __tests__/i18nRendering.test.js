@@ -2191,11 +2191,11 @@ const NOT_YET_COVERED = [
 
   // ---------------------------------------------------------------------------------------
   // Extra sources (extras/, Otzaria): shown by screens that need a downloaded book of an extra
-  // source (the reader's table of contents: delete / licence line; the library list's badge),
+  // source (the reader's table of contents: its licence line; the library list's badge),
   // a source turned on in Settings with books on the phone (count, turn off, updates), or a
   // toast while a book downloads. Their placeholders are checked in "Strings with placeholders";
   // the flows themselves are tested in __tests__/extras.test.js.
-  'extras.delete_book', 'extras.delete_book_message', 'extras.download_to_read_badge',
+  'extras.download_to_read_badge',
   'extras.up_to_date',
 
   // LexiconBox: its search box's placeholder (a TextInput's placeholder, which the screen

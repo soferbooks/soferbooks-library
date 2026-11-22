@@ -7,7 +7,6 @@ import {
   View,
   ScrollView,
   Dimensions,
-  Alert,
 } from 'react-native';
 import * as extras from './extras';
 import { refHasSectionKeys, nodeEnTitle, readableUrl } from './extras/schema7';
@@ -122,7 +121,7 @@ const ReaderTextTableOfContents = ({
               openUri={openUri}
             />
 
-            { extras.isDownloaded(title) ? <ExtraBookInfo title={title} textToc={textToc} close={close} /> : null }
+            { extras.isDownloaded(title) ? <ExtraBookInfo textToc={textToc} /> : null }
 
             <PrintCopyLink title={title} heTitle={heTitle} />
 
@@ -170,21 +169,14 @@ ReaderTextTableOfContents.propTypes = {
 };
 
 /**
- * A downloaded book of an extra source (Otzaria ...): where it comes from, its licence, and
- * deleting the downloaded copy (the book stays in the library, to be downloaded again).
+ * A downloaded book of an extra source (Otzaria ...): where it comes from and its licence. (No
+ * "Delete the downloaded copy" on every book - owner, 2026-11-22: books are removed from the
+ * library in Settings.)
  */
-const ExtraBookInfo = ({ title, textToc, close }) => {
+const ExtraBookInfo = ({ textToc }) => {
   const { theme, interfaceLanguage } = useGlobalState();
   const langStyle = interfaceLanguage === "hebrew" ? styles.heInt : styles.enInt;
   const version = (textToc?.versions || [])[0] || {};
-  const remove = () => Alert.alert(
-    strings.extras.delete_book,
-    strings.extras.delete_book_message,
-    [
-      {text: strings.common.cancel, style: 'cancel'},
-      {text: strings.common.yes, onPress: () => { extras.deleteBook(title).then(close).catch(() => {}); }},
-    ],
-  );
   return (
     <View style={{marginTop: 10}}>
       {version.versionSource ?
@@ -193,9 +185,6 @@ const ExtraBookInfo = ({ title, textToc, close }) => {
         <Text style={[langStyle, theme.tertiaryText, {fontSize: 13}]}>{strings.formatString(strings.extras.license_line, {license: version.license})}</Text> : null}
       {version.versionNotesInHebrew ?
         <Text style={[styles.he, theme.tertiaryText, {fontSize: 13}]}>{readableUrl(version.versionNotesInHebrew)}</Text> : null}
-      <TouchableOpacity onPress={remove} accessibilityRole="button" style={{paddingVertical: 6}}>
-        <Text style={[langStyle, theme.text, {fontSize: 14, textDecorationLine: 'underline'}]}>{strings.extras.delete_book}</Text>
-      </TouchableOpacity>
     </View>
   );
 };

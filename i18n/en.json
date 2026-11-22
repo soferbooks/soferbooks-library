@@ -123,8 +123,6 @@
     "errors.prompt_open_on_web_message": "This text is not currently available in the mobile app. Would you like to open it on the Web?",
     "errors.text_unavailable": "Text Unavailable",
     "errors.text_unavailable_from_web_message": "The text you requested is not currently available from www.sefaria.org.",
-    "extras.delete_book": "Delete the downloaded copy",
-    "extras.delete_book_message": "Delete this book from this device? It stays in the library and can be downloaded again.",
     "extras.delete_books": "Delete downloaded books",
     "extras.download_failed_message": "The book could not be downloaded. Check the connection and try again.",
     "extras.download_to_read_badge": "Download to read",
