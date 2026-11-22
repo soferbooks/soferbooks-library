@@ -63,6 +63,8 @@
     "common.try_again": "Try Again",
     "common.welcome": "Welcome",
     "common.yes": "Yes",
+    "connections.dictionary": "Dictionary",
+    "connections.dictionary_placeholder": "Type a word",
     "connections.define": "Define",
     "connections.no_connections_message": "No connections available.",
     "connections.no_definitions_found": "No definitions found",

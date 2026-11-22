@@ -6,9 +6,10 @@
  * it opens that passage's commentaries and connections like any book's; the text the sheet writes
  * out itself (the kavanot, the Zohar's Hebrew translation, mussar Sefaria lacks) is shown as is.
  *
- * Which day: the week's parsha and the day of the week (learningSchedules/chokDay.js), but the day
- * lasts until alos hashachar (a quarter past four, Thursday night, is still ליל שישי - owner,
- * 2026-11-20), and from sunset on Thursday it is Thursday night's learning (ליל שישי). Alos and
+ * Which day: the week's parsha and the day of the week (learningSchedules/chokDay.js); Thursday
+ * night's learning (ליל שישי) from sunset on Thursday until alos hashachar on Friday (a quarter past
+ * four on Friday is still ליל שישי - owner, 2026-11-20); any other day before alos is that day
+ * (owner, 2026-11-22). Alos and
  * sunset are worked out for the city of the phone's time zone (@hebcal/core; the app does not ask
  * for the phone's location), or, for a time zone it does not know, from its UTC offset.
  *
@@ -83,18 +84,21 @@ export function zmanimOf(date, place) {
 
 /**
  * The Chok day for the moment `now`: {date (the day's calendar date), dayKey, night}, or null on
- * Shabbat. Before alos it is still the night before; from sunset on Thursday, Thursday night.
+ * Shabbat. The calendar day, but Thursday night's learning (ליל שישי) goes from sunset on Thursday
+ * until alos on Friday (owner, 2026-11-22: "before dawn should be the same for every day besides
+ * for friday since theres a friday eve one": Sunday before dawn is Sunday).
  */
 export function chokMoment(now = new Date(), { israel = false, place = null } = {}) {
   const where = place || placeFor({ israel, date: now });
   const { alos, sunset } = zmanimOf(now, where);
   const beforeAlos = alos ? now < alos : now.getHours() < 4;
-  const date = beforeAlos ? addDays(now, -1) : midnight(now);
+  const fridayBeforeAlos = beforeAlos && DAYS[now.getDay()].key === 'fri';
+  const date = fridayBeforeAlos ? addDays(now, -1) : midnight(now);
   const afterSunset = !beforeAlos && (sunset ? now >= sunset : now.getHours() >= 18);
   const night = beforeAlos || afterSunset;
   const weekday = DAYS[date.getDay()].key;
   if (weekday === 'shabbat') { return null; }
-  const dayKey = weekday === 'thu' && night ? 'thu_night' : weekday;
+  const dayKey = weekday === 'thu' && (afterSunset || fridayBeforeAlos) ? 'thu_night' : weekday;
   return { date, dayKey, night };
 }
 

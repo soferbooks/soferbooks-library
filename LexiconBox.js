@@ -5,6 +5,7 @@ import {
   View,
   Text,
   ScrollView,
+  TextInput,
 } from 'react-native';
 import PropTypes from 'prop-types';
 import {
@@ -34,9 +35,14 @@ const getLookups = (words, oref) => {
   return Sefaria.api.lexicon(words, ref);
 };
 
-const LexiconBox = ({ selectedWords, oref, handleOpenURL }) => {
+const LexiconBox = ({ selectedWords: givenWords, oref, handleOpenURL }) => {
   const [loaded, setLoaded] = useState(false);
   const [entries, setEntries] = useState([]);
+  // (its own search box: the dictionary is reached from the connections panel's "Dictionary", a
+  //  word typed in - no longer a word long-pressed in the text, owner 2026-11-22)
+  const [typed, setTyped] = useState(givenWords || '');
+  const [selectedWords, setSelectedWords] = useState(givenWords || '');
+  useEffect(() => { if (givenWords) { setTyped(givenWords); setSelectedWords(givenWords); } }, [givenWords]);
   const {themeStr, fontSize, interfaceLanguage} = useContext(GlobalStateContext);
   const theme = getTheme(themeStr);
   useEffect(() => {
@@ -80,11 +86,23 @@ const LexiconBox = ({ selectedWords, oref, handleOpenURL }) => {
 
   return (
     <ScrollView style={{flex: 1}} key={selectedWords} contentContainerStyle={{paddingLeft: 42, paddingRight: 64, paddingTop: 20, paddingBottom: 40}}>
-      <View style={[{flexDirection: isHeb ? "row-reverse" : "row", borderBottomWidth: 1, paddingBottom: 15}, theme.borderedBottom]}>
+      <View style={[{flexDirection: isHeb ? "row-reverse" : "row", alignItems: 'center', borderBottomWidth: 1, paddingBottom: 10}, theme.borderedBottom]}>
         <SText lang={"english"} style={[styles.enInt, theme.tertiaryText, {fontSize: 0.8*fontSize}]}>{`${strings.connections.define}: `}</SText>
-        <SText lang={"hebrew"} style={[styles.he, {fontSize}, theme.text]}>{selectedWords}</SText>
+        <TextInput
+          value={typed}
+          onChangeText={setTyped}
+          onSubmitEditing={() => setSelectedWords(typed.trim())}
+          onEndEditing={() => setSelectedWords(typed.trim())}
+          placeholder={strings.connections.dictionary_placeholder}
+          placeholderTextColor={theme.tertiaryText && theme.tertiaryText.color}
+          returnKeyType="search"
+          autoCorrect={false}
+          autoFocus={!givenWords}
+          style={[styles.he, {fontSize, flex: 1, textAlign: 'right', paddingVertical: 4}, theme.text]}
+          testID="dictionary-search"
+        />
       </View>
-      { content }
+      { selectedWords ? content : null }
     </ScrollView>
   );
 }

@@ -63,7 +63,7 @@ describe('segmentsOf', () => {
   });
 });
 
-describe('the day: until alos, and Thursday night from sunset', () => {
+describe('the day: the calendar day, and Thursday night from sunset until alos on Friday', () => {
   // Thursday 19 Nov 2026 (parshat Vayetzei week), New York
   const at = (d, h, m = 0) => new Date(2026, 10, d, h, m);
   test('Thursday morning is Thursday', () => {
@@ -80,8 +80,14 @@ describe('the day: until alos, and Thursday night from sunset', () => {
   test('Friday after alos is Friday', () => {
     expect(chokMoment(at(20, 7), { place: NY })).toMatchObject({ dayKey: 'fri' });
   });
-  test('Monday 2am is still Sunday', () => {
-    expect(chokMoment(at(16, 2), { place: NY })).toMatchObject({ dayKey: 'sun' });
+  test('any other day before alos is that day (owner, 2026-11-22): Monday 2am is Monday', () => {
+    expect(chokMoment(at(16, 2), { place: NY })).toMatchObject({ dayKey: 'mon' });
+  });
+  test('Sunday before alos (after Shabbat) is Sunday', () => {
+    expect(chokMoment(at(22, 5), { place: NY })).toMatchObject({ dayKey: 'sun' });
+  });
+  test('Thursday before alos is Thursday, not Thursday night', () => {
+    expect(chokMoment(at(19, 3), { place: NY })).toMatchObject({ dayKey: 'thu' });
   });
   test('Shabbat has none', () => {
     expect(chokMoment(at(21, 12), { place: NY })).toBeNull();

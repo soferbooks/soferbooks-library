@@ -16,10 +16,14 @@ import strings from './LocalizedStrings';
 import {useGlobalState} from './Hooks.js';
 import Sefaria from './sefaria';
 import {displayHeRef} from './extras/schema7';
-import * as extras from './extras';
 
-// (previews from Sefaria's site: no longer than this - the list is shown without them meanwhile)
+// (a passage's preview: its first words, read from the book on the phone)
+const PREVIEW_CHARS = 280;
 const PREVIEW_TIMEOUT_MS = 8000;
+const plainPreview = html => {
+    const text = String(html || '').replace(/<sup[^>]*>.*?<\/sup>/g, '').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+    return text.length > PREVIEW_CHARS ? `${text.slice(0, PREVIEW_CHARS).replace(/\s+\S*$/, '')}…` : text;
+};
 
 // History and saved items live only on this phone (see history.js loadLocalHistory).
 const useLoadLocalHistory = () => useCallback(async () => {
@@ -168,22 +172,24 @@ const UserReadingList = ({mode, changeMode, openRef, openMenu, hasInternet}) => 
     }, [mode, dedupeAndNormalizeHistoryArray]);
 
     const getAnnotatedItems = useCallback(async (refs) => {
-        // Text previews come from the online API; offline, items show their ref only. Only Sefaria's
-        // own books are asked about (the other libraries' are not on its site), and not for long.
-        const asked = refs.filter(ref => !extras.isExtraTitle(Sefaria.textTitleForRef(ref)));
-        if(!hasInternet || !asked.length){
-            return {};
-        }
-        try {
-            return await Promise.race([
-                Sefaria.api.getBulkText(asked, true),
-                new Promise(resolve => setTimeout(() => resolve({}), PREVIEW_TIMEOUT_MS)),
-            ]);
-        } catch (error) {
-            console.log('history: previews', error);
-            return {};
-        }
-    }, [hasInternet]);
+        // The previews from the books on the phone, every library's (owner, 2026-11-22: "we dont have
+        // accounts, why isnt it all local and all books?"); a book not downloaded is read as the
+        // reader reads it. Not for long: the list is shown meanwhile.
+        const out = {};
+        const one = async ref => {
+            try {
+                const {result} = await Sefaria.offlineOnline.loadText(ref, false, null, true, true);
+                if (result && (result.he || result.en)) {
+                    out[ref] = {he: plainPreview(result.he), en: plainPreview(result.en)};
+                }
+            } catch (error) { /* no preview */ }
+        };
+        await Promise.race([
+            (async () => { for (const ref of refs) { await one(ref); } })(),
+            new Promise(resolve => setTimeout(resolve, PREVIEW_TIMEOUT_MS)),
+        ]);
+        return out;
+    }, []);
 
     const getAnnotatedNextItems = useCallback(async (items) => {
         const textsAnnotated = await getAnnotatedItems(items.map(i => i.ref));

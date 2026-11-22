@@ -1286,7 +1286,7 @@ describe('Mac default freeform text selection (replacing Dictionary on Mac only)
     expect(isMac()).toBe(false);
   });
 
-  test('TextRange enables clickableWord dictionary on iOS/Android and disables it on Mac', () => {
+  test('TextRange makes no word a dictionary tap target, anywhere (owner, 2026-11-22: the dictionary has its own search box)', () => {
     const { getTheme } = require('../StateManager');
     const TextRange = require('../TextRange').default;
     const spy = jest.spyOn(Sefaria.util, 'getDisplayableHTML');
@@ -1310,7 +1310,8 @@ describe('Mac default freeform text selection (replacing Dictionary on Mac only)
       _setIsMacForTests(false);
       let inst;
       act(() => { inst = renderRange(); });
-      expect(spy.mock.calls.some(c => c[1] === 'hebrew' && c[3] === true)).toBe(true);
+      expect(spy.mock.calls.some(c => c[1] === 'hebrew' && c[3] === false)).toBe(true);
+      expect(spy.mock.calls.some(c => c[1] === 'hebrew' && c[3] === true)).toBe(false);
       act(() => { inst.unmount(); });
 
       spy.mockClear();

@@ -612,7 +612,7 @@ describe('Connections panel on Ezra 1:1', () => {
   test('main menu renders its labels in both languages', () => {
     expectScreenLocalizes(wrap(ConnectionsPanel, ezraProps(null)), [
       'connections.resources', 'connections.related_texts', 'connections.tools',
-      'versions.about_this_text', 'versions.translations',
+      'versions.about_this_text', 'versions.translations', 'connections.dictionary',
       'common.more', 'common.copy', 'common.share', 'connections.report_error', 'connections.view_on_site',
     ]);
   });
@@ -2189,6 +2189,10 @@ const NOT_YET_COVERED = [
   // the flows themselves are tested in __tests__/extras.test.js.
   'extras.delete_book', 'extras.delete_book_message', 'extras.download_to_read_badge',
   'extras.up_to_date',
+
+  // LexiconBox: its search box's placeholder (a TextInput's placeholder, which the screen
+  // renders here do not read as text).
+  'connections.dictionary_placeholder',
 
   // shomer/ContentFilterSettings.js: the "(coming soon)" after a library source that is not
   // available yet. Since the Sofer Library works (2026-11-11) every source is available, so no

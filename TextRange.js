@@ -48,11 +48,16 @@ const TextRange = React.memo(({
   //  wrapped for the dictionary - QA round 16 saw redraws of a Hebrew-only Gemara page stall)
   const enText = useMemo(() => Sefaria.util.getDisplayableHTML(rowData.content.text || "", 'english', isSheet, false),
     [rowData.content.text, isSheet]);
+  // No word is a tap target for the dictionary (owner, 2026-11-22: "completely remove the word
+  // wrapping dictionary ... then people can copy and paste too"): every word of every passage made
+  // one took about 0.3 s a paragraph to draw on the 32-bit tablet - the siddur opened in 4 s, under 2
+  // without. The text is selectable instead (TextSegment), and the dictionary has its own search box
+  // in the connections panel (LexiconBox).
   const heText = useMemo(() => {
     let he = Sefaria.util.applyVocalizationSettings(dictaHe || rowData.content.he, vocalization, vowelToggleAvailable) || "";
     // a commentary: its dibbur hamaschil in bold, as SoferBooks prints it (reader/dibbur.js; at display, not stored)
     if (boldDibbur && !isSheet) { he = withBoldDibbur(he); }
-    return Sefaria.util.getDisplayableHTML(he, 'hebrew', isSheet, !isMac());
+    return Sefaria.util.getDisplayableHTML(he, 'hebrew', isSheet, false);
   }, [dictaHe, rowData.content.he, vocalization, vowelToggleAvailable, boldDibbur, isSheet]);
   let numLinks = rowData.related?.links?.length || 0;
 

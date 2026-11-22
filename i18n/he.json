@@ -63,6 +63,8 @@
     "common.try_again": "נסו שוב",
     "common.welcome": "ברוכים הבאים",
     "common.yes": "כן",
+    "connections.dictionary": "מילון",
+    "connections.dictionary_placeholder": "הקלידו מילה",
     "connections.define": "הגדרה",
     "connections.no_connections_message": "אין קישורים",
     "connections.no_definitions_found": "לא נמצאו תוצאות",

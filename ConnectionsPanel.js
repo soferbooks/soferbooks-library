@@ -486,6 +486,11 @@ const TopButtons = ({relatedHasError, reloadRelated, themeStr, setConnectionsMod
         count={versionsCount}
         onPress={()=> {setConnectionsMode("versions"); }}
       /> }
+      <ToolsButton
+        text={strings.connections.dictionary}
+        icon={iconData.get('search', themeStr)}
+        onPress={()=> {setConnectionsMode("dictionary"); }}
+      />
     </ConnectionsPanelSection>
   )
 };
