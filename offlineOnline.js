@@ -94,7 +94,14 @@ const loadTextAsAsked = function(ref, context, versions, fallbackOnDefaultVersio
     return loadTextOffline(ref, versions, fallbackOnDefaultVersions)
         .then(({textContent, links}) => {
             if (textContent?.missingLangs?.length) {
-                throw ERRORS.MISSING_OFFLINE_DATA;
+                // (a book of an extra source - no online reader - asked for its default English, which it
+                //  has none of: shown without it. The siddur's tab, left in English, failed as "not
+                //  downloaded" and fell back a level at every opening - the 32-bit tablet, 2026-11-22)
+                const missing = isExtraRef(ref)
+                    ? textContent.missingLangs.filter(lang => versions && versions[lang])
+                    : textContent.missingLangs;
+                const hasText = (textContent.content || []).some(seg => seg && (seg.he || seg.text));
+                if (missing.length || !hasText) { throw ERRORS.MISSING_OFFLINE_DATA; }
             }
             textContent = shomer.stripHiddenEnglish(textContent);  // content filter (normally the offline default already skips it)
             if (!context) {

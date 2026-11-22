@@ -1030,6 +1030,12 @@ class ReaderApp extends React.PureComponent {
             // (a section whose file did not name its book or section - QA round 14: "Could not load
             //  the index of undefined", then the contents page crashed - is named from its ref)
             if (!textContent.sectionRef) { textContent.sectionRef = textContent.ref || ref; }
+            // (a tab in English on a text with no English - the siddur, a tab left English: it showed
+            //  only a spinner - is shown in Hebrew, as Sefaria's site does; the setting is not changed)
+            if (this.props.textLanguage === 'english' && Array.isArray(textContent.content) && textContent.content.length &&
+                !textContent.content.some(seg => seg && seg.text) && textContent.content.some(seg => seg && seg.he)) {
+              this.setTextLanguage('hebrew', null, true);
+            }
             if (!textContent.indexTitle) { textContent.indexTitle = Sefaria.textTitleForRef(textContent.sectionRef) || Sefaria.textTitleForRef(ref); }
             // (a day read as one unit - Chok LeYisrael - goes from one of its readings to the next, and ends)
             const around = this._readingNeighbours(textContent.sectionRef, textContent);

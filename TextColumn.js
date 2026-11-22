@@ -52,6 +52,9 @@ const ROW_TYPES = {
   SHEET_MEDIA: 7
 };
 
+// (about a screen of text: the rows drawn at first - _initialRows)
+const INITIAL_CHARS = 2500;
+
 class TextColumn extends React.PureComponent {
   static contextType = GlobalStateContext;
   static whyDidYouRender = true;
@@ -108,17 +111,21 @@ class TextColumn extends React.PureComponent {
     this.backupItemLayoutList = []; // backup for race condition when itemLayoutList is set to null but SectionList still thinks it exists so it tries to call getItemLayout()
     this.onTopReaching = false; // true when measuring heights for infinite scroll up
     const macMode = isMac() && !props.isSheet;
+    // (no jump to the section's first passage: it is shown first anyway - and the jump draws every
+    //  passage of the section to measure it, 3 to 13 s for the siddur's Shacharit, 383 long
+    //  paragraphs, on the 32-bit tablet - 2026-11-22)
+    const jump = !!props.offsetRef && !this._isFirstPassage(props);
     let {dataSource, componentsToMeasure, jumpInfoMap} = macMode
       ? { dataSource: [], componentsToMeasure: [], jumpInfoMap: new Map() }
-      : this.generateDataSource(props, !!props.offsetRef);
-    this.measuringHeights = !macMode && !!props.offsetRef;
+      : this.generateDataSource(props, jump);
+    this.measuringHeights = !macMode && jump;
     this.state = {
       nextDataSource: dataSource,
-      dataSource: !!props.offsetRef ? [] : dataSource,
+      dataSource: jump ? [] : dataSource,
       jumpInfoMap,
       componentsToMeasure,
       jumpState: { // if jumping is true, then look at jumpState when allHeightsMeasuredCallback is called
-        jumping: !!props.offsetRef,
+        jumping: jump,
         targetRef: this._standardizeOffsetRef(props.offsetRef) || null,
         viewPosition: 0.1,
         animated: false,
@@ -256,6 +263,24 @@ class TextColumn extends React.PureComponent {
     this._anchor = createAnchor(picked.ref, Date.now(), picked.inset);
     this._scheduleReanchor();
   };
+  /**
+   * The rows drawn at first: about a screen and a half of text, at most 10 - the siddur's long
+   * paragraphs took 2-3 s to lay out ten of on the 32-bit tablet, two of which fill the screen
+   * (2026-11-22). Read when the list is first drawn (a tab's list is drawn anew when shown).
+   */
+  _initialRows = () => {
+    const rows = (this.state.dataSource && this.state.dataSource[0] && this.state.dataSource[0].data) || [];
+    let chars = 0;
+    let n = 0;
+    for (const r of rows) {
+      const c = r && r.data && r.data.content;
+      chars += c ? String(c.he || '').length + String(c.text || '').length : 80;
+      n += 1;
+      if (n >= 10 || chars > INITIAL_CHARS) { break; }
+    }
+    return Math.max(3, n);
+  };
+
   generateDataSource = (props, gonnaJump) => {
     // Returns data representing sections and rows to be passed into ListView.DataSource.cloneWithSectionsAndRows
     // Takes `props` as an argument so it can generate data with `nextProps`.
@@ -433,6 +458,15 @@ class TextColumn extends React.PureComponent {
       }
     }
     return parashaDict;
+  };
+
+  /** Whether offsetRef is the first passage of the first section shown (no jump needed) */
+  _isFirstPassage = props => {
+    if (props.isSheet || !props.offsetRef || !Array.isArray(props.data) || !Array.isArray(props.data[0])) { return false; }
+    const first = props.data[0].find(seg => seg && (seg.text || seg.he));
+    const sectionRef = props.sectionArray && props.sectionArray[0];
+    if (!first || !sectionRef) { return false; }
+    return this._standardizeOffsetRef(props.offsetRef) === this._standardizeOffsetRef(`${sectionRef}:${first.segmentNumber}`);
   };
 
   _standardizeOffsetRef = (ref) => {
@@ -1147,7 +1181,7 @@ class TextColumn extends React.PureComponent {
               onEndReachedThreshold={1.0}
               windowSize={7}
               maxToRenderPerBatch={8}
-              initialNumToRender={10}
+              initialNumToRender={this._initialRows()}
               updateCellsBatchingPeriod={50}
               removeClippedSubviews={Platform.OS === 'android'}
               onScroll={this.handleScroll}
