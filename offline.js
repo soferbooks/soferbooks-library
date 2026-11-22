@@ -379,7 +379,9 @@ const loadOfflineSection = async function(ref, versions, fallbackOnDefaultVersio
     }
     const textByLang = await loadOfflineSectionByVersions(versions, metadata.versions, metadata.sectionRef, fileNameStem,
         fallbackOnDefaultVersions, metadata._fileSectionRef || metadata.sectionRef);
-    const full = createFullSectionObject(metadata, textByLang, Object.keys(versions), offlineSectionKey);
+    let segmentOffset = 0;
+    try { segmentOffset = await segmentOffsetForSection(metadata.sectionRef, metadata.indexTitle); } catch (e) { segmentOffset = 0; }
+    const full = createFullSectionObject(metadata, textByLang, Object.keys(versions), offlineSectionKey, segmentOffset);
     delete full._fileSectionRef;
     if (!full.next || !full.prev) {
         try {
@@ -490,7 +492,60 @@ const loadOfflineSectionByVersions = async function(selectedVersions, allVersion
     return textByLang;
 };
 
-const createFullSectionObject = (metadata, textByLang, requestedLangs, cacheKey) => {
+/**
+ * Where a section's segments start counting, as Sefaria numbers them: a book whose schema gives
+ * index_offsets_by_depth counts its segments on through the chapter (the Zohar: "Achrei Mot 31"
+ * starts at paragraph 190, not 1) - api.js does the same for a section read online. Without it the
+ * Chok's Zohar ranges ("Zohar, Achrei Mot 31:192-32:201") were not found on the phone, and a
+ * passage's connections were on the wrong paragraph. 0 when the book has none.
+ */
+export const segmentOffsetOf = (index, sectionRef) => {
+    try {
+        if (!index || !index.schema || !sectionRef || !index.title) { return 0; }
+        let rest = sectionRef.startsWith(index.title) ? sectionRef.slice(index.title.length) : null;
+        if (rest === null) { return 0; }
+        let node = index.schema;
+        rest = rest.replace(/^,?\s*/, '');
+        // (down the schema's named nodes: "Achrei Mot 31" -> the node "Achrei Mot", "31")
+        while (node.nodes) {
+            const named = node.nodes
+                .filter(n => n.title && (rest === n.title || rest.startsWith(`${n.title} `) || rest.startsWith(`${n.title},`)))
+                .sort((a, b) => b.title.length - a.title.length)[0];
+            const next = named || node.nodes.find(n => n.key === 'default' || n.default);
+            if (!next) { return 0; }
+            if (named) { rest = rest.slice(named.title.length).replace(/^,?\s*/, ''); }
+            node = next;
+        }
+        const byDepth = node.index_offsets_by_depth;
+        const depth = node.depth;
+        if (!byDepth || !depth || !byDepth[String(depth)]) { return 0; }
+        const address = rest.split(/[\s:.]+/).filter(Boolean).map(a => parseInt(a, 10));
+        let at = byDepth[String(depth)];
+        for (let d = 0; d < depth - 1; d++) {
+            if (!Array.isArray(at) || !(address[d] >= 1)) { return 0; }
+            at = at[address[d] - 1];
+        }
+        return Number.isInteger(at) ? at : 0;
+    } catch (e) {
+        return 0;
+    }
+};
+
+const segmentOffsetForSection = async (sectionRef, title) => {
+    title = title || Sefaria.textTitleForRef(sectionRef);
+    if (!title) { return 0; }
+    const key = `${title}|segmentIndex`;
+    if (Sefaria._jsonSectionData[key] === undefined) {
+        let index = null;
+        try { index = await _loadJSON(_indexJSONPath(title)); } catch (e) { index = null; }
+        // (only what is needed kept: the whole index of a large book is not held for this)
+        Sefaria._jsonSectionData[key] = index && JSON.stringify(index.schema || {}).includes('index_offsets_by_depth')
+            ? { title: index.title || title, schema: index.schema } : null;
+    }
+    return segmentOffsetOf(Sefaria._jsonSectionData[key], sectionRef);
+};
+
+const createFullSectionObject = (metadata, textByLang, requestedLangs, cacheKey, segmentOffset = 0) => {
     /**
      * Given metadata file and text for each version, combine them into a full section object which is used by the reader
      */
@@ -500,7 +555,7 @@ const createFullSectionObject = (metadata, textByLang, requestedLangs, cacheKey)
     const sectionLen = Math.max(...Object.values(textByLang).map(x => x.length))
     for (let i = 0; i < sectionLen; i++) {
         fullSection.content.push({
-            segmentNumber: i+1+"",
+            segmentNumber: i+1+segmentOffset+"",
             links: metadata.links?.[i] || [],
             text: textByLang?.en?.[i] || "",
             he: textByLang?.he?.[i] || "",

@@ -392,6 +392,13 @@ describe('TextColumn Next Daf selection, scroll tracking, and explicit bold dete
     expect(props.textSegmentPressed).toHaveBeenCalledWith(1, 1, 'Niddah 32a:2', true, true);
 
     props.textSegmentPressed.mockClear();
+    // (the scroll that follows a tap - the panel opening - does not move the passage tapped on to
+    //  another one: owner, 2026-11-22)
+    tc.viewableSectionData = { indexes: [0], sections: [[tc.state.dataSource[0].data[0]]] };
+    tc.handleScroll({ nativeEvent: { contentOffset: { y: 400 } } });
+    expect(props.textSegmentPressed).not.toHaveBeenCalled();
+    // reading on by hand: the place follows the top again
+    tc._onScrollBeginDrag();
     tc.viewableSectionData = { indexes: [1], sections: [[tc.state.dataSource[1].data[1]]] };
     tc.handleScroll({ nativeEvent: { contentOffset: { y: 900 } } });
     expect(props.textSegmentPressed).toHaveBeenCalledWith(1, 1, 'Niddah 32a:2');

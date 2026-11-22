@@ -244,7 +244,7 @@ class TextColumn extends React.PureComponent {
     return lo === Infinity ? null : [lo, hi];
   };
 
-  _onScrollBeginDrag = () => { this._releaseAnchor(); };
+  _onScrollBeginDrag = () => { this._tapHold = false; this._releaseAnchor(); };
 
   /**
    * A display change (language, commentary under each passage, font size, layout) is about to
@@ -483,6 +483,10 @@ class TextColumn extends React.PureComponent {
 
   textSegmentPressed = (section, segment, segmentRef, onlyOpen) => {
     this._releaseAnchor();  // the user chose a segment
+    // (the passage tapped stays the one: the panel opening, and the scroll that brings the passage
+    //  up, moved the reader's place on to the passage then at the top - often the one before, whose
+    //  connections then opened - owner, 2026-11-22. Reading on, by hand, follows the top again.)
+    this._tapHold = true;
     if (!this.props.textListVisible) {
       if (this.props.textFlow === 'continuous') {
         const targetY = this.rowYHash[segmentRef] + this.state.itemLayoutList[this.state.jumpInfoMap.get(this.props.sectionArray[section])].offset;
@@ -570,6 +574,7 @@ class TextColumn extends React.PureComponent {
       for (let j = 0; j < this.state.dataSource[sectionIndex].data[0].data.segmentData.length; j++) {
         let segment = this.state.dataSource[sectionIndex].data[0].data.segmentData[j];
         if (this.rowYHash[segment.ref] + sectionOffset - this.currentY > -20) {
+          if (this._tapHold) { return; }
           this.props.textSegmentPressed(sectionIndex, segment.segmentNumber, segment.ref);
           return;
         }
@@ -605,6 +610,7 @@ class TextColumn extends React.PureComponent {
   };
 
   setHighlight = (sectionIndex, segmentIndex, ref) => {
+    if (this._tapHold) { return; }
     //console.log("VISIBLE", allVisibleRows, "TO LOAD", segmentToLoad,"Seg Ind Ref",this.props.segmentIndexRef);
     if (sectionIndex !== this.props.sectionIndexRef || segmentIndex !== this.props.segmentIndexRef || ref !== this.props.segmentRef) {
       this.props.textSegmentPressed(sectionIndex, segmentIndex, ref);
@@ -812,10 +818,18 @@ class TextColumn extends React.PureComponent {
 
   renderSheetInline = item => {
     // (the source as the links name it: "Onkelos", or the book's own title "Onkelos Genesis" offline)
-    const want = this.props.sheetInlineFor(item.data.content);
-    const links = item.data.related.links || [];
-    const key = want && links.map(linkSourceKey).find(k => k === want || (k && k.startsWith(`${want} `)));
-    return key ? <InlineCommentary links={links} sourceKey={key} nakdan={false} /> : null;
+    // (the names the targum may have, in order: ["Onkelos"], or the Prophets' and Writings' targums)
+    const wants = [].concat(this.props.sheetInlineFor(item.data.content) || []);
+    const links = (item.data.related && item.data.related.links) || [];
+    const keys = links.map(linkSourceKey);
+    let key = null;
+    for (const want of wants) {
+      key = keys.find(k => k && (k === want || k.startsWith(`${want} `)));
+      if (key) { break; }
+    }
+    // (the targum as the printed Chok sets it: under its verse, smaller, in the text's own colour,
+    //  no line between them - owner, 2026-11-22)
+    return key ? <InlineCommentary links={links} sourceKey={key} nakdan={false} asText /> : null;
   };
 
   renderSheetMedia = ({ item }) => {

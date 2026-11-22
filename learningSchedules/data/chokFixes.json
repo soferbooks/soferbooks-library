@@ -1,589 +1,1530 @@
 {
- "note": "Checked 2026-11-20 against Sefaria: Zohar refs renumbered since the sheets were made (matched on Sefaria's Hebrew Translation of the Zohar); sheet-written passages found in a Sefaria book (ref: tapping them shows its connections).",
+ "note": "Checked 2026-11-20 against Sefaria: Zohar refs renumbered since the sheets were made (matched on Sefaria's Hebrew Translation of the Zohar); sheet-written passages found in a Sefaria book (ref: tapping them shows its connections). Whole-section Zohar refs narrowed 2026-11-22 to the paragraphs the sheet's own translation covers (matched by shared words; the translation itself not shown - Sulam's is a connection).",
  "zohar": {
+  "אחרי מות|fri": {
+   "old": "Zohar, Mishpatim 3",
+   "new": "Zohar, Mishpatim 3:79",
+   "hr": "ספר הזהר, משפטים ג׳:ע״ט"
+  },
+  "אחרי מות|mon": {
+   "old": "Zohar, Achrei Mot 33",
+   "new": "Zohar, Achrei Mot 33:202-205",
+   "hr": "ספר הזהר, אחרי מות ל״ג:ר״ב-ר״ה"
+  },
   "אחרי מות|sun": {
    "old": "Zohar, Achrei Mot 33",
-   "new": "Zohar, Achrei Mot 31:192-32:201"
+   "new": "Zohar, Achrei Mot 31:192-32:201",
+   "hr": "ספר הזהר, אחרי מות ל״א:קצ״ב-ל״ב:ר״א"
   },
   "אחרי מות|thu": {
    "old": "Zohar, Achrei Mot 74",
-   "new": "Zohar, Achrei Mot 71:403-73:407"
+   "new": "Zohar, Achrei Mot 71:403-73:407",
+   "hr": "ספר הזהר, אחרי מות ע״א:ת״ג-ע״ג:ת״ז"
   },
   "אחרי מות|tue": {
    "old": "Zohar, Achrei Mot 41",
-   "new": "Zohar, Achrei Mot 40:241-41:247"
+   "new": "Zohar, Achrei Mot 40:241-41:247",
+   "hr": "ספר הזהר, אחרי מות מ׳:רמ״א-מ״א:רמ״ז"
   },
   "אחרי מות|wed": {
    "old": "Zohar, Achrei Mot 49",
-   "new": "Zohar, Achrei Mot 47:290-48:294"
+   "new": "Zohar, Achrei Mot 47:290-48:294",
+   "hr": "ספר הזהר, אחרי מות מ״ז:ר״צ-מ״ח:רצ״ד"
+  },
+  "אמור|fri": {
+   "old": "Zohar, Terumah 15",
+   "new": "Zohar, Terumah 15:175-178",
+   "hr": "ספר הזהר, תרומה ט״ו:קע״ה-קע״ח"
   },
   "אמור|mon": {
    "old": "Zohar, Emor 13",
-   "new": "Zohar, Emor 11:33-37"
+   "new": "Zohar, Emor 11:33-37",
+   "hr": "ספר הזהר, אמור י״א:ל״ג-ל״ז"
   },
   "אמור|sun": {
    "old": "Zohar, Emor 3",
-   "new": "Zohar, Emor 2:5-9"
+   "new": "Zohar, Emor 2:5-9",
+   "hr": "ספר הזהר, אמור ב׳:ה׳-ט׳"
   },
   "אמור|thu": {
    "old": "Zohar, Emor 32",
-   "new": "Zohar, Emor 31:145-149"
+   "new": "Zohar, Emor 31:145-149",
+   "hr": "ספר הזהר, אמור ל״א:קמ״ה-קמ״ט"
   },
   "אמור|tue": {
    "old": "Zohar, Emor 16",
-   "new": "Zohar, Emor 15:54-16:58"
+   "new": "Zohar, Emor 15:54-16:58",
+   "hr": "ספר הזהר, אמור ט״ו:נ״ד-ט״ז:נ״ח"
   },
   "אמור|wed": {
    "old": "Zohar, Emor 25",
-   "new": "Zohar, Emor 24:112-118"
+   "new": "Zohar, Emor 24:112-118",
+   "hr": "ספר הזהר, אמור כ״ד:קי״ב-קי״ח"
+  },
+  "בא|fri": {
+   "old": "Zohar, Yitro 27",
+   "new": "Zohar, Yitro 27:455-457",
+   "hr": "ספר הזהר, יתרו כ״ז:תנ״ה-תנ״ז"
   },
   "בא|mon": {
    "old": "Zohar, Bo 10",
-   "new": "Zohar, Bo 8:165-9:168"
+   "new": "Zohar, Bo 8:165-9:168",
+   "hr": "ספר הזהר, בא ח׳:קס״ה-ט׳:קס״ח"
   },
   "בא|sun": {
    "old": "Zohar, Bo 2",
-   "new": "Zohar, Bo 1:1-4"
+   "new": "Zohar, Bo 1:1-4",
+   "hr": "ספר הזהר, בא א׳:א׳-ד׳"
   },
   "בא|thu": {
    "old": "Zohar, Beshalach 1",
-   "new": "Zohar, Bo 17:240-246"
+   "new": "Zohar, Bo 17:240-246",
+   "hr": "ספר הזהר, בא י״ז:ר״מ-רמ״ו"
   },
   "בא|tue": {
    "old": "Zohar, Bo 12",
-   "new": "Zohar, Bo 11:178-184"
+   "new": "Zohar, Bo 11:178-184",
+   "hr": "ספר הזהר, בא י״א:קע״ח-קפ״ד"
+  },
+  "בא|wed": {
+   "old": "Zohar, Bo 17",
+   "new": "Zohar, Bo 17:231-235",
+   "hr": "ספר הזהר, בא י״ז:רל״א-רל״ה"
   },
   "בהעלותך|fri": {
    "old": "Zohar, Vayakhel 12",
-   "new": "Zohar, Vayakhel 11:157-12:158"
+   "new": "Zohar, Vayakhel 11:157-12:158",
+   "hr": "ספר הזהר, ויקהל י״א:קנ״ז-י״ב:קנ״ח"
   },
   "בהעלותך|mon": {
    "old": "Zohar, Beha'alotcha 6",
-   "new": "Zohar, Beha'alotcha 5:25-28"
+   "new": "Zohar, Beha'alotcha 5:25-28",
+   "hr": "ספר הזהר, בהעלותך ה׳:כ״ה-כ״ח"
+  },
+  "בהעלותך|sun": {
+   "old": "Zohar, Beha'alotcha 2",
+   "new": "Zohar, Beha'alotcha 2:5-7",
+   "hr": "ספר הזהר, בהעלותך ב׳:ה׳-ז׳"
   },
   "בהעלותך|thu": {
    "old": "Zohar, Beha'alotcha 18",
-   "new": "Zohar, Beha'alotcha 17:95-99"
+   "new": "Zohar, Beha'alotcha 17:95-99",
+   "hr": "ספר הזהר, בהעלותך י״ז:צ״ה-צ״ט"
   },
   "בהעלותך|tue": {
    "old": "Zohar, Beha'alotcha 10",
-   "new": "Zohar, Beha'alotcha 9:48-51"
+   "new": "Zohar, Beha'alotcha 9:48-51",
+   "hr": "ספר הזהר, בהעלותך ט׳:מ״ח-נ״א"
+  },
+  "בהעלותך|wed": {
+   "old": "Zohar, Beha'alotcha 12",
+   "new": "Zohar, Beha'alotcha 12:58-62",
+   "hr": "ספר הזהר, בהעלותך י״ב:נ״ח-ס״ב"
   },
   "בהר|fri": {
    "old": "Zohar, Terumah 16",
-   "new": "Zohar, Terumah 15:183-16:186"
+   "new": "Zohar, Terumah 15:183-16:186",
+   "hr": "ספר הזהר, תרומה ט״ו:קפ״ג-ט״ז:קפ״ו"
   },
   "בהר|mon": {
    "old": "Zohar, Behar 3",
-   "new": "Zohar, Behar 2:6-3:10"
+   "new": "Zohar, Behar 2:6-3:10",
+   "hr": "ספר הזהר, בהר ב׳:ו׳-ג׳:י׳"
   },
   "בהר|sun": {
    "old": "Zohar, Behar 2",
-   "new": "Zohar, Behar 1:1-2:5"
+   "new": "Zohar, Behar 1:1-2:5",
+   "hr": "ספר הזהר, בהר א׳:א׳-ב׳:ה׳"
   },
   "בהר|thu": {
    "old": "Zohar, Addenda, Volume III 6:28-32",
-   "new": "Zohar, Behar 9:58-62"
+   "new": "Zohar, Behar 9:58-62",
+   "hr": "ספר הזהר, בהר ט׳:נ״ח-ס״ב"
   },
   "בהר|wed": {
    "old": "Zohar, Behar 9",
-   "new": "Zohar, Behar 8:52-57"
+   "new": "Zohar, Behar 8:52-57",
+   "hr": "ספר הזהר, בהר ח׳:נ״ב-נ״ז"
   },
   "בחוקותי|fri": {
    "old": "Zohar, Terumah 20",
-   "new": "Zohar, Terumah 21:214-215"
+   "new": "Zohar, Terumah 21:214-215",
+   "hr": "ספר הזהר, תרומה כ״א:רי״ד-רט״ו"
+  },
+  "בחוקותי|mon": {
+   "old": "Zohar, Bechukotai 7",
+   "new": "Zohar, Bechukotai 7:25-27",
+   "hr": "ספר הזהר, בחקותי ז׳:כ״ה-כ״ז"
   },
   "בחוקותי|sun": {
    "old": "Zohar, Bechukotai 6",
-   "new": "Zohar, Bechukotai 5:20-6:23"
+   "new": "Zohar, Bechukotai 5:20-6:23",
+   "hr": "ספר הזהר, בחקותי ה׳:כ׳-ו׳:כ״ג"
   },
   "בחוקותי|thu": {
    "old": "Zohar, Bechukotai 16",
-   "new": "Zohar, Bechukotai 15:56-16:61"
+   "new": "Zohar, Bechukotai 15:56-16:61",
+   "hr": "ספר הזהר, בחקותי ט״ו:נ״ו-ט״ז:ס״א"
+  },
+  "בחוקותי|tue": {
+   "old": "Zohar, Bechukotai 10",
+   "new": "Zohar, Bechukotai 10:39-41",
+   "hr": "ספר הזהר, בחקותי י׳:ל״ט-מ״א"
   },
   "בחוקותי|wed": {
    "old": "Zohar, Bechukotai 14",
-   "new": "Zohar, Bechukotai 13:49-51"
+   "new": "Zohar, Bechukotai 13:49-51",
+   "hr": "ספר הזהר, בחקותי י״ג:מ״ט-נ״א"
+  },
+  "בלק|fri": {
+   "old": "Zohar, Vayakhel 13",
+   "new": "Zohar, Vayakhel 13:178-181",
+   "hr": "ספר הזהר, ויקהל י״ג:קע״ח-קפ״א"
+  },
+  "בלק|mon": {
+   "old": "Zohar, Balak 15",
+   "new": "Zohar, Balak 15:196-203",
+   "hr": "ספר הזהר, בלק ט״ו:קצ״ו-ר״ג"
   },
   "בלק|sun": {
    "old": "Zohar, Balak 15",
-   "new": "Zohar, Balak 14:186-191"
+   "new": "Zohar, Balak 14:186-191",
+   "hr": "ספר הזהר, בלק י״ד:קפ״ו-קצ״א"
+  },
+  "בלק|thu": {
+   "old": "Zohar, Balak 28",
+   "new": "Zohar, Balak 28:313-316",
+   "hr": "ספר הזהר, בלק כ״ח:שי״ג-שט״ז"
+  },
+  "בלק|tue": {
+   "old": "Zohar, Balak 15",
+   "new": "Zohar, Balak 15:206-209",
+   "hr": "ספר הזהר, בלק ט״ו:ר״ו-ר״ט"
+  },
+  "בלק|wed": {
+   "old": "Zohar, Balak 45",
+   "new": "Zohar, Balak 45:476-481",
+   "hr": "ספר הזהר, בלק מ״ה:תע״ו-תפ״א"
+  },
+  "במדבר|fri": {
+   "old": "Zohar, Terumah 41",
+   "new": "Zohar, Terumah 41:450-452",
+   "hr": "ספר הזהר, תרומה מ״א:ת״נ-תנ״ב"
   },
   "במדבר|mon": {
    "old": "Zohar, Bamidbar 3",
-   "new": "Zohar, Bamidbar 2:21-26"
+   "new": "Zohar, Bamidbar 2:21-26",
+   "hr": "ספר הזהר, במדבר ב׳:כ״א-כ״ו"
+  },
+  "במדבר|sun": {
+   "old": "Zohar, Bamidbar 1",
+   "new": "Zohar, Bamidbar 1:10-17",
+   "hr": "ספר הזהר, במדבר א׳:י׳-י״ז"
   },
   "במדבר|thu": {
    "old": "Zohar, Nasso 1",
-   "new": "Zohar, Bamidbar 8:73-77"
+   "new": "Zohar, Bamidbar 8:73-77",
+   "hr": "ספר הזהר, במדבר ח׳:ע״ג-ע״ז"
+  },
+  "במדבר|tue": {
+   "old": "Zohar, Bamidbar 5",
+   "new": "Zohar, Bamidbar 5:41-47",
+   "hr": "ספר הזהר, במדבר ה׳:מ״א-מ״ז"
+  },
+  "במדבר|wed": {
+   "old": "Zohar, Bamidbar 8",
+   "new": "Zohar, Bamidbar 8:66-72",
+   "hr": "ספר הזהר, במדבר ח׳:ס״ו-ע״ב"
+  },
+  "בראשית|fri": {
+   "old": "Zohar, Introduction 34",
+   "new": "Zohar, Introduction 34:254-257",
+   "hr": "ספר הזהר, הקדמה ל״ד:רנ״ד-רנ״ז"
   },
   "בראשית|mon": {
    "old": "Zohar, Introduction 18",
-   "new": "Zohar, Introduction 17:169-173"
+   "new": "Zohar, Introduction 17:169-173",
+   "hr": "ספר הזהר, הקדמה י״ז:קס״ט-קע״ג"
+  },
+  "בראשית|sun": {
+   "old": "Zohar, Introduction 11",
+   "new": "Zohar, Introduction 11:61-65",
+   "hr": "ספר הזהר, הקדמה י״א:ס״א-ס״ה"
   },
   "בראשית|thu": {
    "old": "Zohar, Introduction 30",
-   "new": "Zohar, Introduction 29:233-236"
+   "new": "Zohar, Introduction 29:233-236",
+   "hr": "ספר הזהר, הקדמה כ״ט:רל״ג-רל״ו"
+  },
+  "בראשית|tue": {
+   "old": "Zohar, Introduction 19",
+   "new": "Zohar, Introduction 19:180-183",
+   "hr": "ספר הזהר, הקדמה י״ט:ק״פ-קפ״ג"
   },
   "בראשית|wed": {
    "old": "Zohar, Addenda, Volume I 39:334",
-   "new": "Zohar, Bereshit 75:176-179"
+   "new": "Zohar, Bereshit 75:176-179",
+   "hr": "ספר הזהר, בראשית ע״ה:קע״ו-קע״ט"
+  },
+  "בשלח|fri": {
+   "old": "Zohar, Yitro 27",
+   "new": "Zohar, Yitro 27:458-461",
+   "hr": "ספר הזהר, יתרו כ״ז:תנ״ח-תס״א"
+  },
+  "בשלח|mon": {
+   "old": "Zohar, Beshalach 28",
+   "new": "Zohar, Beshalach 28:367-371",
+   "hr": "ספר הזהר, בשלח כ״ח:שס״ז-שע״א"
+  },
+  "בשלח|sun": {
+   "old": "Zohar, Beshalach 4",
+   "new": "Zohar, Beshalach 4:43-47",
+   "hr": "ספר הזהר, בשלח ד׳:מ״ג-מ״ז"
+  },
+  "בשלח|thu": {
+   "old": "Zohar, Beshalach 28",
+   "new": "Zohar, Beshalach 28:412-415",
+   "hr": "ספר הזהר, בשלח כ״ח:תי״ב-תט״ו"
+  },
+  "בשלח|tue": {
+   "old": "Zohar, Beshalach 28",
+   "new": "Zohar, Beshalach 28:409-411",
+   "hr": "ספר הזהר, בשלח כ״ח:ת״ט-תי״א"
+  },
+  "בשלח|wed": {
+   "old": "Zohar, Beshalach 7",
+   "new": "Zohar, Beshalach 7:70-74",
+   "hr": "ספר הזהר, בשלח ז׳:ע׳-ע״ד"
+  },
+  "דברים|fri": {
+   "old": "Zohar, Vayakhel 14",
+   "new": "Zohar, Vayakhel 14:189-191",
+   "hr": "ספר הזהר, ויקהל י״ד:קפ״ט-קצ״א"
+  },
+  "האזינו|fri": {
+   "old": "Zohar, Vayakhel 18",
+   "new": "Zohar, Vayakhel 18:243-244",
+   "hr": "ספר הזהר, ויקהל י״ח:רמ״ג-רמ״ד"
+  },
+  "האזינו|mon": {
+   "old": "Zohar, Vayeilech 7",
+   "new": "Zohar, Vayeilech 7:36-39",
+   "hr": "ספר הזהר, וילך ז׳:ל״ו-ל״ט"
+  },
+  "האזינו|sun": {
+   "old": "Zohar, Vayeilech 3",
+   "new": "Zohar, Vayeilech 3:16-19",
+   "hr": "ספר הזהר, וילך ג׳:ט״ז-י״ט"
+  },
+  "האזינו|thu": {
+   "old": "Zohar, Ha'Azinu 10",
+   "new": "Zohar, Ha'Azinu 10:215-218",
+   "hr": "ספר הזהר, האזינו י׳:רט״ו-רי״ח"
   },
   "האזינו|tue": {
    "old": "Zohar, Vayeilech 8",
-   "new": "Zohar, Vayeilech 7:42-8:45"
+   "new": "Zohar, Vayeilech 7:42-8:45",
+   "hr": "ספר הזהר, וילך ז׳:מ״ב-ח׳:מ״ה"
   },
   "האזינו|wed": {
    "old": "Zohar, Ha'Azinu 1",
-   "new": "Zohar, Vayeilech 8:46-9:49"
+   "new": "Zohar, Vayeilech 8:46-9:49",
+   "hr": "ספר הזהר, וילך ח׳:מ״ו-ט׳:מ״ט"
+  },
+  "וארא|fri": {
+   "old": "Zohar, Yitro 27",
+   "new": "Zohar, Yitro 27:453-454",
+   "hr": "ספר הזהר, יתרו כ״ז:תנ״ג-תנ״ד"
   },
   "וארא|mon": {
    "old": "Zohar, Vaera 16",
-   "new": "Zohar, Vaera 15:125-127"
+   "new": "Zohar, Vaera 15:125-127",
+   "hr": "ספר הזהר, וארא ט״ו:קכ״ה-קכ״ז"
   },
   "וארא|sun": {
    "old": "Zohar, Vaera 9",
-   "new": "Zohar, Vaera 8:77-81"
+   "new": "Zohar, Vaera 8:77-81",
+   "hr": "ספר הזהר, וארא ח׳:ע״ז-פ״א"
   },
   "וארא|thu": {
    "old": "Zohar, Bo 1",
-   "new": "Zohar, Vaera 22:201-206"
+   "new": "Zohar, Vaera 22:201-206",
+   "hr": "ספר הזהר, וארא כ״ב:ר״א-ר״ו"
+  },
+  "וארא|tue": {
+   "old": "Zohar, Vaera 16",
+   "new": "Zohar, Vaera 16:138-141",
+   "hr": "ספר הזהר, וארא ט״ז:קל״ח-קמ״א"
   },
   "וארא|wed": {
    "old": "Zohar, Vaera 20",
-   "new": "Zohar, Vaera 19:185-188"
+   "new": "Zohar, Vaera 19:185-188",
+   "hr": "ספר הזהר, וארא י״ט:קפ״ה-קפ״ח"
+  },
+  "ואתחנן|fri": {
+   "old": "Zohar, Vayakhel 14",
+   "new": "Zohar, Vayakhel 14:192-193",
+   "hr": "ספר הזהר, ויקהל י״ד:קצ״ב-קצ״ג"
   },
   "ואתחנן|mon": {
    "old": "Zohar, Vaetchanan 3",
-   "new": "Zohar, Vaetchanan 2:7-3:11"
+   "new": "Zohar, Vaetchanan 2:7-3:11",
+   "hr": "ספר הזהר, ואתחנן ב׳:ז׳-ג׳:י״א"
   },
   "ואתחנן|sun": {
    "old": "Zohar, Vaetchanan 2",
-   "new": "Zohar, Vaetchanan 1:1-2:7"
+   "new": "Zohar, Vaetchanan 1:1-2:7",
+   "hr": "ספר הזהר, ואתחנן א׳:א׳-ב׳:ז׳"
+  },
+  "ואתחנן|thu": {
+   "old": "Zohar, Vaetchanan 16",
+   "new": "Zohar, Vaetchanan 16:106-110",
+   "hr": "ספר הזהר, ואתחנן ט״ז:ק״ו-ק״י"
   },
   "ואתחנן|tue": {
    "old": "Zohar, Vaetchanan 8",
-   "new": "Zohar, Vaetchanan 6:32-7:36"
+   "new": "Zohar, Vaetchanan 6:32-7:36",
+   "hr": "ספר הזהר, ואתחנן ו׳:ל״ב-ז׳:ל״ו"
+  },
+  "ואתחנן|wed": {
+   "old": "Zohar, Vaetchanan 14",
+   "new": "Zohar, Vaetchanan 14:98-101",
+   "hr": "ספר הזהר, ואתחנן י״ד:צ״ח-ק״א"
   },
   "וזאת הברכה|fri": {
    "old": "Zohar, Emor 25",
-   "new": "Zohar, Emor 24:118-25:121"
+   "new": "Zohar, Emor 24:118-25:121",
+   "hr": "ספר הזהר, אמור כ״ד:קי״ח-כ״ה:קכ״א"
+  },
+  "וזאת הברכה|mon": {
+   "old": "Zohar, Emor 42",
+   "new": "Zohar, Emor 42:265-269",
+   "hr": "ספר הזהר, אמור מ״ב:רס״ה-רס״ט"
   },
   "וזאת הברכה|sun": {
    "old": "Zohar, Emor 42",
-   "new": "Zohar, Emor 41:259-42:264"
+   "new": "Zohar, Emor 41:259-42:264",
+   "hr": "ספר הזהר, אמור מ״א:רנ״ט-מ״ב:רס״ד"
   },
   "וזאת הברכה|thu": {
    "old": "Zohar, Tetzaveh 17",
-   "new": "Zohar, Tetzaveh 15:130-16:140"
+   "new": "Zohar, Tetzaveh 15:130-16:140",
+   "hr": "ספר הזהר, תצוה ט״ו:ק״ל-ט״ז:ק״מ"
+  },
+  "וזאת הברכה|tue": {
+   "old": "Zohar, Emor 43",
+   "new": "Zohar, Emor 43:275-277",
+   "hr": "ספר הזהר, אמור מ״ג:רע״ה-רע״ז"
+  },
+  "ויגש|fri": {
+   "old": "Zohar, Yitro 27",
+   "new": "Zohar, Yitro 27:444-446",
+   "hr": "ספר הזהר, יתרו כ״ז:תמ״ד-תמ״ו"
   },
   "ויגש|mon": {
    "old": "Zohar, Vayigash 6",
-   "new": "Zohar, Vayigash 5:48-52"
+   "new": "Zohar, Vayigash 5:48-52",
+   "hr": "ספר הזהר, ויגש ה׳:מ״ח-נ״ב"
+  },
+  "ויגש|sun": {
+   "old": "Zohar, Vayigash 5",
+   "new": "Zohar, Vayigash 5:34-39",
+   "hr": "ספר הזהר, ויגש ה׳:ל״ד-ל״ט"
+  },
+  "ויגש|tue": {
+   "old": "Zohar, Vayigash 7",
+   "new": "Zohar, Vayigash 7:62-68",
+   "hr": "ספר הזהר, ויגש ז׳:ס״ב-ס״ח"
+  },
+  "ויגש|wed": {
+   "old": "Zohar, Vayigash 8",
+   "new": "Zohar, Vayigash 8:73-77",
+   "hr": "ספר הזהר, ויגש ח׳:ע״ג-ע״ז"
+  },
+  "ויחי|fri": {
+   "old": "Zohar, Yitro 27",
+   "new": "Zohar, Yitro 27:447-450",
+   "hr": "ספר הזהר, יתרו כ״ז:תמ״ז-ת״נ"
+  },
+  "ויחי|mon": {
+   "old": "Zohar, Vayechi 32",
+   "new": "Zohar, Vayechi 32:295-300",
+   "hr": "ספר הזהר, ויחי ל״ב:רצ״ה-ש׳"
+  },
+  "ויחי|sun": {
+   "old": "Zohar, Vayechi 16",
+   "new": "Zohar, Vayechi 16:110-115",
+   "hr": "ספר הזהר, ויחי ט״ז:ק״י-קט״ו"
+  },
+  "ויחי|thu": {
+   "old": "Zohar, Vayechi 68",
+   "new": "Zohar, Vayechi 68:682-686",
+   "hr": "ספר הזהר, ויחי ס״ח:תרפ״ב-תרפ״ו"
+  },
+  "ויחי|tue": {
+   "old": "Zohar, Vayechi 38",
+   "new": "Zohar, Vayechi 38:399-404",
+   "hr": "ספר הזהר, ויחי ל״ח:שצ״ט-ת״ד"
   },
   "ויחי|wed": {
    "old": "Zohar, Vayechi 63",
-   "new": "Zohar, Vayechi 62:629-636"
+   "new": "Zohar, Vayechi 62:629-636",
+   "hr": "ספר הזהר, ויחי ס״ב:תרכ״ט-תרל״ו"
   },
   "וילך|fri": {
    "old": "Zohar, Vayakhel 17",
-   "new": "Zohar, Vayakhel 16:214-216"
+   "new": "Zohar, Vayakhel 16:214-216",
+   "hr": "ספר הזהר, ויקהל ט״ז:רי״ד-רט״ז"
+  },
+  "וילך|mon": {
+   "old": "Zohar, Emor 40",
+   "new": "Zohar, Emor 40:236-240",
+   "hr": "ספר הזהר, אמור מ׳:רל״ו-ר״מ"
+  },
+  "וילך|sun": {
+   "old": "Zohar, Emor 40",
+   "new": "Zohar, Emor 40:230-233",
+   "hr": "ספר הזהר, אמור מ׳:ר״ל-רל״ג"
+  },
+  "וילך|thu": {
+   "old": "Zohar, Emor 40",
+   "new": "Zohar, Emor 40:249-250",
+   "hr": "ספר הזהר, אמור מ׳:רמ״ט-ר״נ"
+  },
+  "וילך|tue": {
+   "old": "Zohar, Emor 40",
+   "new": "Zohar, Emor 40:241-244",
+   "hr": "ספר הזהר, אמור מ׳:רמ״א-רמ״ד"
+  },
+  "וילך|wed": {
+   "old": "Zohar, Emor 40",
+   "new": "Zohar, Emor 40:245-247",
+   "hr": "ספר הזהר, אמור מ׳:רמ״ה-רמ״ז"
+  },
+  "ויצא|fri": {
+   "old": "Zohar, Miketz 6",
+   "new": "Zohar, Miketz 6:100-101",
+   "hr": "ספר הזהר, מקץ ו׳:ק׳-ק״א"
+  },
+  "ויצא|mon": {
+   "old": "Zohar, Vayetzei 15",
+   "new": "Zohar, Vayetzei 15:118-122",
+   "hr": "ספר הזהר, ויצא ט״ו:קי״ח-קכ״ב"
+  },
+  "ויצא|sun": {
+   "old": "Zohar, Vayetzei 12",
+   "new": "Zohar, Vayetzei 12:78-81",
+   "hr": "ספר הזהר, ויצא י״ב:ע״ח-פ״א"
   },
   "ויצא|thu": {
    "old": "Zohar, Vayishlach 1",
-   "new": "Zohar, Vayetzei 43:384-389"
+   "new": "Zohar, Vayetzei 43:384-389",
+   "hr": "ספר הזהר, ויצא מ״ג:שפ״ד-שפ״ט"
+  },
+  "ויצא|tue": {
+   "old": "Zohar, Vayetzei 23",
+   "new": "Zohar, Vayetzei 23:190-194",
+   "hr": "ספר הזהר, ויצא כ״ג:ק״צ-קצ״ד"
+  },
+  "ויצא|wed": {
+   "old": "Zohar, Vayetzei 38",
+   "new": "Zohar, Vayetzei 38:341-344",
+   "hr": "ספר הזהר, ויצא ל״ח:שמ״א-שמ״ד"
+  },
+  "ויקהל|fri": {
+   "old": "Zohar, Yitro 27",
+   "new": "Zohar, Yitro 27:475-476",
+   "hr": "ספר הזהר, יתרו כ״ז:תע״ה-תע״ו"
+  },
+  "ויקהל|mon": {
+   "old": "Zohar, Vayakhel 10",
+   "new": "Zohar, Vayakhel 10:114-118",
+   "hr": "ספר הזהר, ויקהל י׳:קי״ד-קי״ח"
+  },
+  "ויקהל|sun": {
+   "old": "Zohar, Vayakhel 10",
+   "new": "Zohar, Vayakhel 10:107-113",
+   "hr": "ספר הזהר, ויקהל י׳:ק״ז-קי״ג"
+  },
+  "ויקהל|thu": {
+   "old": "Zohar, Vayakhel 41",
+   "new": "Zohar, Vayakhel 41:474-479",
+   "hr": "ספר הזהר, ויקהל מ״א:תע״ד-תע״ט"
+  },
+  "ויקהל|tue": {
+   "old": "Zohar, Vayakhel 39",
+   "new": "Zohar, Vayakhel 39:456-463",
+   "hr": "ספר הזהר, ויקהל ל״ט:תנ״ו-תס״ג"
   },
   "ויקהל|wed": {
    "old": "Zohar, Vayakhel 41",
-   "new": "Zohar, Vayakhel 40:467-470"
+   "new": "Zohar, Vayakhel 40:467-470",
+   "hr": "ספר הזהר, ויקהל מ׳:תס״ז-ת״ע"
+  },
+  "ויקרא|fri": {
+   "old": "Zohar, Yitro 28",
+   "new": "Zohar, Yitro 28:494",
+   "hr": "ספר הזהר, יתרו כ״ח:תצ״ד"
+  },
+  "ויקרא|mon": {
+   "old": "Zohar, Vayikra 3",
+   "new": "Zohar, Vayikra 3:35-39",
+   "hr": "ספר הזהר, ויקרא ג׳:ל״ה-ל״ט"
   },
   "ויקרא|sun": {
    "old": "Zohar, Vayikra 3",
-   "new": "Zohar, Vayikra 2:26-31"
+   "new": "Zohar, Vayikra 2:26-31",
+   "hr": "ספר הזהר, ויקרא ב׳:כ״ו-ל״א"
   },
   "ויקרא|thu": {
    "old": "Zohar, Vayikra 62",
-   "new": "Zohar, Vayikra 61:401-408"
+   "new": "Zohar, Vayikra 61:401-408",
+   "hr": "ספר הזהר, ויקרא ס״א:ת״א-ת״ח"
   },
   "ויקרא|tue": {
    "old": "Zohar, Vayikra 8",
-   "new": "Zohar, Vayikra 7:62-8:68"
+   "new": "Zohar, Vayikra 7:62-8:68",
+   "hr": "ספר הזהר, ויקרא ז׳:ס״ב-ח׳:ס״ח"
   },
   "ויקרא|wed": {
    "old": "Zohar, Vayikra 61",
-   "new": "Zohar, Vayikra 60:395-400"
+   "new": "Zohar, Vayikra 60:395-400",
+   "hr": "ספר הזהר, ויקרא ס׳:שצ״ה-ת׳"
+  },
+  "וירא|fri": {
+   "old": "Zohar, Bereshit 78",
+   "new": "Zohar, Bereshit 78:192-194",
+   "hr": "ספר הזהר, בראשית ע״ח:קצ״ב-קצ״ד"
+  },
+  "וירא|mon": {
+   "old": "Zohar, Vayera 10",
+   "new": "Zohar, Vayera 10:166-169",
+   "hr": "ספר הזהר, וירא י׳:קס״ו-קס״ט"
   },
   "וירא|sun": {
    "old": "Zohar, Vayera 7",
-   "new": "Zohar, Vayera 6:106-114"
+   "new": "Zohar, Vayera 6:106-114",
+   "hr": "ספר הזהר, וירא ו׳:ק״ו-קי״ד"
+  },
+  "וירא|tue": {
+   "old": "Zohar, Vayera 16",
+   "new": "Zohar, Vayera 16:230-234",
+   "hr": "ספר הזהר, וירא ט״ז:ר״ל-רל״ד"
   },
   "וירא|wed": {
    "old": "Zohar, Vayera 18",
-   "new": "Zohar, Vayera 20:289-294"
+   "new": "Zohar, Vayera 20:289-294",
+   "hr": "ספר הזהר, וירא כ׳:רפ״ט-רצ״ד"
+  },
+  "וישב|fri": {
+   "old": "Zohar, Beshalach 7",
+   "new": "Zohar, Beshalach 7:71-72",
+   "hr": "ספר הזהר, בשלח ז׳:ע״א-ע״ב"
+  },
+  "וישב|mon": {
+   "old": "Zohar, Vayeshev 13",
+   "new": "Zohar, Vayeshev 13:120-123",
+   "hr": "ספר הזהר, וישב י״ג:ק״כ-קכ״ג"
+  },
+  "וישב|sun": {
+   "old": "Zohar, Vayeshev 1",
+   "new": "Zohar, Vayeshev 1:6-11",
+   "hr": "ספר הזהר, וישב א׳:ו׳-י״א"
   },
   "וישב|thu": {
    "old": "Zohar, Vayeshev 23",
-   "new": "Zohar, Vayeshev 22:237-240"
+   "new": "Zohar, Vayeshev 22:237-240",
+   "hr": "ספר הזהר, וישב כ״ב:רל״ז-ר״מ"
+  },
+  "וישב|tue": {
+   "old": "Zohar, Vayeshev 16",
+   "new": "Zohar, Vayeshev 16:162-167",
+   "hr": "ספר הזהר, וישב ט״ז:קס״ב-קס״ז"
   },
   "וישב|wed": {
    "old": "Zohar, Vayeshev 21",
-   "new": "Zohar, Vayeshev 20:204-209"
+   "new": "Zohar, Vayeshev 20:204-209",
+   "hr": "ספר הזהר, וישב כ׳:ר״ד-ר״ט"
+  },
+  "וישלח|fri": {
+   "old": "Zohar, Beshalach 7",
+   "new": "Zohar, Beshalach 7:70",
+   "hr": "ספר הזהר, בשלח ז׳:ע׳"
   },
   "וישלח|mon": {
    "old": "Zohar, Vayishlach 2",
-   "new": "Zohar, Vayishlach 1:15-20"
+   "new": "Zohar, Vayishlach 1:15-20",
+   "hr": "ספר הזהר, וישלח א׳:ט״ו-כ׳"
+  },
+  "וישלח|sun": {
+   "old": "Zohar, Vayishlach 1",
+   "new": "Zohar, Vayishlach 1:1-5",
+   "hr": "ספר הזהר, וישלח א׳:א׳-ה׳"
   },
   "וישלח|thu": {
    "old": "Zohar, Vayeshev 1",
-   "new": "Zohar, Vayishlach 30:274-278"
+   "new": "Zohar, Vayishlach 30:274-278",
+   "hr": "ספר הזהר, וישלח ל׳:רע״ד-רע״ח"
+  },
+  "וישלח|tue": {
+   "old": "Zohar, Vayishlach 3",
+   "new": "Zohar, Vayishlach 3:43-46",
+   "hr": "ספר הזהר, וישלח ג׳:מ״ג-מ״ו"
   },
   "וישלח|wed": {
    "old": "Zohar, Vayishlach 9",
-   "new": "Zohar, Vayishlach 8:117-120"
+   "new": "Zohar, Vayishlach 8:117-120",
+   "hr": "ספר הזהר, וישלח ח׳:קי״ז-ק״כ"
+  },
+  "חוקת|fri": {
+   "old": "Zohar, Vayakhel 13",
+   "new": "Zohar, Vayakhel 13:176-178",
+   "hr": "ספר הזהר, ויקהל י״ג:קע״ו-קע״ח"
+  },
+  "חוקת|mon": {
+   "old": "Zohar, Chukat 9",
+   "new": "Zohar, Chukat 9:57-61",
+   "hr": "ספר הזהר, חקת ט׳:נ״ז-ס״א"
   },
   "חוקת|sun": {
    "old": "Zohar, Chukat 5",
-   "new": "Zohar, Chukat 4:21-25"
+   "new": "Zohar, Chukat 4:21-25",
+   "hr": "ספר הזהר, חקת ד׳:כ״א-כ״ה"
   },
   "חוקת|thu": {
    "old": "Zohar, Balak 1",
-   "new": "Zohar, Chukat 12:85-90"
+   "new": "Zohar, Chukat 12:85-90",
+   "hr": "ספר הזהר, חקת י״ב:פ״ה-צ׳"
   },
   "חוקת|tue": {
    "old": "Zohar, Chukat 10",
-   "new": "Zohar, Chukat 9:63-68"
+   "new": "Zohar, Chukat 9:63-68",
+   "hr": "ספר הזהר, חקת ט׳:ס״ג-ס״ח"
   },
   "חוקת|wed": {
    "old": "Zohar, Chukat 12",
-   "new": "Zohar, Chukat 11:77-83"
+   "new": "Zohar, Chukat 11:77-83",
+   "hr": "ספר הזהר, חקת י״א:ע״ז-פ״ג"
+  },
+  "חיי שרה|fri": {
+   "old": "Zohar, Bereshit 78",
+   "new": "Zohar, Bereshit 78:195-197",
+   "hr": "ספר הזהר, בראשית ע״ח:קצ״ה-קצ״ז"
   },
   "חיי שרה|mon": {
    "old": "Zohar, Chayei Sara 8",
-   "new": "Zohar, Chayei Sara 17:136-139"
+   "new": "Zohar, Chayei Sara 17:136-139",
+   "hr": "ספר הזהר, חיי שרה י״ז:קל״ו-קל״ט"
   },
   "חיי שרה|sun": {
    "old": "Zohar, Chayei Sara 17",
-   "new": "Zohar, Chayei Sara 16:118-17:127"
+   "new": "Zohar, Chayei Sara 16:118-17:127",
+   "hr": "ספר הזהר, חיי שרה ט״ז:קי״ח-י״ז:קכ״ז"
+  },
+  "חיי שרה|thu": {
+   "old": "Zohar, Chayei Sara 23",
+   "new": "Zohar, Chayei Sara 23:230-236",
+   "hr": "ספר הזהר, חיי שרה כ״ג:ר״ל-רל״ו"
+  },
+  "חיי שרה|tue": {
+   "old": "Zohar, Chayei Sara 19",
+   "new": "Zohar, Chayei Sara 19:201-206",
+   "hr": "ספר הזהר, חיי שרה י״ט:ר״א-ר״ו"
   },
   "חיי שרה|wed": {
    "old": "Zohar, Chayei Sara 22",
-   "new": "Zohar, Chayei Sara 21:219-223"
+   "new": "Zohar, Chayei Sara 21:219-223",
+   "hr": "ספר הזהר, חיי שרה כ״א:רי״ט-רכ״ג"
+  },
+  "יתרו|fri": {
+   "old": "Zohar, Yitro 27",
+   "new": "Zohar, Yitro 27:461-462",
+   "hr": "ספר הזהר, יתרו כ״ז:תס״א-תס״ב"
+  },
+  "יתרו|mon": {
+   "old": "Zohar, Yitro 27",
+   "new": "Zohar, Yitro 27:451-454",
+   "hr": "ספר הזהר, יתרו כ״ז:תנ״א-תנ״ד"
+  },
+  "יתרו|sun": {
+   "old": "Zohar, Yitro 27",
+   "new": "Zohar, Yitro 27:444-450",
+   "hr": "ספר הזהר, יתרו כ״ז:תמ״ד-ת״נ"
   },
   "יתרו|thu": {
    "old": "Zohar, Yitro 28",
-   "new": "Zohar, Yitro 27:480-484"
+   "new": "Zohar, Yitro 27:480-484",
+   "hr": "ספר הזהר, יתרו כ״ז:ת״פ-תפ״ד"
+  },
+  "יתרו|tue": {
+   "old": "Zohar, Yitro 27",
+   "new": "Zohar, Yitro 27:454-459",
+   "hr": "ספר הזהר, יתרו כ״ז:תנ״ד-תנ״ט"
+  },
+  "יתרו|wed": {
+   "old": "Zohar, Yitro 27",
+   "new": "Zohar, Yitro 27:472-477",
+   "hr": "ספר הזהר, יתרו כ״ז:תע״ב-תע״ז"
+  },
+  "כי תבוא|fri": {
+   "old": "Zohar, Vayakhel 16",
+   "new": "Zohar, Vayakhel 16:207-209",
+   "hr": "ספר הזהר, ויקהל ט״ז:ר״ז-ר״ט"
+  },
+  "כי תבוא|mon": {
+   "old": "Zohar, Emor 38",
+   "new": "Zohar, Emor 38:187-190",
+   "hr": "ספר הזהר, אמור ל״ח:קפ״ז-ק״צ"
   },
   "כי תבוא|sun": {
    "old": "Zohar, Pinchas 59",
-   "new": "Zohar, Pinchas 58:351-353"
+   "new": "Zohar, Pinchas 58:351-353",
+   "hr": "ספר הזהר, פנחס נ״ח:שנ״א-שנ״ג"
+  },
+  "כי תבוא|thu": {
+   "old": "Zohar, Pekudei 38",
+   "new": "Zohar, Pekudei 38:335-337",
+   "hr": "ספר הזהר, פקודי ל״ח:של״ה-של״ז"
   },
   "כי תבוא|tue": {
    "old": "Zohar, Vayechi 35",
-   "new": "Zohar, Vayechi 34:355-358"
+   "new": "Zohar, Vayechi 34:355-358",
+   "hr": "ספר הזהר, ויחי ל״ד:שנ״ה-שנ״ח"
   },
   "כי תבוא|wed": {
    "old": "Zohar, Pinchas 61",
-   "new": "Zohar, Pinchas 60:358-361"
+   "new": "Zohar, Pinchas 60:358-361",
+   "hr": "ספר הזהר, פנחס ס׳:שנ״ח-שס״א"
   },
   "כי תצא|fri": {
    "old": "Zohar, Vayakhel 16",
-   "new": "Zohar, Vayakhel 15:204-206"
+   "new": "Zohar, Vayakhel 15:204-206",
+   "hr": "ספר הזהר, ויקהל ט״ו:ר״ד-ר״ו"
   },
   "כי תצא|sun": {
    "old": "Zohar, Vayikra 35",
-   "new": "Zohar, Vayikra 34:252-35:257"
+   "new": "Zohar, Vayikra 34:252-35:257",
+   "hr": "ספר הזהר, ויקרא ל״ד:רנ״ב-ל״ה:רנ״ז"
   },
   "כי תצא|tue": {
    "old": "Zohar, Vayechi 40",
-   "new": "Zohar, Vayechi 39:410-413"
+   "new": "Zohar, Vayechi 39:410-413",
+   "hr": "ספר הזהר, ויחי ל״ט:ת״י-תי״ג"
   },
   "כי תצא|wed": {
    "old": "Zohar, Emor 1",
-   "new": "Zohar, Kedoshim 20:131-21:134"
+   "new": "Zohar, Kedoshim 20:131-21:134",
+   "hr": "ספר הזהר, קדושים כ׳:קל״א-כ״א:קל״ד"
+  },
+  "כי תשא|fri": {
+   "old": "Zohar, Yitro 27",
+   "new": "Zohar, Yitro 27:470-474",
+   "hr": "ספר הזהר, יתרו כ״ז:ת״ע-תע״ד"
   },
   "כי תשא|mon": {
    "old": "Zohar, Ki Tisa 6",
-   "new": "Zohar, Ki Tisa 5:16-20"
+   "new": "Zohar, Ki Tisa 5:16-20",
+   "hr": "ספר הזהר, כי תשא ה׳:ט״ז-כ׳"
   },
   "כי תשא|sun": {
    "old": "Zohar, Ki Tisa 5",
-   "new": "Zohar, Ki Tisa 4:10-15"
+   "new": "Zohar, Ki Tisa 4:10-15",
+   "hr": "ספר הזהר, כי תשא ד׳:י׳-ט״ו"
   },
   "כי תשא|thu": {
    "old": "Zohar, Vayakhel 1",
-   "new": "Zohar, Ki Tisa 11:110-12:120"
+   "new": "Zohar, Ki Tisa 11:110-12:120",
+   "hr": "ספר הזהר, כי תשא י״א:ק״י-י״ב:ק״כ"
   },
   "כי תשא|tue": {
    "old": "Zohar, Ki Tisa 7",
-   "new": "Zohar, Ki Tisa 6:31-7:36"
+   "new": "Zohar, Ki Tisa 6:31-7:36",
+   "hr": "ספר הזהר, כי תשא ו׳:ל״א-ז׳:ל״ו"
+  },
+  "כי תשא|wed": {
+   "old": "Zohar, Ki Tisa 11",
+   "new": "Zohar, Ki Tisa 11:106-109",
+   "hr": "ספר הזהר, כי תשא י״א:ק״ו-ק״ט"
+  },
+  "לך לך|fri": {
+   "old": "Zohar, Bereshit 76",
+   "new": "Zohar, Bereshit 76:180-182",
+   "hr": "ספר הזהר, בראשית ע״ו:ק״פ-קפ״ב"
+  },
+  "לך לך|mon": {
+   "old": "Zohar, Lech Lecha 8",
+   "new": "Zohar, Lech Lecha 8:49-53",
+   "hr": "ספר הזהר, לך לך ח׳:מ״ט-נ״ג"
   },
   "לך לך|sun": {
    "old": "Zohar, Lech Lecha 2",
-   "new": "Zohar, Lech Lecha 1:1-2:5"
+   "new": "Zohar, Lech Lecha 1:1-2:5",
+   "hr": "ספר הזהר, לך לך א׳:א׳-ב׳:ה׳"
   },
   "לך לך|thu": {
    "old": "Zohar, Lech Lecha 21",
-   "new": "Zohar, Lech Lecha 20:191-194"
+   "new": "Zohar, Lech Lecha 20:191-194",
+   "hr": "ספר הזהר, לך לך כ׳:קצ״א-קצ״ד"
+  },
+  "לך לך|tue": {
+   "old": "Zohar, Lech Lecha 12",
+   "new": "Zohar, Lech Lecha 12:108-112",
+   "hr": "ספר הזהר, לך לך י״ב:ק״ח-קי״ב"
   },
   "לך לך|wed": {
    "old": "Zohar, Lech Lecha 17",
-   "new": "Zohar, Lech Lecha 16:146-151"
+   "new": "Zohar, Lech Lecha 16:146-151",
+   "hr": "ספר הזהר, לך לך ט״ז:קמ״ו-קנ״א"
+  },
+  "מטות|fri": {
+   "old": "Zohar, Vayakhel 14",
+   "new": "Zohar, Vayakhel 14:185-186",
+   "hr": "ספר הזהר, ויקהל י״ד:קפ״ה-קפ״ו"
+  },
+  "מטות|mon": {
+   "old": "Zohar, Vayigash 11",
+   "new": "Zohar, Vayigash 11:106-108",
+   "hr": "ספר הזהר, ויגש י״א:ק״ו-ק״ח"
+  },
+  "מטות|sun": {
+   "old": "Zohar, Terumah 45",
+   "new": "Zohar, Terumah 45:485-490",
+   "hr": "ספר הזהר, תרומה מ״ה:תפ״ה-ת״צ"
   },
   "מטות|thu": {
    "old": "Zohar, Toldot 1",
-   "new": "Zohar, Chayei Sara 27:265-270"
+   "new": "Zohar, Chayei Sara 27:265-270",
+   "hr": "ספר הזהר, חיי שרה כ״ז:רס״ה-ר״ע"
   },
   "מטות|tue": {
    "old": "Zohar, Vayigash 10",
-   "new": "Zohar, Vayigash 8:85-9:96"
+   "new": "Zohar, Vayigash 8:85-9:96",
+   "hr": "ספר הזהר, ויגש ח׳:פ״ה-ט׳:צ״ו"
   },
   "מטות|wed": {
    "old": "Zohar, Noach 9",
-   "new": "Zohar, Noach 8:46-54"
+   "new": "Zohar, Noach 8:46-54",
+   "hr": "ספר הזהר, נח ח׳:מ״ו-נ״ד"
+  },
+  "מסעי|fri": {
+   "old": "Zohar, Vayakhel 14",
+   "new": "Zohar, Vayakhel 14:187-189",
+   "hr": "ספר הזהר, ויקהל י״ד:קפ״ז-קפ״ט"
   },
   "מסעי|mon": {
    "old": "Zohar, Terumah 53",
-   "new": "Zohar, Terumah 52:565-568"
+   "new": "Zohar, Terumah 52:565-568",
+   "hr": "ספר הזהר, תרומה נ״ב:תקס״ה-תקס״ח"
   },
   "מסעי|sun": {
    "old": "Zohar, Beshalach 22",
-   "new": "Zohar, Beshalach 21:308-312"
+   "new": "Zohar, Beshalach 21:308-312",
+   "hr": "ספר הזהר, בשלח כ״א:ש״ח-שי״ב"
   },
   "מסעי|thu": {
    "old": "Zohar, Beshalach 17",
-   "new": "Zohar, Beshalach 16:245-250"
+   "new": "Zohar, Beshalach 16:245-250",
+   "hr": "ספר הזהר, בשלח ט״ז:רמ״ה-ר״נ"
+  },
+  "מסעי|tue": {
+   "old": "Zohar, Shemot 2",
+   "new": "Zohar, Shemot 2:10-12",
+   "hr": "ספר הזהר, שמות ב׳:י׳-י״ב"
   },
   "מסעי|wed": {
    "old": "Zohar, Vayigash 11",
-   "new": "Zohar, Vayigash 10:97-105"
+   "new": "Zohar, Vayigash 10:97-105",
+   "hr": "ספר הזהר, ויגש י׳:צ״ז-ק״ה"
   },
   "מצורע|fri": {
    "old": "Zohar, Yitro 34",
-   "new": "Zohar, Yitro 33:546-549"
+   "new": "Zohar, Yitro 33:546-549",
+   "hr": "ספר הזהר, יתרו ל״ג:תקמ״ו-תקמ״ט"
   },
   "מצורע|mon": {
    "old": "Zohar, Metzora 7",
-   "new": "Zohar, Metzora 6:20-21"
+   "new": "Zohar, Metzora 6:20-21",
+   "hr": "ספר הזהר, מצורע ו׳:כ׳-כ״א"
   },
   "מצורע|sun": {
    "old": "Zohar, Metzora 2",
-   "new": "Zohar, Metzora 1:1-4"
+   "new": "Zohar, Metzora 1:1-4",
+   "hr": "ספר הזהר, מצורע א׳:א׳-ד׳"
+  },
+  "מצורע|thu": {
+   "old": "Zohar, Metzora 12",
+   "new": "Zohar, Metzora 12:43-45",
+   "hr": "ספר הזהר, מצורע י״ב:מ״ג-מ״ה"
+  },
+  "מצורע|tue": {
+   "old": "Zohar, Metzora 7",
+   "new": "Zohar, Metzora 7:22-25",
+   "hr": "ספר הזהר, מצורע ז׳:כ״ב-כ״ה"
+  },
+  "מצורע|wed": {
+   "old": "Zohar, Metzora 4",
+   "new": "Zohar, Metzora 4:13-15",
+   "hr": "ספר הזהר, מצורע ד׳:י״ג-ט״ו"
+  },
+  "מקץ|fri": {
+   "old": "Zohar, Beshalach 7",
+   "new": "Zohar, Beshalach 7:73-74",
+   "hr": "ספר הזהר, בשלח ז׳:ע״ג-ע״ד"
+  },
+  "מקץ|mon": {
+   "old": "Zohar, Miketz 5",
+   "new": "Zohar, Miketz 5:70-79",
+   "hr": "ספר הזהר, מקץ ה׳:ע׳-ע״ט"
+  },
+  "מקץ|sun": {
+   "old": "Zohar, Miketz 4",
+   "new": "Zohar, Miketz 4:32-36",
+   "hr": "ספר הזהר, מקץ ד׳:ל״ב-ל״ו"
   },
   "מקץ|thu": {
    "old": "Zohar, Miketz 12",
-   "new": "Zohar, Miketz 11:186-191"
+   "new": "Zohar, Miketz 11:186-191",
+   "hr": "ספר הזהר, מקץ י״א:קפ״ו-קצ״א"
   },
   "מקץ|tue": {
    "old": "Zohar, Miketz 9",
-   "new": "Zohar, Miketz 8:114-129"
+   "new": "Zohar, Miketz 8:114-129",
+   "hr": "ספר הזהר, מקץ ח׳:קי״ד-קכ״ט"
+  },
+  "מקץ|wed": {
+   "old": "Zohar, Miketz 9",
+   "new": "Zohar, Miketz 9:130-133",
+   "hr": "ספר הזהר, מקץ ט׳:ק״ל-קל״ג"
+  },
+  "משפטים|fri": {
+   "old": "Zohar, Yitro 27",
+   "new": "Zohar, Yitro 27:463-464",
+   "hr": "ספר הזהר, יתרו כ״ז:תס״ג-תס״ד"
   },
   "משפטים|mon": {
    "old": "Zohar, Mishpatim 21",
-   "new": "Zohar, Mishpatim 20:516-21:518"
+   "new": "Zohar, Mishpatim 20:516-21:518",
+   "hr": "ספר הזהר, משפטים כ׳:תקט״ז-כ״א:תקי״ח"
+  },
+  "משפטים|sun": {
+   "old": "Zohar, Mishpatim 20",
+   "new": "Zohar, Mishpatim 20:512-515",
+   "hr": "ספר הזהר, משפטים כ׳:תקי״ב-תקט״ו"
   },
   "משפטים|thu": {
    "old": "Zohar, Mishpatim 29",
-   "new": "Zohar, Mishpatim 28:569-571"
+   "new": "Zohar, Mishpatim 28:569-571",
+   "hr": "ספר הזהר, משפטים כ״ח:תקס״ט-תקע״א"
   },
   "משפטים|tue": {
    "old": "Zohar, Mishpatim 24",
-   "new": "Zohar, Mishpatim 23:542-24:545"
+   "new": "Zohar, Mishpatim 23:542-24:545",
+   "hr": "ספר הזהר, משפטים כ״ג:תקמ״ב-כ״ד:תקמ״ה"
+  },
+  "משפטים|wed": {
+   "old": "Zohar, Mishpatim 28",
+   "new": "Zohar, Mishpatim 28:565-568",
+   "hr": "ספר הזהר, משפטים כ״ח:תקס״ה-תקס״ח"
   },
   "נח|fri": {
    "old": "Zohar, Addenda, Volume I 29:280-30:297",
-   "new": "Zohar, Bereshit 36:354-355"
+   "new": "Zohar, Bereshit 36:354-355",
+   "hr": "ספר הזהר, בראשית ל״ו:שנ״ד-שנ״ה"
+  },
+  "נח|mon": {
+   "old": "Zohar, Noach 7",
+   "new": "Zohar, Noach 7:39-42",
+   "hr": "ספר הזהר, נח ז׳:ל״ט-מ״ב"
   },
   "נח|sun": {
    "old": "Zohar, Noach 3",
-   "new": "Zohar, Noach 1:1-2:17"
+   "new": "Zohar, Noach 1:1-2:17",
+   "hr": "ספר הזהר, נח א׳:א׳-ב׳:י״ז"
+  },
+  "נח|thu": {
+   "old": "Zohar, Noach 33",
+   "new": "Zohar, Noach 33:252-255",
+   "hr": "ספר הזהר, נח ל״ג:רנ״ב-רנ״ה"
+  },
+  "נח|tue": {
+   "old": "Zohar, Noach 9",
+   "new": "Zohar, Noach 9:56-59",
+   "hr": "ספר הזהר, נח ט׳:נ״ו-נ״ט"
+  },
+  "נח|wed": {
+   "old": "Zohar, Noach 25",
+   "new": "Zohar, Noach 25:187-191",
+   "hr": "ספר הזהר, נח כ״ה:קפ״ז-קצ״א"
+  },
+  "נצבים|fri": {
+   "old": "Zohar, Vayakhel 16",
+   "new": "Zohar, Vayakhel 16:211-213",
+   "hr": "ספר הזהר, ויקהל ט״ז:רי״א-רי״ג"
+  },
+  "נצבים|mon": {
+   "old": "Zohar, Vayikra 44",
+   "new": "Zohar, Vayikra 44:312-314",
+   "hr": "ספר הזהר, ויקרא מ״ד:שי״ב-שי״ד"
+  },
+  "נצבים|sun": {
+   "old": "Zohar, Bo 2",
+   "new": "Zohar, Bo 2:5-9",
+   "hr": "ספר הזהר, בא ב׳:ה׳-ט׳"
+  },
+  "נצבים|thu": {
+   "old": "Zohar, Emor 38",
+   "new": "Zohar, Emor 38:197-204",
+   "hr": "ספר הזהר, אמור ל״ח:קצ״ז-ר״ד"
+  },
+  "נצבים|tue": {
+   "old": "Zohar, Vayikra 44",
+   "new": "Zohar, Vayikra 44:306-311",
+   "hr": "ספר הזהר, ויקרא מ״ד:ש״ו-שי״א"
+  },
+  "נצבים|wed": {
+   "old": "Zohar, Emor 38",
+   "new": "Zohar, Emor 38:191-196",
+   "hr": "ספר הזהר, אמור ל״ח:קצ״א-קצ״ו"
+  },
+  "נשא|fri": {
+   "old": "Zohar, Terumah 73",
+   "new": "Zohar, Terumah 73:716-717",
+   "hr": "ספר הזהר, תרומה ע״ג:תשט״ז-תשי״ז"
   },
   "נשא|mon": {
    "old": "Zohar, Nasso 4",
-   "new": "Zohar, Nasso 3:16-21"
+   "new": "Zohar, Nasso 3:16-21",
+   "hr": "ספר הזהר, נשא ג׳:ט״ז-כ״א"
   },
   "נשא|thu": {
    "old": "Zohar, Nasso 19",
-   "new": "Zohar, Nasso 17:171-173"
+   "new": "Zohar, Nasso 17:171-173",
+   "hr": "ספר הזהר, נשא י״ז:קע״א-קע״ג"
+  },
+  "נשא|tue": {
+   "old": "Zohar, Nasso 5",
+   "new": "Zohar, Nasso 5:60-64",
+   "hr": "ספר הזהר, נשא ה׳:ס׳-ס״ד"
+  },
+  "עקב|fri": {
+   "old": "Zohar, Vayakhel 14",
+   "new": "Zohar, Vayakhel 14:194-196",
+   "hr": "ספר הזהר, ויקהל י״ד:קצ״ד-קצ״ו"
   },
   "עקב|mon": {
    "old": "Zohar, Vaetchanan 21",
-   "new": "Zohar, Vaetchanan 20:132-135"
+   "new": "Zohar, Vaetchanan 20:132-135",
+   "hr": "ספר הזהר, ואתחנן כ׳:קל״ב-קל״ה"
   },
   "עקב|sun": {
    "old": "Zohar, Vaetchanan 18",
-   "new": "Zohar, Vaetchanan 17:115-119"
+   "new": "Zohar, Vaetchanan 17:115-119",
+   "hr": "ספר הזהר, ואתחנן י״ז:קט״ו-קי״ט"
   },
   "עקב|tue": {
    "old": "Zohar, Vaetchanan 19",
-   "new": "Zohar, Vaetchanan 18:120-126"
+   "new": "Zohar, Vaetchanan 18:120-126",
+   "hr": "ספר הזהר, ואתחנן י״ח:ק״כ-קכ״ו"
+  },
+  "עקב|wed": {
+   "old": "Zohar, Vaetchanan 21",
+   "new": "Zohar, Vaetchanan 21:142-145",
+   "hr": "ספר הזהר, ואתחנן כ״א:קמ״ב-קמ״ה"
   },
   "פינחס|fri": {
    "old": "Zohar, Vayakhel 14",
-   "new": "Zohar, Vayakhel 13:182-14:184"
+   "new": "Zohar, Vayakhel 13:182-14:184",
+   "hr": "ספר הזהר, ויקהל י״ג:קפ״ב-י״ד:קפ״ד"
   },
   "פינחס|mon": {
    "old": "Zohar, Pinchas 6",
-   "new": "Zohar, Pinchas 4:12-5:16"
+   "new": "Zohar, Pinchas 4:12-5:16",
+   "hr": "ספר הזהר, פנחס ד׳:י״ב-ה׳:ט״ז"
   },
   "פינחס|sun": {
    "old": "Zohar, Pinchas 2",
-   "new": "Zohar, Pinchas 1:1-2:6"
+   "new": "Zohar, Pinchas 1:1-2:6",
+   "hr": "ספר הזהר, פנחס א׳:א׳-ב׳:ו׳"
   },
   "פינחס|thu": {
    "old": "Zohar, Addenda, Volume III 11:141-12:163",
-   "new": "Zohar, Pinchas 93:642-645"
+   "new": "Zohar, Pinchas 93:642-645",
+   "hr": "ספר הזהר, פנחס צ״ג:תרמ״ב-תרמ״ה"
   },
   "פינחס|tue": {
    "old": "Zohar, Pinchas 8",
-   "new": "Zohar, Pinchas 7:23-26"
+   "new": "Zohar, Pinchas 7:23-26",
+   "hr": "ספר הזהר, פנחס ז׳:כ״ג-כ״ו"
   },
   "פקודי|fri": {
    "old": "Zohar, Yitro 28",
-   "new": "Zohar, Yitro 27:482-484"
+   "new": "Zohar, Yitro 27:482-484",
+   "hr": "ספר הזהר, יתרו כ״ז:תפ״ב-תפ״ד"
+  },
+  "פקודי|mon": {
+   "old": "Zohar, Pekudei 48",
+   "new": "Zohar, Pekudei 48:566-572",
+   "hr": "ספר הזהר, פקודי מ״ח:תקס״ו-תקע״ב"
   },
   "פקודי|sun": {
    "old": "Zohar, Pekudei 8",
-   "new": "Zohar, Pekudei 6:48-7:52"
+   "new": "Zohar, Pekudei 6:48-7:52",
+   "hr": "ספר הזהר, פקודי ו׳:מ״ח-ז׳:נ״ב"
   },
   "פקודי|thu": {
    "old": "Zohar, Pekudei 53",
-   "new": "Zohar, Pekudei 52:831-835"
+   "new": "Zohar, Pekudei 52:831-835",
+   "hr": "ספר הזהר, פקודי נ״ב:תתל״א-תתל״ה"
+  },
+  "פקודי|tue": {
+   "old": "Zohar, Pekudei 52",
+   "new": "Zohar, Pekudei 52:810-815",
+   "hr": "ספר הזהר, פקודי נ״ב:תת״י-תתט״ו"
+  },
+  "פקודי|wed": {
+   "old": "Zohar, Pekudei 52",
+   "new": "Zohar, Pekudei 52:827-830",
+   "hr": "ספר הזהר, פקודי נ״ב:תתכ״ז-תת״ל"
+  },
+  "צו|fri": {
+   "old": "Zohar, Yitro 31-32",
+   "new": "Zohar, Yitro 32:527",
+   "hr": "ספר הזהר, יתרו ל״ב:תקכ״ז"
   },
   "צו|mon": {
    "old": "Zohar, Tzav 16",
-   "new": "Zohar, Tzav 14:103-16:111"
+   "new": "Zohar, Tzav 14:103-16:111",
+   "hr": "ספר הזהר, צו י״ד:ק״ג-ט״ז:קי״א"
   },
   "צו|sun": {
    "old": "Zohar, Tzav 12",
-   "new": "Zohar, Tzav 11:89-12:95"
+   "new": "Zohar, Tzav 11:89-12:95",
+   "hr": "ספר הזהר, צו י״א:פ״ט-י״ב:צ״ה"
   },
   "צו|thu": {
    "old": "Zohar, Shmini 1",
-   "new": "Zohar, Tzav 29:187-30:193"
+   "new": "Zohar, Tzav 29:187-30:193",
+   "hr": "ספר הזהר, צו כ״ט:קפ״ז-ל׳:קצ״ג"
   },
   "צו|tue": {
    "old": "Zohar, Tzav 17",
-   "new": "Zohar, Tzav 16:114-120"
+   "new": "Zohar, Tzav 16:114-120",
+   "hr": "ספר הזהר, צו ט״ז:קי״ד-ק״כ"
   },
   "צו|wed": {
    "old": "Zohar, Tzav 29",
-   "new": "Zohar, Tzav 27:182-28:186"
+   "new": "Zohar, Tzav 27:182-28:186",
+   "hr": "ספר הזהר, צו כ״ז:קפ״ב-כ״ח:קפ״ו"
+  },
+  "קדושים|fri": {
+   "old": "Zohar, Terumah 14",
+   "new": "Zohar, Terumah 14:164-166",
+   "hr": "ספר הזהר, תרומה י״ד:קס״ד-קס״ו"
+  },
+  "קדושים|mon": {
+   "old": "Zohar, Kedoshim 3",
+   "new": "Zohar, Kedoshim 3:10-13",
+   "hr": "ספר הזהר, קדושים ג׳:י׳-י״ג"
+  },
+  "קדושים|sun": {
+   "old": "Zohar, Kedoshim 1",
+   "new": "Zohar, Kedoshim 1:1-4",
+   "hr": "ספר הזהר, קדושים א׳:א׳-ד׳"
+  },
+  "קדושים|thu": {
+   "old": "Zohar, Kedoshim 15",
+   "new": "Zohar, Kedoshim 15:91-94",
+   "hr": "ספר הזהר, קדושים ט״ו:צ״א-צ״ד"
   },
   "קדושים|wed": {
    "old": "Zohar, Kedoshim 15",
-   "new": "Zohar, Kedoshim 14:85-88"
+   "new": "Zohar, Kedoshim 14:85-88",
+   "hr": "ספר הזהר, קדושים י״ד:פ״ה-פ״ח"
+  },
+  "קורח|fri": {
+   "old": "Zohar, Vayakhel 13",
+   "new": "Zohar, Vayakhel 13:174-175",
+   "hr": "ספר הזהר, ויקהל י״ג:קע״ד-קע״ה"
   },
   "קורח|mon": {
    "old": "Zohar, Korach 6",
-   "new": "Zohar, Korach 5:20-6:24"
+   "new": "Zohar, Korach 5:20-6:24",
+   "hr": "ספר הזהר, קרח ה׳:כ׳-ו׳:כ״ד"
   },
   "קורח|sun": {
    "old": "Zohar, Korach 2",
-   "new": "Zohar, Korach 1:1-8"
+   "new": "Zohar, Korach 1:1-8",
+   "hr": "ספר הזהר, קרח א׳:א׳-ח׳"
+  },
+  "קורח|tue": {
+   "old": "Zohar, Korach 4",
+   "new": "Zohar, Korach 4:15-17",
+   "hr": "ספר הזהר, קרח ד׳:ט״ו-י״ז"
   },
   "קורח|wed": {
    "old": "Zohar, Korach 8",
-   "new": "Zohar, Korach 7:30-34"
+   "new": "Zohar, Korach 7:30-34",
+   "hr": "ספר הזהר, קרח ז׳:ל׳-ל״ד"
   },
   "ראה|fri": {
    "old": "Zohar, Vayakhel 15",
-   "new": "Zohar, Vayakhel 14:197-15:199"
+   "new": "Zohar, Vayakhel 14:197-15:199",
+   "hr": "ספר הזהר, ויקהל י״ד:קצ״ז-ט״ו:קצ״ט"
+  },
+  "ראה|mon": {
+   "old": "Zohar, Mishpatim 3",
+   "new": "Zohar, Mishpatim 3:228-230",
+   "hr": "ספר הזהר, משפטים ג׳:רכ״ח-ר״ל"
+  },
+  "ראה|sun": {
+   "old": "Zohar, Miketz 12",
+   "new": "Zohar, Miketz 12:195-201",
+   "hr": "ספר הזהר, מקץ י״ב:קצ״ה-ר״א"
   },
   "ראה|thu": {
    "old": "Zohar, Vayikra 33",
-   "new": "Zohar, Vayikra 32:246-33:250"
+   "new": "Zohar, Vayikra 32:246-33:250",
+   "hr": "ספר הזהר, ויקרא ל״ב:רמ״ו-ל״ג:ר״נ"
+  },
+  "ראה|tue": {
+   "old": "Zohar, Mishpatim 3",
+   "new": "Zohar, Mishpatim 3:232-237",
+   "hr": "ספר הזהר, משפטים ג׳:רל״ב-רל״ז"
   },
   "ראה|wed": {
    "old": "Zohar, Vayikra 30",
-   "new": "Zohar, Vayikra 29:210-213"
+   "new": "Zohar, Vayikra 29:210-213",
+   "hr": "ספר הזהר, ויקרא כ״ט:ר״י-רי״ג"
+  },
+  "שופטים|fri": {
+   "old": "Zohar, Vayakhel 15",
+   "new": "Zohar, Vayakhel 15:199-202",
+   "hr": "ספר הזהר, ויקהל ט״ו:קצ״ט-ר״ב"
   },
   "שופטים|mon": {
    "old": "Zohar, Vaera 11",
-   "new": "Zohar, Vaera 10:89-11:98"
+   "new": "Zohar, Vaera 10:89-11:98",
+   "hr": "ספר הזהר, וארא י׳:פ״ט-י״א:צ״ח"
+  },
+  "שופטים|sun": {
+   "old": "Zohar, Pinchas 84",
+   "new": "Zohar, Pinchas 84:522-525",
+   "hr": "ספר הזהר, פנחס פ״ד:תקכ״ב-תקכ״ה"
   },
   "שופטים|thu": {
    "old": "Zohar, Noach 40",
-   "new": "Zohar, Noach 39:312-319"
+   "new": "Zohar, Noach 39:312-319",
+   "hr": "ספר הזהר, נח ל״ט:שי״ב-שי״ט"
   },
   "שופטים|tue": {
    "old": "Zohar, Metzora 14",
-   "new": "Zohar, Metzora 13:47-51"
+   "new": "Zohar, Metzora 13:47-51",
+   "hr": "ספר הזהר, מצורע י״ג:מ״ז-נ״א"
+  },
+  "שופטים|wed": {
+   "old": "Zohar, Vayechi 69",
+   "new": "Zohar, Vayechi 69:713-717",
+   "hr": "ספר הזהר, ויחי ס״ט:תשי״ג-תשי״ז"
   },
   "שלח|fri": {
    "old": "Zohar, Vayakhel 13",
-   "new": "Zohar, Vayakhel 12:172-173"
+   "new": "Zohar, Vayakhel 12:172-173",
+   "hr": "ספר הזהר, ויקהל י״ב:קע״ב-קע״ג"
   },
   "שלח|mon": {
    "old": "Zohar, Sh'lach 11",
-   "new": "Zohar, Sh'lach 10:83-11:87"
+   "new": "Zohar, Sh'lach 10:83-11:87",
+   "hr": "ספר הזהר, שלח לך י׳:פ״ג-י״א:פ״ז"
   },
   "שלח|sun": {
    "old": "Zohar, Sh'lach 8",
-   "new": "Zohar, Sh'lach 6:41-8:45"
+   "new": "Zohar, Sh'lach 6:41-8:45",
+   "hr": "ספר הזהר, שלח לך ו׳:מ״א-ח׳:מ״ה"
   },
   "שלח|thu": {
    "old": "Zohar, Korach 1",
-   "new": "Zohar, Sh'lach 46:343-348"
+   "new": "Zohar, Sh'lach 46:343-348",
+   "hr": "ספר הזהר, שלח לך מ״ו:שמ״ג-שמ״ח"
+  },
+  "שלח|tue": {
+   "old": "Zohar, Sh'lach 42",
+   "new": "Zohar, Sh'lach 42:290-295",
+   "hr": "ספר הזהר, שלח לך מ״ב:ר״צ-רצ״ה"
+  },
+  "שלח|wed": {
+   "old": "Zohar, Sh'lach 46",
+   "new": "Zohar, Sh'lach 46:336-343",
+   "hr": "ספר הזהר, שלח לך מ״ו:של״ו-שמ״ג"
+  },
+  "שמות|fri": {
+   "old": "Zohar, Yitro 27",
+   "new": "Zohar, Yitro 27:451-452",
+   "hr": "ספר הזהר, יתרו כ״ז:תנ״א-תנ״ב"
   },
   "שמות|mon": {
    "old": "Zohar, Shemot 6",
-   "new": "Zohar, Shemot 5:29-35"
+   "new": "Zohar, Shemot 5:29-35",
+   "hr": "ספר הזהר, שמות ה׳:כ״ט-ל״ה"
+  },
+  "שמות|sun": {
+   "old": "Zohar, Shemot 5",
+   "new": "Zohar, Shemot 5:24-28",
+   "hr": "ספר הזהר, שמות ה׳:כ״ד-כ״ח"
+  },
+  "שמות|tue": {
+   "old": "Zohar, Shemot 17",
+   "new": "Zohar, Shemot 17:180-185",
+   "hr": "ספר הזהר, שמות י״ז:ק״פ-קפ״ה"
+  },
+  "שמות|wed": {
+   "old": "Zohar, Shemot 50",
+   "new": "Zohar, Shemot 50:364-369",
+   "hr": "ספר הזהר, שמות נ׳:שס״ד-שס״ט"
+  },
+  "שמיני|fri": {
+   "old": "Zohar, Yitro 32",
+   "new": "Zohar, Yitro 32:528-529",
+   "hr": "ספר הזהר, יתרו ל״ב:תקכ״ח-תקכ״ט"
+  },
+  "שמיני|mon": {
+   "old": "Zohar, Shmini 6",
+   "new": "Zohar, Shmini 6:67-73",
+   "hr": "ספר הזהר, שמיני ו׳:ס״ז-ע״ג"
   },
   "שמיני|sun": {
    "old": "Zohar, Shmini 2",
-   "new": "Zohar, Shmini 1:1-9"
+   "new": "Zohar, Shmini 1:1-9",
+   "hr": "ספר הזהר, שמיני א׳:א׳-ט׳"
   },
   "שמיני|tue": {
    "old": "Zohar, Shmini 10",
-   "new": "Zohar, Shmini 9:83-87"
+   "new": "Zohar, Shmini 9:83-87",
+   "hr": "ספר הזהר, שמיני ט׳:פ״ג-פ״ז"
   },
   "שמיני|wed": {
    "old": "Zohar, Shmini 15",
-   "new": "Zohar, Shmini 14:106-110"
+   "new": "Zohar, Shmini 14:106-110",
+   "hr": "ספר הזהר, שמיני י״ד:ק״ו-ק״י"
   },
   "תולדות|fri": {
    "old": "Zohar, Addenda, Volume I 41:342",
-   "new": "Zohar, Bereshit 78:198-200"
+   "new": "Zohar, Bereshit 78:198-200",
+   "hr": "ספר הזהר, בראשית ע״ח:קצ״ח-ר׳"
+  },
+  "תולדות|mon": {
+   "old": "Zohar, Toldot 11",
+   "new": "Zohar, Toldot 11:83-88",
+   "hr": "ספר הזהר, תולדות י״א:פ״ג-פ״ח"
+  },
+  "תולדות|sun": {
+   "old": "Zohar, Toldot 1",
+   "new": "Zohar, Toldot 1:1-4",
+   "hr": "ספר הזהר, תולדות א׳:א׳-ד׳"
+  },
+  "תולדות|thu": {
+   "old": "Zohar, Toldot 19",
+   "new": "Zohar, Toldot 19:169-172",
+   "hr": "ספר הזהר, תולדות י״ט:קס״ט-קע״ב"
   },
   "תולדות|tue": {
    "old": "Zohar, Toldot 14",
-   "new": "Zohar, Toldot 13:101-105"
+   "new": "Zohar, Toldot 13:101-105",
+   "hr": "ספר הזהר, תולדות י״ג:ק״א-ק״ה"
+  },
+  "תולדות|wed": {
+   "old": "Zohar, Toldot 16",
+   "new": "Zohar, Toldot 16:122-127",
+   "hr": "ספר הזהר, תולדות ט״ז:קכ״ב-קכ״ז"
   },
   "תזריע|fri": {
    "old": "Zohar, Yitro 32:530",
-   "new": "Zohar, Yitro 32:530-532"
+   "new": "Zohar, Yitro 32:530-532",
+   "hr": "ספר הזהר, יתרו ל״ב:תק״ל-תקל״ב"
   },
   "תזריע|mon": {
    "old": "Zohar, Tazria 14",
-   "new": "Zohar, Tazria 12:45-13:50"
+   "new": "Zohar, Tazria 12:45-13:50",
+   "hr": "ספר הזהר, תזריע י״ב:מ״ה-י״ג:נ׳"
   },
   "תזריע|sun": {
    "old": "Zohar, Tazria 5",
-   "new": "Zohar, Tazria 3:9-5:15"
+   "new": "Zohar, Tazria 3:9-5:15",
+   "hr": "ספר הזהר, תזריע ג׳:ט׳-ה׳:ט״ו"
   },
   "תזריע|thu": {
    "old": "Zohar, Tazria 29",
-   "new": "Zohar, Tazria 28:144-29:150"
+   "new": "Zohar, Tazria 28:144-29:150",
+   "hr": "ספר הזהר, תזריע כ״ח:קמ״ד-כ״ט:ק״נ"
   },
   "תזריע|tue": {
    "old": "Zohar, Tazria 20",
-   "new": "Zohar, Tazria 19:82-20:87"
+   "new": "Zohar, Tazria 19:82-20:87",
+   "hr": "ספר הזהר, תזריע י״ט:פ״ב-כ׳:פ״ז"
   },
   "תזריע|wed": {
    "old": "Zohar, Tazria 28",
-   "new": "Zohar, Tazria 26:137-27:143"
+   "new": "Zohar, Tazria 26:137-27:143",
+   "hr": "ספר הזהר, תזריע כ״ו:קל״ז-כ״ז:קמ״ג"
+  },
+  "תצוה|fri": {
+   "old": "Zohar, Yitro 27",
+   "new": "Zohar, Yitro 27:467-469",
+   "hr": "ספר הזהר, יתרו כ״ז:תס״ז-תס״ט"
   },
   "תצוה|mon": {
    "old": "Zohar, Tetzaveh 4",
-   "new": "Zohar, Tetzaveh 3:38-41"
+   "new": "Zohar, Tetzaveh 3:38-41",
+   "hr": "ספר הזהר, תצוה ג׳:ל״ח-מ״א"
+  },
+  "תצוה|sun": {
+   "old": "Zohar, Tetzaveh 1",
+   "new": "Zohar, Tetzaveh 1:1-4",
+   "hr": "ספר הזהר, תצוה א׳:א׳-ד׳"
+  },
+  "תצוה|thu": {
+   "old": "Zohar, Tetzaveh 9",
+   "new": "Zohar, Tetzaveh 9:72-76",
+   "hr": "ספר הזהר, תצוה ט׳:ע״ב-ע״ו"
+  },
+  "תצוה|tue": {
+   "old": "Zohar, Tetzaveh 6",
+   "new": "Zohar, Tetzaveh 6:51-57",
+   "hr": "ספר הזהר, תצוה ו׳:נ״א-נ״ז"
   },
   "תצוה|wed": {
    "old": "Zohar, Tetzaveh 7",
-   "new": "Zohar, Tetzaveh 6:57-61"
+   "new": "Zohar, Tetzaveh 6:57-61",
+   "hr": "ספר הזהר, תצוה ו׳:נ״ז-ס״א"
+  },
+  "תרומה|fri": {
+   "old": "Zohar, Yitro 27",
+   "new": "Zohar, Yitro 27:465-466",
+   "hr": "ספר הזהר, יתרו כ״ז:תס״ה-תס״ו"
+  },
+  "תרומה|mon": {
+   "old": "Zohar, Terumah 10",
+   "new": "Zohar, Terumah 10:91-94",
+   "hr": "ספר הזהר, תרומה י׳:צ״א-צ״ד"
+  },
+  "תרומה|sun": {
+   "old": "Zohar, Terumah 10",
+   "new": "Zohar, Terumah 10:87-89",
+   "hr": "ספר הזהר, תרומה י׳:פ״ז-פ״ט"
+  },
+  "תרומה|thu": {
+   "old": "Zohar, Terumah 79",
+   "new": "Zohar, Terumah 79:769-773",
+   "hr": "ספר הזהר, תרומה ע״ט:תשס״ט-תשע״ג"
+  },
+  "תרומה|tue": {
+   "old": "Zohar, Terumah 10",
+   "new": "Zohar, Terumah 10:96-101",
+   "hr": "ספר הזהר, תרומה י׳:צ״ו-ק״א"
   },
   "תרומה|wed": {
    "old": "Zohar, Terumah 11",
-   "new": "Zohar, Terumah 10:115-118"
+   "new": "Zohar, Terumah 10:115-118",
+   "hr": "ספר הזהר, תרומה י׳:קט״ו-קי״ח"
   }
  },
  "texts": {

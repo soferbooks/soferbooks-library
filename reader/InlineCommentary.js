@@ -109,7 +109,7 @@ const NakdanBoldText = ({ t, he, dibbur, nakdan, style }) => {
   return <BoldRunsText runs={commentRuns(t, vowelled || he, dibbur)} style={style} />;
 };
 
-const InlineCommentary = ({ links, sourceKey, nakdan = false }) => {
+const InlineCommentary = ({ links, sourceKey, nakdan = false, asText = false }) => {
   const { theme, textLanguage, fontSize: readerFontSize, commentaryFontScale, commentaryFont } = useGlobalState();
   // (the commentary's own text size: the Aa menu's "Commentary Size")
   const scale = commentaryFontSize(1, commentaryFontScale);
@@ -134,6 +134,8 @@ const InlineCommentary = ({ links, sourceKey, nakdan = false }) => {
   const showEn = textLanguage !== 'hebrew';
   const size = Math.max(14, readerFontSize * 0.72) * scale;
   const parts = [];
+  // (asText: set as part of the text - its colour, no line above: the Chok's targum)
+  const color = asText ? theme.text : theme.tertiaryText;
   const sourceUsesExplicitBold = texts.filter(t => t && t.hasExplicitBold).length >= 2;
   texts.forEach((t, i) => {
     if (!t) { return; }
@@ -149,17 +151,17 @@ const InlineCommentary = ({ links, sourceKey, nakdan = false }) => {
     if (name && (he || en)) {
       // (a connection: its name first, in the language shown)
       const heName = textLanguage !== 'english';
-      parts.push(<Text key={`name${i}`} style={[heName ? localStyles.nameHe : localStyles.nameEn, theme.tertiaryText, { fontSize: size * 0.85 }]}>{heName ? name : items[i].ref}</Text>);
+      parts.push(<Text key={`name${i}`} style={[heName ? localStyles.nameHe : localStyles.nameEn, color, { fontSize: size * 0.85 }]}>{heName ? name : items[i].ref}</Text>);
     }
     // (a commentary's comment: its dibbur hamaschil in bold, as SoferBooks prints it)
-    if (he) { parts.push(<InlineCommentaryHe key={`he${i}`} t={activeT} he={he} dibbur={dibbur} nakdan={nakdan} style={[localStyles.he, { fontFamily: hebFont }, theme.tertiaryText, { fontSize: size * 1.1 * hebScale, lineHeight: size * 1.6 }]} />); }
+    if (he) { parts.push(<InlineCommentaryHe key={`he${i}`} t={activeT} he={he} dibbur={dibbur} nakdan={nakdan} style={[localStyles.he, { fontFamily: hebFont }, color, { fontSize: size * 1.1 * hebScale, lineHeight: size * 1.6 }]} />); }
     // (LRM first: English Rashi opens with the Hebrew words it explains, and Android then laid the
     // whole paragraph out right to left - its closing period at the start of the line, ".daytime")
-    if (en) { parts.push(<Text selectable={Platform.OS !== 'android'} key={`en${i}`} style={[localStyles.en, theme.tertiaryText, { fontSize: size, lineHeight: size * 1.45 }]}>{LRM + en}</Text>); }
+    if (en) { parts.push(<Text selectable={Platform.OS !== 'android'} key={`en${i}`} style={[localStyles.en, color, { fontSize: size, lineHeight: size * 1.45 }]}>{LRM + en}</Text>); }
   });
   if (!parts.length) { return null; }
   return (
-    <View style={[localStyles.box, theme.lighterGreyBorder]}>
+    <View style={asText ? localStyles.textBox : [localStyles.box, theme.lighterGreyBorder]}>
       {parts}
     </View>
   );
@@ -168,6 +170,7 @@ InlineCommentary.propTypes = {
   links:     PropTypes.array,
   sourceKey: PropTypes.string,
   nakdan:    PropTypes.bool,
+  asText:    PropTypes.bool,
 };
 
 /** Is an item under the passage a commentary's comment? (its link's category, else its book) */
@@ -179,6 +182,7 @@ const isCommentaryItem = (ref, links) => {
 const localStyles = StyleSheet.create({
   bold: { fontWeight: 'bold' },
   box: { marginHorizontal: 32, marginBottom: 10, paddingTop: 4, borderTopWidth: 1 },
+  textBox: { marginHorizontal: 32, marginBottom: 10 },
   he: { writingDirection: 'rtl', textAlign: 'right', fontFamily: CSS_CLASS_STYLES.hebrew.fontFamily },
   // the reader's own English text font (serif, as in the main text), not the system sans
   en: { textAlign: 'left', marginTop: 2, fontFamily: CSS_CLASS_STYLES.english.fontFamily },

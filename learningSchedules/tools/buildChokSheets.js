@@ -97,8 +97,11 @@ const bare = s => plain(s).replace(/[֑-ׇ]/g, '').replace(/[^א-ת ]/g, ' ').re
 function applyFixes(key, parts, fixes) {
   const z = fixes.zohar && fixes.zohar[key];
   if (z) {
-    for (const p of parts) { for (const it of p.items) { if (it.r === z.old) { it.r = z.new; delete it.hr; } } }
+    for (const p of parts) { for (const it of p.items) { if (it.r === z.old) { it.r = z.new; if (z.hr) { it.hr = z.hr; } else { delete it.hr; } } } }
   }
+  // (the Zohar's Hebrew translation, as the printed Chok gave it, not shown: Sulam's is among the
+  //  passage's connections - owner, 2026-11-22)
+  for (const p of parts) { if (p.h === 'זוהר') { p.items = p.items.filter(it => it.r); } }
   for (const f of (fixes.texts && fixes.texts[key]) || []) {
     // (the item whose words share most of the passage's opening - the sheet's spelling differs here and there)
     const words = bare(f.opening).split(' ').filter(w => w.length > 1);

@@ -115,6 +115,7 @@ import { SCHEDULE_TITLE as CHOK_SCHEDULE_TITLE, DAYS as CHOK_DAYS, THURSDAY_NIGH
 import { loadText as loadTextOfRef, loadRelated as loadRelatedOfRef } from "./offlineOnline";
 import { pruneSearchFilesIfOff } from "./searchPrefs";
 import ScheduleSequenceBar from "./learningSchedules/ScheduleSequenceBar";
+import ChokContents from "./learningSchedules/ChokContents";
 import {
   getInlineCommentary,
   effectiveInlineCommentary,
@@ -151,7 +152,14 @@ import { ERRORS } from "./errors";
 const ViewPort = Dimensions.get('window');
 // Chok LeYisrael's page: Onkelos under each pasuk of the Torah, as the sefer prints it
 const CHOK_TORAH = /^(Genesis|Exodus|Leviticus|Numbers|Deuteronomy) \d/;
-const chokInlineFor = content => (content && CHOK_TORAH.test(content.sourceRef || '') ? 'Onkelos' : null);
+// (Nevi'im and Ketuvim with their targum too, as the printed Chok has them - owner, 2026-11-22:
+//  Targum Jonathan on the Prophets, "Aramaic Targum to ..." / "Targum of ..." on the Writings)
+const CHOK_NACH_TARGUMS = ['Targum Jonathan', 'Aramaic Targum', 'Targum of'];
+const chokInlineFor = content => {
+  const ref = (content && content.sourceRef) || '';
+  if (!ref) { return null; }
+  return CHOK_TORAH.test(ref) ? ['Onkelos'] : CHOK_NACH_TARGUMS;
+};
 // Unknown Android profiles take the conservative path so a legacy 32-bit build does not
 // start the optional linked-commentary warm-up while opening Resources.
 const isLowMemoryAndroid = Platform.OS === 'android'
@@ -2201,9 +2209,12 @@ ${strings.formatString(strings.extras.download_size, size)}` : '';
   _getSearchStateName = type => ( `${type}SearchState` );
   _getSearchState = type => ( this.state[this._getSearchStateName(type)] );
   _getTranslationForSegment(section, segment) {
+    // (a section's translations may have no list - offline, or not loaded: Hadar Zekenim crashed on
+    //  scrolling with the tablet offline, 2026-11-22)
     const translations = Sefaria.util.clone(this.state.translations[section]) || {versions: []};
+    if (!Array.isArray(translations.versions)) { translations.versions = []; }
     translations.versions.forEach((version) => {
-      version.text = version.text[segment];
+      version.text = Array.isArray(version.text) ? version.text[segment] : version.text;
     });
     return translations;
   }
@@ -3201,6 +3212,14 @@ ${strings.formatString(strings.extras.download_size, size)}` : '';
            <LearningSchedulesPage openRef={this.openRef} openUri={this.openUri} onBack={this.manageBackMain}/>
         );
       case ("text toc"):
+        // (Chok LeYisrael's day page: its own contents - every parsha and day - learningSchedules/ChokContents.js)
+        if (this.state.sheet && this.state.sheet.chok) {
+          return (
+            <ChokContents
+              currentRef={this.state.textReference}
+              close={this.manageBackMain}
+              openDay={this.openChokDayFromPicker}/>);
+        }
         return (
           <ReaderTextTableOfContents
             textUnavailableAlert={this.textUnavailableAlert}
