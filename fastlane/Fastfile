@@ -185,12 +185,6 @@ platform :ios do
     version = app.get_edit_app_store_version(platform: Spaceship::ConnectAPI::Platform::IOS)
     UI.user_error!("no App Store version to submit") unless version
     UI.message("Version #{version.version_string}: #{version.app_store_state}")
-    # (the newest processed build of this version: deliver picks it only when it submits itself)
-    build = Spaceship::ConnectAPI::Build.all(app_id: app.id, version: version.version_string, processing_states: "VALID",
-                                             platform: Spaceship::ConnectAPI::Platform::IOS).first
-    UI.user_error!("no processed build of #{version.version_string}") unless build
-    version.select_build(build_id: build.id)
-    UI.message("Build #{build.version} chosen for #{version.version_string}")
     open = app.get_review_submissions(filter: {
       platform: Spaceship::ConnectAPI::Platform::IOS,
       state: [states::READY_FOR_REVIEW, states::UNRESOLVED_ISSUES, states::WAITING_FOR_REVIEW, states::IN_REVIEW].join(","),
@@ -201,6 +195,12 @@ platform :ios do
       UI.important("Already with Apple (#{with_apple.state}): nothing more sent")
       next
     end
+    # (the newest processed build of this version: deliver picks it only when it submits itself)
+    build = Spaceship::ConnectAPI::Build.all(app_id: app.id, version: version.version_string, processing_states: "VALID",
+                                             platform: Spaceship::ConnectAPI::Platform::IOS).first
+    UI.user_error!("no processed build of #{version.version_string}") unless build
+    version.select_build(build_id: build.id)
+    UI.message("Build #{build.version} chosen for #{version.version_string}")
     sub = open.find { |o| o.state == states::UNRESOLVED_ISSUES } ||
           open.find { |o| o.state == states::READY_FOR_REVIEW } ||
           app.create_review_submission(platform: Spaceship::ConnectAPI::Platform::IOS)
