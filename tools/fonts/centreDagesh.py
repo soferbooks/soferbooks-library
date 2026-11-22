@@ -1,4 +1,4 @@
-"""Put the dagesh in the middle of ב כ ת ס in the app's fonts.
+"""Put the dagesh in the middle of ב כ ת ס ט מ פ (and the mapiq of ה) in the app's fonts.
 
 Owner, 2026-11-22: "It seems that the dagesh isn't centered in ת ב ס". Each font draws these letters
 with a dagesh as one glyph made of the letter and the dagesh at an offset (betdagesh = bet +
@@ -9,7 +9,11 @@ up to 35 toward the right leg, in ס up to 40 too high. This moves the dagesh of
   ב כ  the middle, left to right, of the letter's inside (the white inside the letter's outline,
        its open side closed off: its convex hull), at the height the font gives it;
   ת    halfway between the two legs, at the height the font gives it;
-  ס    the middle of the closed space.
+  ס    the middle of the closed space;
+  ט מ פ, the mapiq in ה  the middle of the white around it, left-right and up-down (ט off in all
+       three fonts by up to 100 units, מ in Frank Sofer, פ in Vilna Sofer - on its tongue -, ה in
+       Hadassah; checked 2026-11-22 with every other letter, whose dot beside or under the stroke
+       - ג ד ו ז י ך ר ... - is as the letters are written).
 
 Nothing else in the font changes; running it again changes nothing. Run after the fonts are synced
 from SoferShared (after addShvaNaSequences.py):
@@ -30,7 +34,14 @@ from PIL import Image, ImageDraw
 
 # precomposed letter -> (plain letter, how its middle is found)
 LETTERS = {0xFB31: (0x05D1, "inside-x"), 0xFB3B: (0x05DB, "inside-x"),
-           0xFB4A: (0x05EA, "between-legs"), 0xFB41: (0x05E1, "inside")}
+           0xFB4A: (0x05EA, "between-legs"), 0xFB41: (0x05E1, "inside"),
+           # (checked the same way, 2026-11-22: ט off in all three, מ in Frank Sofer, the mapiq in
+           #  Hadassah's ה, פ in Vilna Sofer)
+           0xFB38: (0x05D8, "around"), 0xFB3E: (0x05DE, "around"), 0xFB34: (0x05D4, "between-legs"),
+           0xFB44: (0x05E4, "around")}
+# (a move further than this is a measuring mistake - the left leg of Frank Sofer's ה does not reach
+#  the dot's height - and is left out)
+MOST = 150
 FONTS = ("FrankSofer", "VilnaSofer", "Hadassah")
 SCALE = 0.5          # pixels per font unit while measuring
 ORIGIN = (300, 1500)  # where (0, 0) of the glyph is drawn, in font units from the image's top left
@@ -110,6 +121,24 @@ def _middle(glyphset, letter: str, dot: tuple, how: str) -> tuple:
         ink = Image.frombytes("1", size, bytes(a ^ b for a, b in zip(ink.tobytes(), m.tobytes())))
     ink_px = ink.load()
     sx, sy = (int(v) for v in _px(*dot))
+    def runs(x, y):
+        left = right = up = down = 0
+        while x - left - 1 >= 0 and not ink_px[x - left - 1, y]:
+            left += 1
+        while x + right + 1 < size[0] and not ink_px[x + right + 1, y]:
+            right += 1
+        while y - up - 1 >= 0 and not ink_px[x, y - up - 1]:
+            up += 1
+        while y + down + 1 < size[1] and not ink_px[x, y + down + 1]:
+            down += 1
+        return left, right, up, down
+    if how == "around":
+        # (the middle of the white around it, left-right and up-down: found again from there)
+        x, y = sx, sy
+        for _ in range(3):
+            left, right, up, down = runs(x, y)
+            x, y = int(x + (right - left) / 2), int(y + (down - up) / 2)
+        return _units(x, y)
     if how == "between-legs":
         left = right = 0
         while sx - left - 1 >= 0 and not ink_px[sx - left - 1, sy]:
@@ -148,8 +177,8 @@ def patch(path: Path) -> str:
         for glyph in (name, f"{name}.xazaq"):
             if glyph in glyf.keys() and glyf[glyph].isComposite():
                 moved += _centre(glyf, glyphset, glyph, letter, plain, how)
-    if not moved:
-        return f"{path.name}: already in the middle"
+    if not any("not moved" not in m for m in moved):
+        return f"{path.name}: already in the middle" + "".join(f", {m}" for m in moved)
     font.save(path)
     return f"{path.name}: " + ", ".join(moved)
 
@@ -166,7 +195,9 @@ def _centre(glyf, glyphset, name, letter, plain, how) -> list:
     dot = ((x0 + x1) / 2 + dagesh.x, (y0 + y1) / 2 + dagesh.y)
     tx, ty = _middle(glyphset, letter, dot, how)
     nx, ny = round(dagesh.x + tx - dot[0]), round(dagesh.y + ty - dot[1])
-    if abs(nx - dagesh.x) > 2 or abs(ny - dagesh.y) > 2:
+    if abs(nx - dagesh.x) > MOST or abs(ny - dagesh.y) > MOST:
+        return [f"{chr(plain)}{' chazak' if name.endswith('.xazaq') else ''}: not moved (measured {nx - dagesh.x:+},{ny - dagesh.y:+})"]
+    if abs(nx - dagesh.x) > 6 or abs(ny - dagesh.y) > 6:   # (closer than that: measuring noise)
         label = f"{chr(plain)}{' chazak' if name.endswith('.xazaq') else ''} ({dagesh.x},{dagesh.y})->({nx},{ny})"
         dagesh.x, dagesh.y = nx, ny
         glyf[name].recalcBounds(glyf)
