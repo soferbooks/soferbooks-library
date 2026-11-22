@@ -24,6 +24,7 @@ import strings from './LocalizedStrings';
 import styles, { SCROLL_PADDING_BOTTOM_FRACTION, makeScrollViewLayoutHandler } from './Styles.js';
 import { useHTMLViewStyles } from './useHTMLViewStyles';
 import isMac from './isMac';
+import { useNakdan } from './reader/nakdan';
 import MacTextList from './reader/MacTextList';
 
 
@@ -183,6 +184,7 @@ class TextList extends React.Component {
         loading={loading}
         displayRef={item.displayRef}
         noAutoDibbur={item.noAutoDibbur}
+        nakdan={!!this.props.nakdan}
       />
     );
   };
@@ -321,6 +323,7 @@ const ListItem = ({
   loading,
   displayRef,
   noAutoDibbur,
+  nakdan,
 }) => {
   const { themeStr, fontSize: readerFontSize, commentaryFontScale, interfaceLanguage, textLanguage, hebrewFont, commentaryFont } = useContext(GlobalStateContext);
   // (the commentary's own text size: the Aa menu's "Commentary Size")
@@ -363,7 +366,9 @@ const ListItem = ({
     const cleaned = stripLeadingVerseMarker(lco.he);
     heHtml = noAutoDibbur ? cleaned : boldDibbur(cleaned);
   }
-  const he = Sefaria.util.getDisplayableHTML(heHtml, "hebrew");
+  // (Dicta's nikud on a commentary without its own, when this sefer's switch is on: reader/nakdan.js)
+  const vowelled = useNakdan(heHtml, !!nakdan && !loading && isComm);
+  const he = Sefaria.util.getDisplayableHTML(vowelled || heHtml, "hebrew");
   const en = Sefaria.util.getDisplayableHTML(lco.en, "english");
   const lineHeightMultiplierHe = Platform.OS === 'android' ? 1.3 : 1.2;
   const smallEnSheet = {

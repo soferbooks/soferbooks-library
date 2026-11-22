@@ -58,7 +58,10 @@ export function correctionEmail({ ref, text, url, version, platform }) {
   const entry = CORRECTIONS[source] || { name: source, email: null };
   const to = entry.email || FALLBACK_EMAIL;
   const subject = `${entry.subject || `Text Correction (${entry.name})`} from SoferBooks Library (${platform})`;
-  const parts = [ref, text];
+  // (a long passage made a mailto: link too long for some phones to open: its start is enough)
+  const MAX = 1500;
+  const shown = typeof text === 'string' && text.length > MAX ? `${text.slice(0, MAX)}…` : text;
+  const parts = [ref, shown];
   if (source === 'sefaria') {
     if (url) { parts.push(url); }
   } else if (version && version.versionTitle) {

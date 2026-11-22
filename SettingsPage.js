@@ -47,6 +47,7 @@ import {
   syncSoferBooksPacks,
 } from './DownloadControl';
 import { loadOfflineSearch, setOfflineSearch } from './searchPrefs';
+import { KEEP_SCREEN_ON_CHOICES, loadKeepScreenOn, setKeepScreenOn, subscribeKeepScreenOn } from './reader/keepScreenOn';
 import Sefaria from "./sefaria";
 import * as FileSystem from 'expo-file-system/legacy';
 import { ContentFilterSettings } from './shomer/ContentFilterSettings';
@@ -360,6 +361,36 @@ export const OfflineSearchSetting = ({ langStyle }) => {
   );
 };
 
+/** Keeping the screen on while reading (reader/keepScreenOn.js) */
+const keepScreenOnLabels = () => ({
+  off: strings.settings.keep_screen_on_off,
+  10: strings.settings.keep_screen_on_10,
+  30: strings.settings.keep_screen_on_30,
+  always: strings.settings.keep_screen_on_always,
+});
+export const KeepScreenOnSetting = ({ langStyle }) => {
+  const globalState = useContext(GlobalStateContext);
+  const theme = getTheme(globalState.themeStr);
+  const [choice, setChoice] = useState(null);
+  useEffect(() => {
+    loadKeepScreenOn().then(setChoice);
+    return subscribeKeepScreenOn(setChoice);
+  }, []);
+  if (choice === null) { return null; }
+  return (
+    <View style={styles.settingsSection} testID="keep-screen-on-setting">
+      <Text style={[langStyle, styles.settingsSectionHeader, theme.tertiaryText]}>{strings.settings.keep_screen_on}</Text>
+      <ButtonToggleSet
+        options={KEEP_SCREEN_ON_CHOICES.map(c => ({ name: c, text: keepScreenOnLabels()[c], onPress: () => setKeepScreenOn(c) }))}
+        lang={globalState.interfaceLanguage}
+        active={choice} />
+      <Text style={[langStyle, theme.secondaryText, { fontSize: 13, marginTop: 6, marginHorizontal: 4 }]}>
+        {strings.settings.keep_screen_on_note}
+      </Text>
+    </View>
+  );
+};
+
 export const SefariaLinksSetting = ({ langStyle }) => {
   const globalState = useContext(GlobalStateContext);
   const theme = getTheme(globalState.themeStr);
@@ -496,6 +527,7 @@ const SettingsPage = ({ close, openUri }) => {
             <Text style={[langStyle, styles.settingsSectionHeader, theme.tertiaryText]}>{strings.settings.system}</Text>
           </TouchableWithoutFeedback>
           <OfflineSearchSetting langStyle={langStyle} />
+          <KeepScreenOnSetting langStyle={langStyle} />
           <SefariaLinksSetting langStyle={langStyle} />
           <AppVersionSection
             versionNumber={VersionNumber.appVersion}

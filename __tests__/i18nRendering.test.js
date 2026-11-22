@@ -23,7 +23,7 @@ import he from '../i18n/he.json';
 import TestContextWrapper from '../TestContextWrapper';
 import { GlobalStateContext, DispatchContext, DEFAULT_STATE } from '../StateManager';
 import { iconData } from '../IconData';
-import SettingsPage, { SefariaLinksSetting, OfflineSearchSetting } from '../SettingsPage';
+import SettingsPage, { SefariaLinksSetting, OfflineSearchSetting, KeepScreenOnSetting } from '../SettingsPage';
 import { _setOfflineSearchForTests } from '../searchPrefs';
 import ConnectionsPanel from '../ConnectionsPanel';
 import ConnectionsPanelHeader from '../ConnectionsPanelHeader';
@@ -868,6 +868,14 @@ describe('"Offline search" (Settings)', () => {
   });
 });
 
+describe('"Keep the screen on" (Settings)', () => {
+  test('its name, its four choices and what they mean, in both languages', async () => {
+    await expectSettledScreenLocalizes(wrap(KeepScreenOnSetting, { langStyle: {} }),
+      ['settings.keep_screen_on', 'settings.keep_screen_on_off', 'settings.keep_screen_on_10',
+        'settings.keep_screen_on_30', 'settings.keep_screen_on_always', 'settings.keep_screen_on_note']);
+  });
+});
+
 describe('Libraries (Settings): the other libraries rows', () => {
   test('a library in the library: its status and choices, opened, in both languages', () => {
     const ex = require('../extras');
@@ -1269,6 +1277,7 @@ describe('Strings with placeholders', () => {
     'extras.downloaded_count': { count: 12 },
     'extras.downloading': { title: 'זמרת הארץ' },
     'extras.license_line': { license: 'Public Domain' },
+    'connections.report_error_no_email': { email: 'corrections@sefaria.org' },
     'extras.not_downloaded_message': { title: 'זמרת הארץ' },
     'extras.progress_pages': { done: 12, total: 340 },
     'extras.progress_percent': { percent: 42 },

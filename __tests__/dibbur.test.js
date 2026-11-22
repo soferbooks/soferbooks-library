@@ -132,3 +132,19 @@ describe('gematria guard and inconsistent leading verse markers', () => {
     expect(stripLeadingVerseMarker('<b>שיר השירים</b> אשר לשלמה')).toBe('<b>שיר השירים</b> אשר לשלמה');
   });
 });
+
+describe('the commentator\'s own "ה"ג" is not bold (it is not the Gemara\'s words)', () => {
+  const { boldDibbur, stripLeadingVerseMarker } = require('../reader/dibbur');
+  test('before the dibbur: left as it is, the quoted words bold', () => {
+    expect(boldDibbur('ה"ג מכדי תנא היכא קאי. ועוד')).toBe('ה"ג <b>מכדי תנא היכא קאי.</b> ועוד');
+    expect(boldDibbur('ה״ג: ובלבד שלא - ועוד')).toBe('ה״ג: <b>ובלבד שלא</b> - ועוד');
+    expect(boldDibbur('הכי גרסינן אמר רבא. כו\'')).toBe('הכי גרסינן <b>אמר רבא.</b> כו\'');
+  });
+  test('a word only starting with its letters is no "ה"ג"', () => {
+    expect(boldDibbur('הגיע זמן. ועוד')).toBe('<b>הגיע זמן.</b> ועוד');
+  });
+  test('in the source\'s own bold: taken out of it', () => {
+    expect(boldDibbur('<b>ה"ג מכדי תנא</b> כו\'')).toBe('ה"ג <b>מכדי תנא</b> כו\'');
+    expect(stripLeadingVerseMarker('<b>ה"ג מכדי</b> כו\'')).toBe('ה"ג <b>מכדי</b> כו\'');
+  });
+});

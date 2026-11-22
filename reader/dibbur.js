@@ -20,8 +20,16 @@
  */
 
 export const DIBBUR_MAX_WORDS = 15;
-// a label before the dibbur that stays as it is: "[מתני']:", "גמרא:", "מתני':"
-const DIBBUR_LABEL = /^\s*(?:\[[^\]]{1,20}\]\s*:?|(?:גמרא|גמ['׳]|מתני['׳]|מתניתין)\s*:)\s*/;
+// a label before the dibbur that stays as it is: "[מתני']:", "גמרא:", "מתני':"; and the commentator's
+// own "ה"ג" (הכי גרסינן, "so we read"), which is not the Gemara's words (owner, 2026-11-22: "ה"ג
+// should not be in bold since its not from the actual gemara")
+const GIRSA = String.raw`(?:ה["״'׳]{1,2}ג|הכי\s+גרסינן|גרסינן)`;
+const DIBBUR_LABEL = new RegExp(String.raw`^\s*(?:\[[^\]]{1,20}\]\s*:?|(?:גמרא|גמ['׳]|מתני['׳]|מתניתין)\s*:|${GIRSA}(?=[\s:])\s*:?)\s*`);
+// (a comment whose source puts its "ה"ג" in its bold: the label taken out of the bold)
+const BOLD_GIRSA = new RegExp(String.raw`^(\s*)<(b|strong)>(\s*${GIRSA}\s*:?\s+)`);
+
+/** A comment whose own bold starts with "ה"ג": the "ה"ג" before the bold, not in it */
+export const unboldGirsa = html => (typeof html === 'string' ? html.replace(BOLD_GIRSA, '$1$3<$2>') : html);
 const DIBBUR_END = /\s[–—-]\s|\./g;
 
 // markup._TAGS_COMMON's HTML tags -> Sofer's style names
@@ -113,7 +121,7 @@ const LEADING_VERSE_MARKER = /^\s*(?:<(?:b|strong)>\s*)?(?:(?:פסוק|פס['׳]
 /** Strip an inconsistent leading verse marker ("(ב) ", "[ב] ", "פסוק ב: ") from a comment. */
 export function stripLeadingVerseMarker(html) {
   if (typeof html !== 'string' || !html) { return html; }
-  return html.replace(LEADING_VERSE_MARKER, '');
+  return unboldGirsa(html.replace(LEADING_VERSE_MARKER, ''));
 }
 
 /**
@@ -142,6 +150,7 @@ function dibburSpan(toks) {
 /** A comment's HTML with its dibbur hamaschil in <b>, when the source did not make it bold */
 export function boldDibbur(html) {
   if (typeof html !== 'string' || !html) { return html; }
+  html = unboldGirsa(html);
   const toks = tokenize(html);
   const span = dibburSpan(toks);
   if (!span) { return html; }

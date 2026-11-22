@@ -303,7 +303,9 @@ global.Sefaria = {
   },
   vowelToggleAvailability: function(segmentArray) {
     if(!segmentArray || segmentArray.length == 0) return VOCALIZATION.NONE;
-    const sample = segmentArray[0]['he'];
+    // (the first few passages, not the first alone: a Gemara page whose first line is a heading or
+    //  empty had no vowels switch)
+    const sample = segmentArray.slice(0, 6).map(s => (s && typeof s.he === 'string' ? s.he : '')).join(' ');
     const vowels_re = /[\u05b0-\u05c3\u05c7\u05c8]/g;   // (U+05C8: the shva na, as Phonetic MAM writes it)
     const cantillation_re = /[\u0591-\u05af]/g;
     if (cantillation_re.test(sample)) {
@@ -1592,11 +1594,8 @@ Sefaria.util = {
     if (query.length) {
         url += `?${query}`;
     }
-    // check if we can use this link
-    const canOpen = await Linking.canOpenURL(url);
-    if (!canOpen) {
-        throw new Error('Provided URL can not be handled');
-    }
+    // (opened without asking first: Android 11 and up answer canOpenURL "no" for apps it may not
+    //  name to this one, though one opens the link; a failure is the caller's to handle)
     return Linking.openURL(url);
   },
   // very naive guess at what the function should be

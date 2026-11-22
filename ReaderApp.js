@@ -137,6 +137,7 @@ import {
   setNakdanForBook,
 } from "./reader/nakdanPrefs";
 import { NakdanAskCard, NakdanCredit } from "./reader/NakdanNotices";
+import { startKeepScreenOn, noteTouch } from "./reader/keepScreenOn";
 import { readingEditions } from "./reader/editionNotes";
 import { VOCALIZATION } from "./VocalizationEnum";
 import {
@@ -350,6 +351,7 @@ class ReaderApp extends React.PureComponent {
   }
 
   componentDidMount() {
+    startKeepScreenOn();   // (the screen kept on while reading, as chosen in Settings)
     // add handleOpenURL listener before running initFiles so that _initDeepLinkURL will be set in time
     // the link that started the app (a sefaria.org link tapped elsewhere) counts as from outside
     Linking.getInitialURL().then(url => { this.handleOpenURLNamedParam({ url, fromOutside: true }); }).catch(err => {
@@ -2477,7 +2479,16 @@ ${strings.formatString(strings.extras.download_size, size)}` : '';
       version: versionOnScreen(this.state.currVersionObjects, this.props.textLanguage),
       platform: Platform.OS,
     });
-    Sefaria.util.openComposedEmail(to, subject, body);
+    // (owner, 2026-11-22: "Report error button not working" - a phone that said it had nothing to
+    //  open a mailto: link with, or a link too long for it, did nothing at all: the report is then
+    //  offered to share or copy, with the address to send it to)
+    const offer = () => Alert.alert(strings.connections.report_error,
+      strings.formatString(strings.connections.report_error_no_email, {email: to}), [
+        {text: strings.common.share, onPress: () => Share.share({message: [to, body].join('\n\n'), title: subject}).catch(() => {})},
+        {text: strings.common.copy, onPress: () => { Clipboard.setString([to, subject, body].join('\n\n')); this.showToast(strings.common.copied_to_clipboard); }},
+        {text: strings.common.cancel, style: 'cancel'},
+      ]);
+    Sefaria.util.openComposedEmail(to, subject, body).catch(offer);
   };
 
   copyCurrentSegment = (sectionIndex, segmentIndex, segmentRef) => {
@@ -3349,8 +3360,9 @@ ${strings.formatString(strings.extras.download_size, size)}` : '';
     const nakdanOn = nakdanWanted(this.state.nakdanPrefs, nakdanBook, this.props.vocalization);
     const mainLacksNikud = !!nakdanBook && vowelToggleAvailable === VOCALIZATION.NONE &&
       sectionLacksNikud(this.state.data[this.state.sectionIndexRef]);
-    const nakdanSwitchAvailable = !!nakdanBook && this.props.vocalization !== VOCALIZATION.NONE &&
-      (vowelToggleAvailable === VOCALIZATION.NONE || !!inlineCommentary);
+    // (also beside a text with its own nikud: the commentaries in the connections panel - Rashi has
+    //  none - owner, 2026-11-22: "I don't see nikkud option. Looking at gemara with nikkud, Rashi without")
+    const nakdanSwitchAvailable = !!nakdanBook && this.props.vocalization !== VOCALIZATION.NONE;
     const showNakdanAsk = false;  // popup hidden; toggle lives in Aa menu & Settings
     const showNakdanCredit = !loading && nakdanOn && (mainLacksNikud || !!inlineCommentary);
     return (
@@ -3485,6 +3497,7 @@ ${strings.formatString(strings.extras.download_size, size)}` : '';
                 showInline={this.showInlineFromPanel}
                 canShowInline={!isSheet && this.state.textFlow !== 'continuous'}
                 inlineKeyFor={this.inlineKeyForRef}
+                nakdan={nakdanOn}
                 inlineCommentary={inlineCommentary}
                 setConnectionsMode={this.setConnectionsMode}
                 openFilter={this.openFilter}
@@ -3639,7 +3652,7 @@ ${strings.formatString(strings.extras.download_size, size)}` : '';
 
     return (
       <ReaderAppContext.Provider value={readerAppContextData}>
-        <View style={styles.rootContainer}>
+        <View style={styles.rootContainer} onTouchStart={noteTouch}>
           <SafeAreaView edges={["top"]} style={[{ flex: 0 }, safeViewStyle]} />
           <SafeAreaView
              edges={this.getBottomSafeAreaEdges(this.state.menuOpen)}
