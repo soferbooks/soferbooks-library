@@ -101,13 +101,13 @@ let lastBundle = null;
  * on the app's own release, converted on the phone (toTree). `replaces`: Sefaria's copy, which this
  * one is used instead of (extras/catalog.js: the library, links and refs open ours).
  */
-export const APP_BOOKS_URL = `https://github.com/${REPO}/releases/download/sofer-app-books-2026-11-20c`;
+export const APP_BOOKS_URL = `https://github.com/${REPO}/releases/download/sofer-app-books-2026-11-22`;
 export const APP_BOOKS = [{
   source: ID,
   id: 'app:siddur-edot-hamizrach',
   kind: 'sefaria-json',
-  hash: '556f4285bac9485938608f444b585a7e',
-  md5: '556f4285bac9485938608f444b585a7e',
+  hash: '251eee3182f4af2705c8f0287afcf667',
+  md5: '251eee3182f4af2705c8f0287afcf667',
   title: 'Siddur Edot HaMizrach (SoferBooks)',
   enTitle: 'Siddur Edot HaMizrach',
   heTitle: 'סידור נוסח עדות המזרח',
@@ -116,7 +116,7 @@ export const APP_BOOKS = [{
   license: 'CC-BY-SA',
   file: 'siddur-edot-hamizrach-sofer.zip',
   url: `${APP_BOOKS_URL}/siddur-edot-hamizrach-sofer.zip`,
-  size: 1060024,
+  size: 1092983,
   versionTitle: 'SoferBooks (Shaliehsaboo edition, Wikisource)',
   versionSource: 'https://he.wikisource.org/wiki/סידור_(מהדורת_מרדכי_שליח_ציבור)',
   preferred: true,
@@ -181,6 +181,40 @@ export function sefariaJsonTree(json) {
   };
   for (const node of (json && json.schema && json.schema.nodes) || []) { add(root, node, json.text && json.text[node.key]); }
   return [root, ''];
+}
+
+/**
+ * The contents a book in Sefaria's JSON format gives itself ("sofer_contents": the siddur's parts as
+ * Wikisource has them, each prayer in its part and the headings inside it - owner, 2026-11-22: "It
+ * should have main and sub categories like it has in wiki") as the index's own structure, which the
+ * book's contents page shows in place of its one long list (ReaderTextTableOfContents: alts). The
+ * sections stay as they are, so every ref stays the same. refs: the book's sections' refs, in order
+ * (bookFiles). -> {alts, default_struct, exclude_structs} or null.
+ */
+export function soferContentsExtras(json, tree, refs) {
+  const parts = json && json.sofer_contents;
+  if (!Array.isArray(parts) || !parts.length || !tree) { return null; }
+  // (the schema's sections, each its ref: an empty one has none - bookFiles leaves it out)
+  const refOf = [];
+  let k = 0;
+  for (const c of tree.children) { refOf.push(c.empty() ? null : refs[k++] || null); }
+  const link = (he, ref) => ({nodeType: 'ArrayMapNode', title: he, heTitle: he, wholeRef: ref, depth: 0});
+  const nodes = parts.map(p => {
+    const secs = (p.secs || []).map(s => {
+      const ref = refOf[s.i];
+      if (!ref) { return null; }
+      const subs = (s.subs || []).filter(([he, n]) => he && n >= 1);
+      if (!subs.length) { return link(s.he, ref); }
+      // (the prayer from its start, then its headings: each opens at its own paragraph)
+      return {
+        title: s.he, heTitle: s.he,
+        nodes: [link(s.he, ref), ...subs.map(([he, n]) => link(he, n > 1 ? `${ref} ${n}` : ref))],
+      };
+    }).filter(Boolean);
+    return secs.length ? {title: p.he, heTitle: p.he, nodes: secs} : null;
+  }).filter(Boolean);
+  if (!nodes.length) { return null; }
+  return {alts: {Contents: {nodes}}, default_struct: 'Contents', exclude_structs: ['schema']};
 }
 
 export async function hostedBundle(fetchFn = (...a) => fetch(...a)) {
@@ -458,6 +492,8 @@ export default {
   convert,
   // (the app's own editions only - the others come ready made: convert)
   toTree: doc => sefariaJsonTree(doc && doc.json),
+  // (the siddur's own contents: its parts and the headings inside its prayers)
+  indexExtras: (doc, tree, refs) => soferContentsExtras(doc && doc.json, tree, refs),
   // (the licences are checked when the release is built: build_sofer_library.py)
   isRestricted: () => false,
   versionOf,

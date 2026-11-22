@@ -37,8 +37,10 @@ export function useHTMLViewStyles(bilingual, textType, fontSizeOverride = null, 
         small: {
           fontSize: fontSize * 0.8 * (textType === "hebrew" ? 1 : 0.8)
         },
+        // (big letters shown big again - owner, 2026-11-22: the siddur's big letters "didn't carry
+        //  over"; Sefaria's app had them at the text's size, as they were cut off at the line's top)
         big: {
-          fontSize,  // disabling big tags for now because they cause line to get cutoff
+          fontSize: fontSize * 1.2 * (textType === "hebrew" ? 1 : 0.8),
         },
         sup : {
           fontSize: fontSize * 0.6 * (textType === "hebrew" ? 1 : 0.8)

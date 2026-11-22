@@ -380,6 +380,9 @@ export function convertBook(entry, text) {
     // (a source with more than one edition of the book - Dicta's with nikud - gives them all)
     ...(source.versionsOf ? {versions: source.versionsOf(entry, text, tree)} : {version: source.versionOf(entry, text)}),
   });
+  // (a book's own contents, beside its sections: extras/sofer.js soferContentsExtras)
+  const more = source.indexExtras ? source.indexExtras(text, tree, sections) : null;
+  if (more && files[`${entry.title}_index.json`]) { Object.assign(files[`${entry.title}_index.json`], more); }
   const companions = source.companions ? source.companions(tree, entry, {files, sections}, text) : [];
   return {files, firstSection, companions, tree};
 }
