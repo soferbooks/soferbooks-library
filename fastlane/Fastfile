@@ -204,6 +204,17 @@ platform :ios do
     sub = open.find { |o| o.state == states::UNRESOLVED_ISSUES } ||
           open.find { |o| o.state == states::READY_FOR_REVIEW } ||
           app.create_review_submission(platform: Spaceship::ConnectAPI::Platform::IOS)
+    # (what Apple has: the submission's items and the review attachment's processing - read only)
+    require "net/http"
+    require "json"
+    show = lambda do |path|
+      u = URI("https://api.appstoreconnect.apple.com#{path}")
+      r = Net::HTTP.start(u.host, u.port, use_ssl: true) { |h| h.request(Net::HTTP::Get.new(u, "Authorization" => "Bearer #{Spaceship::ConnectAPI.token.text}")) }
+      UI.message("GET #{path} -> #{r.code}")
+      puts(JSON.pretty_generate(JSON.parse(r.body))) rescue puts(r.body)
+    end
+    show.call("/v1/reviewSubmissions/#{sub.id}/items?include=appStoreVersion")
+    show.call("/v1/appStoreVersions/#{version.id}/appStoreReviewDetail?include=appStoreReviewAttachments")
     if sub.state == states::UNRESOLVED_ISSUES
       begin
         sub.latest_resolution_center_messages.each do |m|
