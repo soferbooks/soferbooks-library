@@ -143,7 +143,11 @@ platform :ios do
       issuer_id:    ENV["APP_STORE_CONNECT_API_ISSUER_ID"],
       key_filepath: "/tmp/AuthKey.p8",
     )
-    version = get_version_number(xcodeproj: "./ios/ReaderApp.xcodeproj", target: "ReaderApp")
+    # (the version the TestFlight builds carry: deploy-ios.yml gives `beta` the one in android/app/build.gradle -
+    #  the Xcode project's MARKETING_VERSION is Sefaria's and is not what was uploaded)
+    gradle = File.read("../android/app/build.gradle")
+    version = %w[MAJOR MINOR PATCH].map { |k| gradle[/^def VERSION_#{k}=\s*(\d+)/, 1] }.join(".")
+    UI.user_error!("no version in android/app/build.gradle") unless version.match?(/\A\d+\.\d+\.\d+\z/)
     deliver(
       api_key:                    api_key,
       app_identifier:             BUNDLE_ID,
