@@ -97,6 +97,7 @@ import {
   mostRecentUnpinnedTabForBook,
   resolveTabShortcut,
   MAX_PINNED_TABS,
+  getActiveTab,
 } from "./tabs/tabState";
 import { loadTabs, makeDebouncedTabSaver } from "./tabs/tabStorage";
 import {
@@ -388,6 +389,16 @@ class ReaderApp extends React.PureComponent {
   }
 
   componentDidUpdate(prevProps, prevState) {
+    // The menus and the home page in the reader's own language (its setting), a tab in its own:
+    // however the app moves between them (a menu, Back, a tab) - an English search result's tab
+    // had left the whole app English (2026-11-22)
+    if (!!this.state.menuOpen !== !!prevState.menuOpen) {
+      const tab = !this.state.menuOpen && this.state.readerTabs ? getActiveTab(this.state.readerTabs) : null;
+      const want = this.state.menuOpen ? this.props.savedTextLanguage : (tab && tab.textLanguage);
+      if (want && want !== this.props.textLanguage) {
+        this.props.dispatch({ type: STATE_ACTIONS.setTextLanguage, value: want, fromTab: true });
+      }
+    }
     if (this._libraryPromptPending && prevProps.contentFilter == null && this.props.contentFilter != null) {
       this.promptLibraryDownload();  // the content-filter setting has just loaded
     }
@@ -741,13 +752,14 @@ class ReaderApp extends React.PureComponent {
     this.closeReaderDisplayOptionsMenu();
   };
 
-  setTextLanguage = (textLanguage, textFlow) => {
+  setTextLanguage = (textLanguage, textFlow, fromTab = false) => {
     // try to be less dependent on state in this func because it is called in componentWillUpdate
     textFlow = textFlow || this.state.textFlow;
     
     this.props.dispatch({
       type: STATE_ACTIONS.setTextLanguage,
       value: textLanguage,
+      fromTab,       // (the app choosing it for a tab: not the reader's setting - StateManager)
     });
     
     if (textLanguage === "bilingual" && textFlow === "continuous") {
@@ -1680,7 +1692,7 @@ ${strings.formatString(strings.extras.download_size, size)}` : '';
         if (!!newVersions['en'] && !!newVersions['he']) { newTextLang = "bilingual"; }
         else if (!!newVersions['en']) { newTextLang = "english"; }
         else if (!!newVersions['he']){ newTextLang = "hebrew"; }
-        this.setTextLanguage(newTextLang, null);
+        this.setTextLanguage(newTextLang, null, true);
       }
 
       if (addToBackStack) {
@@ -2592,7 +2604,7 @@ ${strings.formatString(strings.extras.download_size, size)}` : '';
     // each tab keeps its language; applied once the tab is showing, so it is recorded on the right tab
     const applyTabLanguage = () => {
       if (tab.textLanguage && tab.textLanguage !== this.props.textLanguage) {
-        this.props.dispatch({ type: STATE_ACTIONS.setTextLanguage, value: tab.textLanguage });
+        this.props.dispatch({ type: STATE_ACTIONS.setTextLanguage, value: tab.textLanguage, fromTab: true });
       }
     };
     this._loadToken++;  // ignore anything still loading for the previous tab

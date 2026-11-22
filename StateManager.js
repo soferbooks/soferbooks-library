@@ -203,6 +203,7 @@ const DEFAULT_STATE = {
   //theme: themeWhite,
   themeStr: ASYNC_STORAGE_DEFAULTS.color.default,
   textLanguage: ASYNC_STORAGE_DEFAULTS.textLanguage.default,
+  savedTextLanguage: ASYNC_STORAGE_DEFAULTS.textLanguage.default,   // (the reader's setting: textLanguage may be a tab's)
   interfaceLanguage: ASYNC_STORAGE_DEFAULTS.interfaceLanguage.default,
   readingHistory: ASYNC_STORAGE_DEFAULTS.readingHistory.default,
   preferredCustom: ASYNC_STORAGE_DEFAULTS.preferredCustom.default,
@@ -249,10 +250,19 @@ const reducer = function (state, action) {
       };
       break;
     case STATE_ACTIONS.setTextLanguage:
+      // (fromTab: the language the app shows a tab in - a tab's own, a passage opened in its English
+      //  translation - applies to it only: it is not the reader's setting, which the menus and the
+      //  home page follow. Opening an English search result had made the whole app English for
+      //  good - the 32-bit tablet, 2026-11-22)
+      if (action.fromTab) {
+        newState = {...state, textLanguage: action.value};
+        break;
+      }
       if (!action.fromAsync) { saveFieldToAsync('textLanguage', action.value); }
       newState = {
         ...state,
         textLanguage: action.value,
+        savedTextLanguage: action.value,
       };
       break;
     case STATE_ACTIONS.setInterfaceLanguage:
