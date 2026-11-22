@@ -1,0 +1,45 @@
+# App Review's notes and real-iPhone recording for SoferBooks Library (Mordy, 2026-11-22), run by hand from the
+# Actions tab: fastlane's `review` lane (fastlane/Fastfile) uploads fastlane/metadata/review_information and
+# fastlane/review/app-in-use.mp4 with the App Store Connect key, and, with "submit" ticked, sends the newest
+# TestFlight build of the version in the Xcode project for review. The store listing and screenshots are not touched.
+name: 📝 iOS App Review notes and recording
+
+on:
+  workflow_dispatch:
+    inputs:
+      submit:
+        description: 'Submit the newest TestFlight build for review (otherwise only the notes and recording are uploaded)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Ruby + Fastlane
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: true
+
+      - name: App Store Connect key
+        run: echo "${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}" | base64 --decode > /tmp/AuthKey.p8
+
+      - name: Review notes, recording and (if ticked) submission
+        run: bundle exec fastlane ios review
+        env:
+          APP_STORE_CONNECT_API_KEY_ID:    ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+          FASTLANE_TEAM_ID:                ${{ secrets.APPLE_TEAM_ID }}
+          SUBMIT:                          ${{ inputs.submit }}
+
+      - name: Cleanup
+        if: always()
+        run: rm -f /tmp/AuthKey.p8

@@ -132,4 +132,37 @@ platform :ios do
     end
     upload_to_testflight(testflight_options)
   end
+
+  # App Review's notes and its real-iPhone recording (metadata/review_information, review/app-in-use.mp4:
+  # Mordy, 2026-11-22), and, with SUBMIT=true, the newest TestFlight build sent for review. Only those: the
+  # store listing and its screenshots, set on the website, are left as they are.
+  desc "App Review's notes and recording; with SUBMIT=true the newest build sent for review"
+  lane :review do
+    api_key = app_store_connect_api_key(
+      key_id:       ENV["APP_STORE_CONNECT_API_KEY_ID"],
+      issuer_id:    ENV["APP_STORE_CONNECT_API_ISSUER_ID"],
+      key_filepath: "/tmp/AuthKey.p8",
+    )
+    version = get_version_number(xcodeproj: "./ios/ReaderApp.xcodeproj", target: "ReaderApp")
+    deliver(
+      api_key:                    api_key,
+      app_identifier:             BUNDLE_ID,
+      platform:                   "ios",
+      app_version:                version,
+      skip_binary_upload:         true,
+      skip_screenshots:           true,
+      metadata_path:              "./fastlane/metadata",
+      app_review_attachment_file: (File.exist?("review/app-in-use.mp4") ? "./fastlane/review/app-in-use.mp4" : nil),
+      submit_for_review:          ENV["SUBMIT"] == "true",
+      automatic_release:          false,
+      force:                      true,
+      run_precheck_before_submit: false,
+      submission_information: {
+        add_id_info_uses_idfa:                       false,
+        export_compliance_uses_encryption:           false,
+        content_rights_contains_third_party_content: true,
+        content_rights_has_rights:                   true,
+      },
+    )
+  end
 end

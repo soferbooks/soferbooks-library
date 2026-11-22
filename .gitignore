@@ -119,3 +119,5 @@ qa-screens/
 sefaria-packs/
 sofer-library*/
 release-apk/
+# the owner's App Review recordings as cut (fastlane/review/ has the one sent)
+app-review-videos/

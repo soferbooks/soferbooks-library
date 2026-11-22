@@ -1,0 +1,11 @@
+1. Screen recording: attached (app-in-use.mp4), made on a physical iPhone. It shows the typical use: the home page (open tabs, continue reading, the library's shelves), opening Bereshit, the reading settings (language, colour, font and text size), a passage's connections (commentaries, translations, copy, share, report an error), searching for a book, and a book's table of contents. The app has no account, no login, no user-generated content and no paid content.
+
+2. Purpose and audience: SoferBooks Library is a free offline library of classic Jewish texts (Tanakh, Mishnah, Talmud, Halacha, commentaries, prayer books and more) for people who study them, made by Sofer Books LLC with the Great Neck Kollel (Ohr HaEmet, a 501(c)(3) non-profit). It is based on Sefaria's open-source mobile app (GPL-3.0). The books are downloaded to the device so they can be read without an internet connection, and a content filter lets each user choose which books are shown.
+
+3. How to use: no login. Launch the app: the home page lists the library's sections; tap one to browse, or use Search at the bottom. Tap a passage to see its commentaries and other connections. The "A" button at the top changes the language, colour and size of the text. Settings (bottom right) chooses which libraries and books are kept on the device.
+
+4. External services (no account, no key; nothing about the user is sent or kept): Sefaria (sefaria.org) for texts and their connections; Dicta (dicta.org.il) for some books and, only when the user switches it on, adding vowels (nikud) to a passage; Otzaria, Hebrew Wikisource and Pninim for further books; GitHub for the app's own book files. Reading history and saved texts stay on the device.
+
+5. Regions: the app works the same in all regions.
+
+6. Third-party material: the texts come from Sefaria, Dicta, Otzaria, Hebrew Wikisource and Pninim under their own free licences (shown on each book's information page). No protected or licensed material.
