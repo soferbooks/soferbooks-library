@@ -16,6 +16,10 @@ import strings from './LocalizedStrings';
 import {useGlobalState} from './Hooks.js';
 import Sefaria from './sefaria';
 import {displayHeRef} from './extras/schema7';
+import * as extras from './extras';
+
+// (previews from Sefaria's site: no longer than this - the list is shown without them meanwhile)
+const PREVIEW_TIMEOUT_MS = 8000;
 
 // History and saved items live only on this phone (see history.js loadLocalHistory).
 const useLoadLocalHistory = () => useCallback(async () => {
@@ -164,14 +168,19 @@ const UserReadingList = ({mode, changeMode, openRef, openMenu, hasInternet}) => 
     }, [mode, dedupeAndNormalizeHistoryArray]);
 
     const getAnnotatedItems = useCallback(async (refs) => {
-        // Text previews come from the online API; offline, items show their ref only.
-        if(!hasInternet){
+        // Text previews come from the online API; offline, items show their ref only. Only Sefaria's
+        // own books are asked about (the other libraries' are not on its site), and not for long.
+        const asked = refs.filter(ref => !extras.isExtraTitle(Sefaria.textTitleForRef(ref)));
+        if(!hasInternet || !asked.length){
             return {};
         }
         try {
-            return await Sefaria.api.getBulkText(refs, true);
+            return await Promise.race([
+                Sefaria.api.getBulkText(asked, true),
+                new Promise(resolve => setTimeout(() => resolve({}), PREVIEW_TIMEOUT_MS)),
+            ]);
         } catch (error) {
-            console.error(error);
+            console.log('history: previews', error);
             return {};
         }
     }, [hasInternet]);
@@ -204,10 +213,13 @@ const UserReadingList = ({mode, changeMode, openRef, openMenu, hasInternet}) => 
             return;
         }
         setLoadingState(prev => ({...prev, loadingAPIData: true}));
+        // (the items at once, from this phone; their previews joined when Sefaria's site sends them -
+        //  the page showed only a spinner while it waited, for good when the request hung: 2026-11-22)
+        const shown = nitems.filter(item => !item.hasOwnProperty('error'));
+        setData(prevItems => [...prevItems, ...shown]);
         getAnnotatedNextItems(nitems).then( nextItems => {
-            setData(prevItems => {
-                return [...prevItems, ...nextItems];
-            });
+            const byRef = new Map(nextItems.map(item => [item.ref, item]));
+            setData(prevItems => prevItems.map(item => byRef.get(item.ref) || item));
             setLoadingState(prev => ({
                 ...prev,
                 hasMoreData: (prev.currSkipLoaded + SKIP_STEP) < localData.length,  // Use prev.currSkipLoaded instead of closure value
