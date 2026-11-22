@@ -148,6 +148,9 @@ platform :ios do
     gradle = File.read("../android/app/build.gradle")
     version = %w[MAJOR MINOR PATCH].map { |k| gradle[/^def VERSION_#{k}=\s*(\d+)/, 1] }.join(".")
     UI.user_error!("no version in android/app/build.gradle") unless version.match?(/\A\d+\.\d+\.\d+\z/)
+    # (ONLY_SUBMIT: the notes and recording uploaded by an earlier run are left to finish processing - each upload
+    #  replaces the attachment, and Apple answers "Version is not ready to be submitted yet" while it is processed)
+    unless ENV["ONLY_SUBMIT"] == "true"
     deliver(
       api_key:                    api_key,
       app_identifier:             BUNDLE_ID,
@@ -168,7 +171,8 @@ platform :ios do
         content_rights_has_rights:                   true,
       },
     )
-    submit_open_submission if ENV["SUBMIT"] == "true"
+    end
+    submit_open_submission if ENV["SUBMIT"] == "true" || ENV["ONLY_SUBMIT"] == "true"
   end
 
   # Apple keeps one open review submission per app (2026-11-22: deliver refused with "A review submission is
@@ -180,6 +184,7 @@ platform :ios do
     app = Spaceship::ConnectAPI::App.find(BUNDLE_ID)
     version = app.get_edit_app_store_version(platform: Spaceship::ConnectAPI::Platform::IOS)
     UI.user_error!("no App Store version to submit") unless version
+    UI.message("Version #{version.version_string}: #{version.app_store_state}")
     # (the newest processed build of this version: deliver picks it only when it submits itself)
     build = Spaceship::ConnectAPI::Build.all(app_id: app.id, version: version.version_string, processing_states: "VALID",
                                              platform: Spaceship::ConnectAPI::Platform::IOS).first

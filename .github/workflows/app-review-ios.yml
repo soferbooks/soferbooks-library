@@ -11,6 +11,10 @@ on:
         description: 'Submit the newest TestFlight build for review (otherwise only the notes and recording are uploaded)'
         type: boolean
         default: false
+      only_submit:
+        description: 'Only submit: leave the notes and recording an earlier run uploaded (they need a few minutes to process)'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -39,6 +43,7 @@ jobs:
           APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
           FASTLANE_TEAM_ID:                ${{ secrets.APPLE_TEAM_ID }}
           SUBMIT:                          ${{ inputs.submit }}
+          ONLY_SUBMIT:                     ${{ inputs.only_submit }}
 
       - name: Cleanup
         if: always()
