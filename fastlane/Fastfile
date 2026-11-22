@@ -213,7 +213,18 @@ platform :ios do
     rescue StandardError => e
       UI.message("Version #{version.version_string} is in the submission already (#{e.message.lines.first&.strip})")
     end
-    sub.submit_for_review
+    # (sent here, not by sub.submit_for_review: fastlane's error drops Apple's list of what blocks it - "associatedErrors")
+    require "net/http"
+    require "json"
+    uri = URI("https://api.appstoreconnect.apple.com/v1/reviewSubmissions/#{sub.id}")
+    req = Net::HTTP::Patch.new(uri, "Content-Type" => "application/json", "Authorization" => "Bearer #{Spaceship::ConnectAPI.token.text}")
+    req.body = { data: { type: "reviewSubmissions", id: sub.id, attributes: { submitted: true } } }.to_json
+    res = Net::HTTP.start(uri.host, uri.port, use_ssl: true) { |http| http.request(req) }
+    unless res.is_a?(Net::HTTPSuccess)
+      UI.error("Apple refused the submission (#{res.code}):")
+      puts(JSON.pretty_generate(JSON.parse(res.body))) rescue puts(res.body)
+      UI.user_error!("not submitted: see Apple's answer above")
+    end
     UI.success("Submitted for review: version #{version.version_string}")
   end
 end
