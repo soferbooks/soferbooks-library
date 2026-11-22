@@ -204,17 +204,23 @@ platform :ios do
     sub = open.find { |o| o.state == states::UNRESOLVED_ISSUES } ||
           open.find { |o| o.state == states::READY_FOR_REVIEW } ||
           app.create_review_submission(platform: Spaceship::ConnectAPI::Platform::IOS)
-    # (what Apple has: the submission's items and the review attachment's processing - read only)
+    # (after a rejection the submission's item stays REJECTED, and Apple answers "Version is not ready to be
+    #  submitted yet" until it is marked resolved - what the website's "Resubmit to App Review" does)
     require "net/http"
     require "json"
-    show = lambda do |path|
+    asc = lambda do |verb, path, body = nil|
       u = URI("https://api.appstoreconnect.apple.com#{path}")
-      r = Net::HTTP.start(u.host, u.port, use_ssl: true) { |h| h.request(Net::HTTP::Get.new(u, "Authorization" => "Bearer #{Spaceship::ConnectAPI.token.text}")) }
-      UI.message("GET #{path} -> #{r.code}")
-      puts(JSON.pretty_generate(JSON.parse(r.body))) rescue puts(r.body)
+      req = (verb == :get ? Net::HTTP::Get : Net::HTTP::Patch).new(u, "Content-Type" => "application/json",
+                                                            "Authorization" => "Bearer #{Spaceship::ConnectAPI.token.text}")
+      req.body = body.to_json if body
+      Net::HTTP.start(u.host, u.port, use_ssl: true) { |h| h.request(req) }
     end
-    show.call("/v1/reviewSubmissions/#{sub.id}/items?include=appStoreVersion")
-    show.call("/v1/appStoreVersions/#{version.id}/appStoreReviewDetail?include=appStoreReviewAttachments")
+    items = JSON.parse(asc.call(:get, "/v1/reviewSubmissions/#{sub.id}/items").body)["data"] || []
+    items.select { |it| it.dig("attributes", "state") == "REJECTED" }.each do |it|
+      r = asc.call(:patch, "/v1/reviewSubmissionItems/#{it["id"]}",
+                   { data: { type: "reviewSubmissionItems", id: it["id"], attributes: { resolved: true } } })
+      UI.message("Rejected item marked resolved: #{r.code}#{r.is_a?(Net::HTTPSuccess) ? "" : " " + r.body}")
+    end
     if sub.state == states::UNRESOLVED_ISSUES
       begin
         sub.latest_resolution_center_messages.each do |m|
@@ -230,12 +236,7 @@ platform :ios do
       UI.message("Version #{version.version_string} is in the submission already (#{e.message.lines.first&.strip})")
     end
     # (sent here, not by sub.submit_for_review: fastlane's error drops Apple's list of what blocks it - "associatedErrors")
-    require "net/http"
-    require "json"
-    uri = URI("https://api.appstoreconnect.apple.com/v1/reviewSubmissions/#{sub.id}")
-    req = Net::HTTP::Patch.new(uri, "Content-Type" => "application/json", "Authorization" => "Bearer #{Spaceship::ConnectAPI.token.text}")
-    req.body = { data: { type: "reviewSubmissions", id: sub.id, attributes: { submitted: true } } }.to_json
-    res = Net::HTTP.start(uri.host, uri.port, use_ssl: true) { |http| http.request(req) }
+    res = asc.call(:patch, "/v1/reviewSubmissions/#{sub.id}", { data: { type: "reviewSubmissions", id: sub.id, attributes: { submitted: true } } })
     unless res.is_a?(Net::HTTPSuccess)
       UI.error("Apple refused the submission (#{res.code}):")
       puts(JSON.pretty_generate(JSON.parse(res.body))) rescue puts(res.body)
