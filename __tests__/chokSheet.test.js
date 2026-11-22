@@ -132,4 +132,25 @@ describe('the outline', () => {
     expect(torah[0].sourceHeRef).toMatch(/בראשית/);
     expect(torah[1].sourceHeRef).toBe('');
   });
+  test('the Torah is given first, while the rest of the day is read (the passages read in the page order)', async () => {
+    const asked = [];
+    let first = null;
+    const rows = await chokRows(['וירא|thu'], {
+      readAtOnce: 2,
+      loadSection: async ref => {
+        asked.push(ref);
+        await new Promise(r => setTimeout(r, 5));
+        return { sectionRef: ref.replace(/:\d+$/, ''), isSectionLevel: !/:\d+$/.test(ref), requestedRef: ref,
+          content: Array.from({ length: 40 }, (_, i) => ({ segmentNumber: i + 1, he: `x${i + 1}`, text: '' })), next: null };
+      },
+      titleOf: ref => ref.replace(/ [\d:ab-]+$/, ''),
+      onFirstPart: partRows => { first = partRows; },
+    });
+    expect(asked[0]).toMatch(/^Genesis 18/);
+    expect(first.filter(r => r.type === 'ref').every(r => r.sectionRef === 'Genesis 18')).toBe(true);
+    expect(first.length).toBeGreaterThan(1);
+    // (the whole day starts with the same rows: the page only grows below them)
+    expect(rows.slice(0, first.length)).toEqual(first);
+    expect(rows.length).toBeGreaterThan(first.length);
+  });
 });

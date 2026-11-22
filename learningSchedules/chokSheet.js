@@ -220,11 +220,12 @@ export const segmentRefOf = (sectionRef, segmentNumber, title) => (sectionRef ==
  * `cite`: the passage's Hebrew name, on its first row. loadSection as for segmentsOf; titleOf(ref)
  * the book's title. A passage that cannot be read is shown by its name, so the day still reads.
  */
-export async function chokRows(keys, { loadSection, titleOf } = {}) {
+export async function chokRows(keys, { loadSection, titleOf, readAtOnce = CHOK_READ_AT_ONCE, onFirstPart = null } = {}) {
   const all = [].concat(keys);
   // (the day's passages - each from another book - read side by side, a few at a time, not one
-  //  after another: the day took long to open on the 32-bit tablet - owner, 2026-11-22)
-  const limit = pLimit(CHOK_READ_AT_ONCE);
+  //  after another: the day took long to open on the 32-bit tablet - owner, 2026-11-22. Read in
+  //  the page's order, so the Torah is read first.)
+  const limit = pLimit(Math.max(1, readAtOnce));
   const segments = new Map();
   const segmentsOfItem = ref => {
     if (!segments.has(ref)) { segments.set(ref, limit(() => segmentsOf(ref, loadSection)).catch(() => [])); }
@@ -235,9 +236,17 @@ export async function chokRows(keys, { loadSection, titleOf } = {}) {
     for (const part of (day && day.parts) || []) { for (const item of part.items) { if (item.r) { segmentsOfItem(item.r); } } }
   }
   const rows = [];
+  let first = true;
   for (const key of all) {
     const day = chokOutline().days[key];
-    if (day) { rows.push(...(await dayRows(key, day, { titleOf, multiple: all.length > 1, segmentsOfItem }))); }
+    if (!day) { continue; }
+    // onFirstPart(rows): the page's first part (the Torah) as soon as it is read, to be shown while
+    // the rest is (owner, 2026-11-22: "so someone reading it will get what they need first")
+    const partDone = first && onFirstPart && day.parts.length > 1
+      ? partRows => { try { onFirstPart(rows.concat(partRows)); } catch (e) { /* the page waits for all */ } }
+      : null;
+    first = false;
+    rows.push(...(await dayRows(key, day, { titleOf, multiple: all.length > 1, segmentsOfItem, partDone })));
   }
   return rows.length ? rows : null;
 }
@@ -250,11 +259,12 @@ export const chokItemRefs = keys => [].concat(keys).flatMap(key => {
   return ((day && day.parts) || []).flatMap(part => part.items.filter(item => item.r && !item.t).map(item => item.r));
 });
 
-async function dayRows(key, day, { titleOf, multiple, segmentsOfItem }) {
+async function dayRows(key, day, { titleOf, multiple, segmentsOfItem, partDone = null }) {
   const parsed = parseKey(key);
   const rows = [];
   if (multiple && parsed) { rows.push({ type: 'outsideText', he: `<big><b>פרשת ${parsed.parshaHe}</b></big>`, text: '' }); }
-  for (const part of day.parts) {
+  for (const [p, part] of day.parts.entries()) {
+    if (p === 1 && partDone) { partDone(rows.slice()); }
     if (part.h) { rows.push({ type: 'outsideText', he: `<big><b>${part.h}</b></big>`, text: '', heading: true }); }
     for (const item of part.items) {
       if (item.t) {

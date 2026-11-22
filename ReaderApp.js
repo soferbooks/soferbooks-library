@@ -156,9 +156,10 @@ const CHOK_TORAH = /^(Genesis|Exodus|Leviticus|Numbers|Deuteronomy) \d/;
 //  Targum Jonathan on the Prophets, "Aramaic Targum to ..." / "Targum of ..." on the Writings)
 const CHOK_NACH_TARGUMS = ['Targum Jonathan', 'Aramaic Targum', 'Targum of'];
 /** The targum's sections for the day's verses, read into memory ahead (fire and forget) */
-const prefetchChokTargums = keys => {
+const prefetchChokTargums = (keys, torah) => {
   const sections = new Set();
   for (const r of chokItemRefs(keys)) {
+    if (CHOK_TORAH.test(r) !== torah) { continue; }  // (the Torah's Onkelos first, then the others')
     const title = Sefaria.textTitleForRef(r);
     const chapter = title && (r.slice(title.length).trim().match(/^(\d+)/) || [])[1];
     if (!chapter) { continue; }
@@ -2851,20 +2852,45 @@ ${strings.formatString(strings.extras.download_size, size)}` : '';
     const keys = keysOfChokRef(ref);
     const titles = chokTitles(keys);
     const loadSection = r => loadTextOfRef(r, true, undefined, true, true).then(x => x && x.textContent);
-    // (the targum's chapters read meanwhile, so it shows with the text, not some seconds after)
-    prefetchChokTargums(keys);
+    // (the targum's chapters read meanwhile, so it shows with the text, not some seconds after:
+    //  the Torah's first, the others' once the Torah is shown)
+    prefetchChokTargums(keys, true);
+    // the Torah shown as soon as it is read, the rest of the day added below it once read
+    // (owner, 2026-11-22: "so someone reading it will get what they need first")
+    let shown = null;
+    const onFirstPart = partRows => {
+      if (loadToken !== this._loadToken || shown) { return; }
+      shown = new Set(partRows.map(row => row.sectionRef).filter(Boolean));
+      this._showChokRows(ref, keys, titles, partRows, loadToken, null);
+      prefetchChokTargums(keys, false);
+    };
     let rows = null;
     try {
-      rows = await chokRows(keys, { loadSection, titleOf: r => Sefaria.textTitleForRef(r) });
+      rows = await chokRows(keys, { loadSection, titleOf: r => Sefaria.textTitleForRef(r),
+        // (more at once where the phone has the memory for it: 3 on a 32-bit Android)
+        readAtOnce: isLowMemoryAndroid ? 3 : 6, onFirstPart });
     } catch (e) {
       console.log('Chok LeYisrael: the day could not be read', e);
     }
     if (loadToken !== this._loadToken) { return; }  // another text or tab replaced this load
     if (!rows) {
+      if (shown) { return; }  // (the Torah is shown: the rest could not be read)
       this.setState({ loaded: true });
       this.textUnavailableAlert(ref);
       return;
     }
+    if (shown) {
+      // (the rest of the day below the Torah: the page itself stays as it is, scrolled where it is)
+      this.setState(prev => (prev.textReference === ref ? { data: [rows] } : null),
+        () => this._loadChokRelated(ref, rows, loadToken, shown).catch(e => console.log('Chok LeYisrael: links', e)));
+      return;
+    }
+    prefetchChokTargums(keys, false);
+    this._showChokRows(ref, keys, titles, rows, loadToken, null);
+  };
+
+  /** The day's page shown with `rows` (all the day's, or its first part while the rest is read) */
+  _showChokRows = (ref, keys, titles, rows, loadToken, skipSections) => {
     // the week's days, to pick another (Thursday night - ליל שישי - among them)
     const first = parseChokKey(keys[0]);
     const dayOf = k => (k === CHOK_THURSDAY_NIGHT.key ? CHOK_THURSDAY_NIGHT : CHOK_DAYS.find(d => d.key === k));
@@ -2914,17 +2940,18 @@ ${strings.formatString(strings.extras.download_size, size)}` : '';
       textListVisible: false,
       dictLookup: null,
       textColumnKey: `chok|${ref}|${Date.now()}`,
-    }, () => this._loadChokRelated(ref, rows, loadToken).catch(e => console.log('Chok LeYisrael: links', e)));
+    }, () => this._loadChokRelated(ref, rows, loadToken, skipSections).catch(e => console.log('Chok LeYisrael: links', e)));
   };
 
   /**
    * The links of each passage on the day's page: each book section's links (offline, else
    * online), one section at a time, given to the rows of that section.
    */
-  _loadChokRelated = async (ref, rows, loadToken) => {
+  _loadChokRelated = async (ref, rows, loadToken, skipSections = null) => {
     const bySection = new Map();
     rows.forEach((row, i) => {
       if (!row.sectionRef) { return; }  // (a passage of a book, or the sheet's own text found in one)
+      if (skipSections && skipSections.has(row.sectionRef)) { return; }  // (read with the day's first part)
       if (!bySection.has(row.sectionRef)) { bySection.set(row.sectionRef, []); }
       bySection.get(row.sectionRef).push(i);
     });
