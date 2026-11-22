@@ -160,7 +160,6 @@ class ConnectionsPanel extends React.PureComponent {
               showInline={this.props.canShowInline ? this.props.showInline : null}
               inlineCommentary={this.props.inlineCommentary}
               inlineKeyFor={this.props.inlineKeyFor}
-              nakdan={!!this.props.nakdan}
               connectionsMode={this.props.connectionsMode}
               loadContent={loadContent}
               recentFilters={recentFilters}

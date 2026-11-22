@@ -3360,9 +3360,8 @@ ${strings.formatString(strings.extras.download_size, size)}` : '';
     const nakdanOn = nakdanWanted(this.state.nakdanPrefs, nakdanBook, this.props.vocalization);
     const mainLacksNikud = !!nakdanBook && vowelToggleAvailable === VOCALIZATION.NONE &&
       sectionLacksNikud(this.state.data[this.state.sectionIndexRef]);
-    // (also beside a text with its own nikud: the commentaries in the connections panel - Rashi has
-    //  none - owner, 2026-11-22: "I don't see nikkud option. Looking at gemara with nikkud, Rashi without")
-    const nakdanSwitchAvailable = !!nakdanBook && this.props.vocalization !== VOCALIZATION.NONE;
+    const nakdanSwitchAvailable = !!nakdanBook && this.props.vocalization !== VOCALIZATION.NONE &&
+      (vowelToggleAvailable === VOCALIZATION.NONE || !!inlineCommentary);
     const showNakdanAsk = false;  // popup hidden; toggle lives in Aa menu & Settings
     const showNakdanCredit = !loading && nakdanOn && (mainLacksNikud || !!inlineCommentary);
     return (
@@ -3497,7 +3496,6 @@ ${strings.formatString(strings.extras.download_size, size)}` : '';
                 showInline={this.showInlineFromPanel}
                 canShowInline={!isSheet && this.state.textFlow !== 'continuous'}
                 inlineKeyFor={this.inlineKeyForRef}
-                nakdan={nakdanOn}
                 inlineCommentary={inlineCommentary}
                 setConnectionsMode={this.setConnectionsMode}
                 openFilter={this.openFilter}

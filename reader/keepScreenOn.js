@@ -1,6 +1,6 @@
 /**
  * Keeping the screen on while reading (owner, 2026-11-22: "can we add a setting to keep screen on
- * (for longer)"). The choice, in Settings: the phone's own timeout ('off'), 10 or 30 minutes after
+ * (for longer)"). The choice, in Settings: the phone's own timeout ('off'), 5, 10 or 30 minutes after
  * the last touch (then the phone's own timeout counts from there), or all the while the app is open.
  * expo-keep-awake does the keeping (Android: the window's FLAG_KEEP_SCREEN_ON; iOS: the idle timer).
  */
@@ -9,7 +9,7 @@ import { AppState } from 'react-native';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 
 export const KEEP_SCREEN_ON_KEY = 'keepScreenOn.v1';
-export const KEEP_SCREEN_ON_CHOICES = ['off', '10', '30', 'always'];
+export const KEEP_SCREEN_ON_CHOICES = ['off', '5', '10', '30', 'always'];
 const TAG = 'sofer-keep-screen-on';
 
 let choice = 'off';

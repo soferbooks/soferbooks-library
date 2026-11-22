@@ -364,6 +364,7 @@ export const OfflineSearchSetting = ({ langStyle }) => {
 /** Keeping the screen on while reading (reader/keepScreenOn.js) */
 const keepScreenOnLabels = () => ({
   off: strings.settings.keep_screen_on_off,
+  5: strings.settings.keep_screen_on_5,
   10: strings.settings.keep_screen_on_10,
   30: strings.settings.keep_screen_on_30,
   always: strings.settings.keep_screen_on_always,

@@ -869,9 +869,9 @@ describe('"Offline search" (Settings)', () => {
 });
 
 describe('"Keep the screen on" (Settings)', () => {
-  test('its name, its four choices and what they mean, in both languages', async () => {
+  test('its name, its five choices and what they mean, in both languages', async () => {
     await expectSettledScreenLocalizes(wrap(KeepScreenOnSetting, { langStyle: {} }),
-      ['settings.keep_screen_on', 'settings.keep_screen_on_off', 'settings.keep_screen_on_10',
+      ['settings.keep_screen_on', 'settings.keep_screen_on_off', 'settings.keep_screen_on_5', 'settings.keep_screen_on_10',
         'settings.keep_screen_on_30', 'settings.keep_screen_on_always', 'settings.keep_screen_on_note']);
   });
 });

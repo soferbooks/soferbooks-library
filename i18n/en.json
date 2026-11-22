@@ -340,6 +340,7 @@
     "settings.sephardi": "Sephardi",
     "settings.keep_screen_on": "Keep the screen on",
     "settings.keep_screen_on_off": "Phone's setting",
+    "settings.keep_screen_on_5": "5 min",
     "settings.keep_screen_on_10": "10 min",
     "settings.keep_screen_on_30": "30 min",
     "settings.keep_screen_on_always": "Always",
