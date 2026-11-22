@@ -18,6 +18,7 @@
 import { HDate, Location, Zmanim } from '@hebcal/core';
 import { chokDayInfo, DAYS, THURSDAY_NIGHT, weekParshiot, SCHEDULE_TITLE, dateLabel } from './chokDay';
 import { HE_TITLE } from '../extras/chok';
+import pLimit from 'p-limit';
 
 export const CHOK_REF_PREFIX = 'Sheet chok:';
 export const isChokSheetRef = ref => typeof ref === 'string' && ref.startsWith(CHOK_REF_PREFIX);
@@ -221,15 +222,35 @@ export const segmentRefOf = (sectionRef, segmentNumber, title) => (sectionRef ==
  */
 export async function chokRows(keys, { loadSection, titleOf } = {}) {
   const all = [].concat(keys);
+  // (the day's passages - each from another book - read side by side, a few at a time, not one
+  //  after another: the day took long to open on the 32-bit tablet - owner, 2026-11-22)
+  const limit = pLimit(CHOK_READ_AT_ONCE);
+  const segments = new Map();
+  const segmentsOfItem = ref => {
+    if (!segments.has(ref)) { segments.set(ref, limit(() => segmentsOf(ref, loadSection)).catch(() => [])); }
+    return segments.get(ref);
+  };
+  for (const key of all) {
+    const day = chokOutline().days[key];
+    for (const part of (day && day.parts) || []) { for (const item of part.items) { if (item.r) { segmentsOfItem(item.r); } } }
+  }
   const rows = [];
   for (const key of all) {
     const day = chokOutline().days[key];
-    if (day) { rows.push(...(await dayRows(key, day, { loadSection, titleOf, multiple: all.length > 1 }))); }
+    if (day) { rows.push(...(await dayRows(key, day, { titleOf, multiple: all.length > 1, segmentsOfItem }))); }
   }
   return rows.length ? rows : null;
 }
 
-async function dayRows(key, day, { loadSection, titleOf, multiple }) {
+const CHOK_READ_AT_ONCE = 3;
+
+/** The book passages of the days `keys` (their refs, in order) */
+export const chokItemRefs = keys => [].concat(keys).flatMap(key => {
+  const day = chokOutline().days[key];
+  return ((day && day.parts) || []).flatMap(part => part.items.filter(item => item.r && !item.t).map(item => item.r));
+});
+
+async function dayRows(key, day, { titleOf, multiple, segmentsOfItem }) {
   const parsed = parseKey(key);
   const rows = [];
   if (multiple && parsed) { rows.push({ type: 'outsideText', he: `<big><b>פרשת ${parsed.parshaHe}</b></big>`, text: '' }); }
@@ -241,7 +262,7 @@ async function dayRows(key, day, { loadSection, titleOf, multiple }) {
         if (item.r) {
           // (found in a book on Sefaria: tapping it shows that passage's connections)
           let first = null;
-          try { first = (await segmentsOf(item.r, loadSection))[0] || null; } catch (e) { first = null; }
+          try { first = (await segmentsOfItem(item.r))[0] || null; } catch (e) { first = null; }
           if (first) {
             Object.assign(row, { sourceRef: segmentRefOf(first.sectionRef, first.segmentNumber, titleOf(item.r)),
               sectionRef: first.sectionRef, segmentIndex: first.index, segmentNumber: first.segmentNumber });
@@ -251,7 +272,7 @@ async function dayRows(key, day, { loadSection, titleOf, multiple }) {
         continue;
       }
       let segs = [];
-      try { segs = await segmentsOf(item.r, loadSection); } catch (e) { segs = []; }
+      try { segs = await segmentsOfItem(item.r); } catch (e) { segs = []; }
       if (!segs.length) {
         rows.push({ type: 'outsideText', he: `<small>${item.hr || item.r}</small>`, text: '' });
         continue;

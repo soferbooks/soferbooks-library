@@ -8,6 +8,7 @@ import { useGlobalState } from '../Hooks';
 import { loadText } from '../offlineOnline';
 import Sefaria from '../sefaria';
 import { CSS_CLASS_STYLES } from '../Misc';
+import readerStyles from '../Styles';
 import { itemsForSource } from './inlineCommentaryPrefs';
 import { NakdanText } from './NakdanNotices';
 import { useNakdan } from './nakdan';
@@ -142,7 +143,10 @@ const InlineCommentary = ({ links, sourceKey, nakdan = false, asText = false }) 
     // fall back to whichever language exists, so a Hebrew-only commentary still shows in English mode
     // (the Hebrew as its words were counted for their bold: heText)
     const dibbur = !(items[i] && items[i].he) && !!items[i] && isCommentaryItem(items[i].ref, links);
-    const activeT = (sourceUsesExplicitBold && !t.hasExplicitBold && t.hePlainText != null)
+    // (the edition's own bold kept where it has some - Onkelos in the Sifsei Chachomim Chumash bolds
+    //  the words it adds to the verse's: owner, 2026-11-22; a commentary's comment as before)
+    const ownBold = !dibbur && t.hasExplicitBold && t.hePlainText != null;
+    const activeT = ((sourceUsesExplicitBold && !t.hasExplicitBold) || ownBold) && t.hePlainText != null
       ? { ...t, heText: t.hePlainText, heDibburBold: t.hePlainBold }
       : t;
     const he = (showHe || !t.en) ? (activeT.heText != null ? activeT.heText : activeT.he) : '';
@@ -154,14 +158,16 @@ const InlineCommentary = ({ links, sourceKey, nakdan = false, asText = false }) 
       parts.push(<Text key={`name${i}`} style={[heName ? localStyles.nameHe : localStyles.nameEn, color, { fontSize: size * 0.85 }]}>{heName ? name : items[i].ref}</Text>);
     }
     // (a commentary's comment: its dibbur hamaschil in bold, as SoferBooks prints it)
-    if (he) { parts.push(<InlineCommentaryHe key={`he${i}`} t={activeT} he={he} dibbur={dibbur} nakdan={nakdan} style={[localStyles.he, { fontFamily: hebFont }, color, { fontSize: size * 1.1 * hebScale, lineHeight: size * 1.6 }]} />); }
+    if (he) { parts.push(<InlineCommentaryHe key={`he${i}`} t={activeT} he={he} dibbur={dibbur || ownBold} nakdan={nakdan} style={[localStyles.he, { fontFamily: hebFont }, color, { fontSize: size * 1.1 * hebScale, lineHeight: size * 1.6 }]} />); }
     // (LRM first: English Rashi opens with the Hebrew words it explains, and Android then laid the
     // whole paragraph out right to left - its closing period at the start of the line, ".daytime")
     if (en) { parts.push(<Text selectable={Platform.OS !== 'android'} key={`en${i}`} style={[localStyles.en, color, { fontSize: size, lineHeight: size * 1.45 }]}>{LRM + en}</Text>); }
   });
   if (!parts.length) { return null; }
   return (
-    <View style={asText ? localStyles.textBox : [localStyles.box, theme.lighterGreyBorder]}>
+    // (asText: within the verse's own margins - the number column either side - so it starts where
+    //  the verse's line does: owner, 2026-11-22)
+    <View style={asText ? [readerStyles.readerSideMargin, localStyles.textBox] : [localStyles.box, theme.lighterGreyBorder]}>
       {parts}
     </View>
   );
@@ -182,7 +188,7 @@ const isCommentaryItem = (ref, links) => {
 const localStyles = StyleSheet.create({
   bold: { fontWeight: 'bold' },
   box: { marginHorizontal: 32, marginBottom: 10, paddingTop: 4, borderTopWidth: 1 },
-  textBox: { marginHorizontal: 32, marginBottom: 10 },
+  textBox: { marginBottom: 10 },
   he: { writingDirection: 'rtl', textAlign: 'right', fontFamily: CSS_CLASS_STYLES.hebrew.fontFamily },
   // the reader's own English text font (serif, as in the main text), not the system sans
   en: { textAlign: 'left', marginTop: 2, fontFamily: CSS_CLASS_STYLES.english.fontFamily },

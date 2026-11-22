@@ -110,7 +110,7 @@ import {
 import SplitTabPane from "./reader/SplitTabPane";
 import { makeScheduleSequence, sequenceAt, currentReading, hasSequence, isBounded, boundedNeighbours, readingIndexOf, isLastReading } from "./learningSchedules/scheduleSequence";
 import { HE_TITLE as CHOK_HE_TITLE } from "./extras/chok";
-import { isChokSheetRef, keysOfChokRef, chokSheetRef, chokRows, chokTitles, WEEK_DAY_KEYS as CHOK_WEEK_DAY_KEYS, parseKey as parseChokKey } from "./learningSchedules/chokSheet";
+import { isChokSheetRef, chokItemRefs, keysOfChokRef, chokSheetRef, chokRows, chokTitles, WEEK_DAY_KEYS as CHOK_WEEK_DAY_KEYS, parseKey as parseChokKey } from "./learningSchedules/chokSheet";
 import { SCHEDULE_TITLE as CHOK_SCHEDULE_TITLE, DAYS as CHOK_DAYS, THURSDAY_NIGHT as CHOK_THURSDAY_NIGHT } from "./learningSchedules/chokDay";
 import { loadText as loadTextOfRef, loadRelated as loadRelatedOfRef } from "./offlineOnline";
 import { pruneSearchFilesIfOff } from "./searchPrefs";
@@ -155,6 +155,23 @@ const CHOK_TORAH = /^(Genesis|Exodus|Leviticus|Numbers|Deuteronomy) \d/;
 // (Nevi'im and Ketuvim with their targum too, as the printed Chok has them - owner, 2026-11-22:
 //  Targum Jonathan on the Prophets, "Aramaic Targum to ..." / "Targum of ..." on the Writings)
 const CHOK_NACH_TARGUMS = ['Targum Jonathan', 'Aramaic Targum', 'Targum of'];
+/** The targum's sections for the day's verses, read into memory ahead (fire and forget) */
+const prefetchChokTargums = keys => {
+  const sections = new Set();
+  for (const r of chokItemRefs(keys)) {
+    const title = Sefaria.textTitleForRef(r);
+    const chapter = title && (r.slice(title.length).trim().match(/^(\d+)/) || [])[1];
+    if (!chapter) { continue; }
+    let cats = [];
+    try { cats = Sefaria.categoriesForTitle(title) || []; } catch (e) { cats = []; }
+    if (cats[0] !== 'Tanakh') { continue; }
+    const book = CHOK_TORAH.test(r) ? `Onkelos ${title}`
+      : cats.includes('Prophets') ? `Targum Jonathan on ${title}`
+        : /Chronicles/.test(title) ? `Targum of ${title}` : `Aramaic Targum to ${title}`;
+    sections.add(`${book} ${chapter}`);
+  }
+  for (const sec of sections) { loadTextOfRef(sec, false, null, true, true).catch(() => {}); }
+};
 const chokInlineFor = content => {
   const ref = (content && content.sourceRef) || '';
   if (!ref) { return null; }
@@ -2834,6 +2851,8 @@ ${strings.formatString(strings.extras.download_size, size)}` : '';
     const keys = keysOfChokRef(ref);
     const titles = chokTitles(keys);
     const loadSection = r => loadTextOfRef(r, true, undefined, true, true).then(x => x && x.textContent);
+    // (the targum's chapters read meanwhile, so it shows with the text, not some seconds after)
+    prefetchChokTargums(keys);
     let rows = null;
     try {
       rows = await chokRows(keys, { loadSection, titleOf: r => Sefaria.textTitleForRef(r) });

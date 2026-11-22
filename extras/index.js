@@ -905,6 +905,7 @@ function inferenceBooks() {
 }
 
 const readyListeners = new Set();
+let readyNotice = null;
 /** fn() once the downloaded books' links are read (after a withExtraLinks that did not wait); returns an unsubscribe */
 export const onExtraLinksReady = fn => { readyListeners.add(fn); return () => readyListeners.delete(fn); };
 
@@ -914,7 +915,14 @@ export async function withExtraLinks(sectionRef, response, { wait = true } = {})
   // files (1,971 books took 87 s on a 32-bit tablet, 2026-11-20): Sefaria's own links are given at
   // once meanwhile, and the extra books' join them once read (onExtraLinksReady)
   if (!wait && !links.isReady()) {
-    extraLinksFor(sectionRef).then(() => { for (const fn of readyListeners) { try { fn(); } catch (e) {} } });
+    // (one notice for all the sections asked for meanwhile: the Chok's page asks for 8 at once, and
+    //  each notice had the reader read all their links again - 8 times over, 2026-11-22)
+    if (!readyNotice) {
+      readyNotice = extraLinksFor(sectionRef).then(() => {
+        readyNotice = null;
+        for (const fn of readyListeners) { try { fn(); } catch (e) {} }
+      }, () => { readyNotice = null; });
+    }
     return response;
   }
   const extra = await extraLinksFor(sectionRef);
