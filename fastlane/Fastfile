@@ -157,7 +157,7 @@ platform :ios do
       skip_screenshots:           true,
       metadata_path:              "./fastlane/metadata",
       app_review_attachment_file: (File.exist?("review/app-in-use.mp4") ? "./fastlane/review/app-in-use.mp4" : nil),
-      submit_for_review:          ENV["SUBMIT"] == "true",
+      submit_for_review:          false,   # (sent below: Apple keeps one open submission per app)
       automatic_release:          false,
       force:                      true,
       run_precheck_before_submit: false,
@@ -168,5 +168,52 @@ platform :ios do
         content_rights_has_rights:                   true,
       },
     )
+    submit_open_submission if ENV["SUBMIT"] == "true"
+  end
+
+  # Apple keeps one open review submission per app (2026-11-22: deliver refused with "A review submission is
+  # already in progress"): deliver only makes a new one. This sends the open one - after a rejection, its
+  # "unresolved issues" (Apple's last message printed first) - with the version deliver just updated, or makes one.
+  # One that is already with Apple (waiting for review, in review) is left as it is.
+  private_lane :submit_open_submission do
+    states = Spaceship::ConnectAPI::ReviewSubmission::ReviewSubmissionState
+    app = Spaceship::ConnectAPI::App.find(BUNDLE_ID)
+    version = app.get_edit_app_store_version(platform: Spaceship::ConnectAPI::Platform::IOS)
+    UI.user_error!("no App Store version to submit") unless version
+    # (the newest processed build of this version: deliver picks it only when it submits itself)
+    build = Spaceship::ConnectAPI::Build.all(app_id: app.id, version: version.version_string, processing_states: "VALID",
+                                             platform: Spaceship::ConnectAPI::Platform::IOS).first
+    UI.user_error!("no processed build of #{version.version_string}") unless build
+    version.select_build(build_id: build.id)
+    UI.message("Build #{build.version} chosen for #{version.version_string}")
+    open = app.get_review_submissions(filter: {
+      platform: Spaceship::ConnectAPI::Platform::IOS,
+      state: [states::READY_FOR_REVIEW, states::UNRESOLVED_ISSUES, states::WAITING_FOR_REVIEW, states::IN_REVIEW].join(","),
+    })
+    open.each { |sub| UI.message("Open review submission #{sub.id}: #{sub.state}") }
+    with_apple = open.find { |sub| [states::WAITING_FOR_REVIEW, states::IN_REVIEW].include?(sub.state) }
+    if with_apple
+      UI.important("Already with Apple (#{with_apple.state}): nothing more sent")
+      next
+    end
+    sub = open.find { |o| o.state == states::UNRESOLVED_ISSUES } ||
+          open.find { |o| o.state == states::READY_FOR_REVIEW } ||
+          app.create_review_submission(platform: Spaceship::ConnectAPI::Platform::IOS)
+    if sub.state == states::UNRESOLVED_ISSUES
+      begin
+        sub.latest_resolution_center_messages.each do |m|
+          UI.important("Apple (#{m.created_date}): #{m.message_body.to_s.gsub(/<[^>]+>/, ' ').squeeze(' ')}")
+        end
+      rescue StandardError => e
+        UI.message("Apple's messages could not be read: #{e.message}")
+      end
+    end
+    begin
+      sub.add_app_store_version_to_review_items(app_store_version_id: version.id)
+    rescue StandardError => e
+      UI.message("Version #{version.version_string} is in the submission already (#{e.message.lines.first&.strip})")
+    end
+    sub.submit_for_review
+    UI.success("Submitted for review: version #{version.version_string}")
   end
 end
