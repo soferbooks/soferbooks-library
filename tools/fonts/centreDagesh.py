@@ -1,4 +1,4 @@
-"""Put the dagesh in the middle of ב כ ת ס ט מ פ (and the mapiq of ה) in the app's fonts.
+"""Put the dagesh in the middle of ב כ ת ס מ פ (and the mapiq of ה) in the app's fonts.
 
 Owner, 2026-11-22: "It seems that the dagesh isn't centered in ת ב ס". Each font draws these letters
 with a dagesh as one glyph made of the letter and the dagesh at an offset (betdagesh = bet +
@@ -10,10 +10,10 @@ up to 35 toward the right leg, in ס up to 40 too high. This moves the dagesh of
        its open side closed off: its convex hull), at the height the font gives it;
   ת    halfway between the two legs, at the height the font gives it;
   ס    the middle of the closed space;
-  ט מ פ, the mapiq in ה  the middle of the white around it, left-right and up-down (ט off in all
-       three fonts by up to 100 units, מ in Frank Sofer, פ in Vilna Sofer - on its tongue -, ה in
-       Hadassah; checked 2026-11-22 with every other letter, whose dot beside or under the stroke
-       - ג ד ו ז י ך ר ... - is as the letters are written).
+  מ פ, the mapiq in ה  the middle of the white around it, left-right and up-down (מ in Frank
+       Sofer, פ in Vilna Sofer - on its tongue -, ה in Hadassah; checked 2026-11-22 with every other
+       letter, whose dot beside or under the stroke - ג ד ו ז י ך ר ... - is as the letters are
+       written). ט is left as the fonts draw it (owner, 2026-11-22: "ט should revert").
 
 Nothing else in the font changes; running it again changes nothing. Run after the fonts are synced
 from SoferShared (after addShvaNaSequences.py):
@@ -35,10 +35,16 @@ from PIL import Image, ImageDraw
 # precomposed letter -> (plain letter, how its middle is found)
 LETTERS = {0xFB31: (0x05D1, "inside-x"), 0xFB3B: (0x05DB, "inside-x"),
            0xFB4A: (0x05EA, "between-legs"), 0xFB41: (0x05E1, "inside"),
-           # (checked the same way, 2026-11-22: ט off in all three, מ in Frank Sofer, the mapiq in
-           #  Hadassah's ה, פ in Vilna Sofer)
-           0xFB38: (0x05D8, "around"), 0xFB3E: (0x05DE, "around"), 0xFB34: (0x05D4, "between-legs"),
+           # (checked the same way, 2026-11-22: מ in Frank Sofer, the mapiq in Hadassah's ה, פ in
+           #  Vilna Sofer; not ט, as the fonts draw it - owner)
+           0xFB3E: (0x05DE, "around"), 0xFB34: (0x05D4, "between-legs"),
            0xFB44: (0x05E4, "around")}
+# The dagesh of ז nearer the letter (owner, 2026-11-22: "ז to the right"): just under half the white
+# between the dot and the stem closed, in each font (Frank Sofer had 54 units, Hadassah 144) - the
+# dot's place in each font, as the font drew it (x) and where it is put
+ZAYIN = {"FrankSofer": (125, 149), "FrankSofer_bold": (125, 139), "VilnaSofer": (27, 73),
+         "VilnaSofer_bold": (27, 67), "Hadassah": (26, 91), "Hadassah_bold": (37, 91)}
+
 # (a move further than this is a measuring mistake - the left leg of Frank Sofer's ה does not reach
 #  the dot's height - and is left out)
 MOST = 150
@@ -177,6 +183,16 @@ def patch(path: Path) -> str:
         for glyph in (name, f"{name}.xazaq"):
             if glyph in glyf.keys() and glyf[glyph].isComposite():
                 moved += _centre(glyf, glyphset, glyph, letter, plain, how)
+    # ז: its dot nearer the stem (ZAYIN), the plain dagesh and the chazak
+    places = ZAYIN.get(path.stem)
+    zayin = cmap.get(0xFB36)
+    for glyph in ((zayin, f"{zayin}.xazaq") if places and zayin else ()):
+        if glyph in glyf.keys() and glyf[glyph].isComposite():
+            dot = next((c for c in glyf[glyph].components if c.glyphName != cmap.get(0x05D6)), None)
+            if dot is not None and dot.x == places[0]:
+                dot.x = places[1]
+                glyf[glyph].recalcBounds(glyf)
+                moved.append(f"ז{' chazak' if glyph.endswith('.xazaq') else ''} ({places[0]})->({places[1]})")
     if not any("not moved" not in m for m in moved):
         return f"{path.name}: already in the middle" + "".join(f", {m}" for m in moved)
     font.save(path)
