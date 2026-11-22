@@ -152,6 +152,7 @@ export function buildMacSectionsPayload({
   vocalization,
   vowelToggleAvailable,
   nakdan = false,
+  commentaryNakdan = false,
   nakdanQueue = defaultNakdanQueue,
   isCommentary = false,
   showAliyot = false,
@@ -279,7 +280,7 @@ export function buildMacSectionsPayload({
           ? buildInlineCommentaryHtml({
               links: relatedObj?.links,
               sourceKey: inlineCommentary,
-              nakdanEnabled: nakdan,
+              nakdanEnabled: commentaryNakdan,
               nakdanQueue,
               inlineCache,
               textLanguage,

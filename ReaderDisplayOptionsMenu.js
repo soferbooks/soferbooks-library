@@ -50,7 +50,9 @@ class ReaderDisplayOptionsMenu extends React.Component {
     setInlineCommentary:             PropTypes.func,
     // nikud by computer (Dicta) for this sefer's texts without nikud (reader/nakdanPrefs.js)
     nakdanAvailable:                 PropTypes.bool,
-    nakdanForCommentary:             PropTypes.bool,   // the text has nikud: the switch is for the commentary
+    commentaryNakdanAvailable:       PropTypes.bool,
+    commentaryNakdan:                PropTypes.bool,
+    setCommentaryNakdan:             PropTypes.func,
     nakdan:                          PropTypes.bool,
     setNakdan:                       PropTypes.func,
     splitViewAvailable:              PropTypes.bool,
@@ -236,14 +238,24 @@ class ReaderDisplayOptionsMenu extends React.Component {
         parametrized: true,
       },
       {
-        // nikud by computer (Dicta), this sefer's own switch, as in the owner's extension: "Vowels"
-        // where the text has none, "Commentary vowels" beside its own
+        // nikud by computer (Dicta), this sefer's own switch, as in the owner's extension: the text's
+        // where it has none of its own
         condition: !!this.props.nakdanAvailable && !!this.props.setNakdan,
-        label: this.props.nakdanForCommentary ? strings.reader.nakdan_commentary_vowels : strings.reader.nakdan_vowels,
+        label: strings.reader.nakdan_vowels,
         onPress: this.props.setNakdan,
         buttons: [true, false],
         text: [strings.common.on, strings.common.off],
         currVal: !!this.props.nakdan,
+        parametrized: true,
+      },
+      {
+        // ... and the commentary's under each passage, a switch of its own (owner, 2026-11-22)
+        condition: !!this.props.commentaryNakdanAvailable && !!this.props.setCommentaryNakdan,
+        label: strings.reader.nakdan_commentary_vowels,
+        onPress: this.props.setCommentaryNakdan,
+        buttons: [true, false],
+        text: [strings.common.on, strings.common.off],
+        currVal: !!this.props.commentaryNakdan,
         parametrized: true,
       },
       {

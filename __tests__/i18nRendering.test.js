@@ -1875,12 +1875,11 @@ describe('Reader tabs', () => {
       inlineSources: [{ key: 'Rashi', en: 'Rashi', he: 'רש"י' }],
       inlineConnections: [{ key: '@Tanakh', en: 'Tanakh', he: 'תנ״ך' }],
       inlineCommentary: null, setInlineCommentary: noop,
-      nakdanAvailable: true, nakdanForCommentary: false, nakdan: false, setNakdan: noop,
+      nakdanAvailable: true, nakdan: false, setNakdan: noop,
+      commentaryNakdanAvailable: true, commentaryNakdan: false, setCommentaryNakdan: noop,
     };
     expectScreenLocalizes(wrap(ReaderDisplayOptionsMenu, menuProps),
-      ['reader.inline_commentaries', 'reader.inline_connections', 'reader.nakdan_vowels']);
-    expectScreenLocalizes(wrap(ReaderDisplayOptionsMenu, { ...menuProps, nakdanForCommentary: true }),
-      ['reader.nakdan_commentary_vowels']);
+      ['reader.inline_commentaries', 'reader.inline_connections', 'reader.nakdan_vowels', 'reader.nakdan_commentary_vowels']);
   });
 
   test("the card asking about nikud, and Dicta's credit, in both languages", () => {

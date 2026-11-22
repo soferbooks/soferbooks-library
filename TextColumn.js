@@ -809,7 +809,7 @@ class TextColumn extends React.PureComponent {
           boldDibbur={this.isCommentary() && !item.data?.noAutoDibbur}
         />
         {this.props.inlineCommentary && item.type === ROW_TYPES.SEGMENT && !this.props.isSheet ?
-          <InlineCommentary links={item.data.related?.links} sourceKey={this.props.inlineCommentary} nakdan={!!this.props.nakdan} /> : null}
+          <InlineCommentary links={item.data.related?.links} sourceKey={this.props.inlineCommentary} nakdan={!!this.props.commentaryNakdan} /> : null}
         {this.props.isSheet && this.props.sheetInlineFor && item.type === ROW_TYPES.SEGMENT && item.data.related?.links ?
           this.renderSheetInline(item) : null}
       </View>
@@ -1162,6 +1162,7 @@ class TextColumn extends React.PureComponent {
               vowelToggleAvailable={this.props.vowelToggleAvailable}
               inlineCommentary={this.props.inlineCommentary}
               nakdan={!!this.props.nakdan}
+              commentaryNakdan={!!this.props.commentaryNakdan}
               readingEditions={this.props.readingEditions}
               textToc={this.props.textToc}
               scheduleEnd={this.props.scheduleEnd}

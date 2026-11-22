@@ -132,6 +132,7 @@ import {
   loadNakdanPrefs,
   subscribeNakdanPrefs,
   nakdanWanted,
+  commentaryNakdanKey,
   shouldAskNakdan,
   sectionLacksNikud,
   setNakdanForBook,
@@ -2660,6 +2661,11 @@ ${strings.formatString(strings.extras.download_size, size)}` : '';
       Sefaria.links.reset();
       return new Promise(resolve => this.setState({
         ...snapshot,
+        // (a tab kept in memory is never a sheet - _saveSnapshotForActiveTab: the Chok's page, open
+        //  before, is not left on top of it - owner, 2026-11-22: "switched to chok and back to shabbat,
+        //  it still showed me chok")
+        sheet: null,
+        sheetMeta: null,
         readerTabs,
         menuOpen: null,
         loaded: true,
@@ -3207,6 +3213,11 @@ ${strings.formatString(strings.extras.download_size, size)}` : '';
     this.closeReaderDisplayOptionsMenu();
   };
 
+  setCommentaryNakdanForThisBook = on => {
+    setNakdanForBook(commentaryNakdanKey(this.state.textTitle), on);
+    this.closeReaderDisplayOptionsMenu();
+  };
+
   /* ---------- "show under each passage" ---------- */
 
   setInlineCommentaryForBook = key => {
@@ -3360,10 +3371,15 @@ ${strings.formatString(strings.extras.download_size, size)}` : '';
     const nakdanOn = nakdanWanted(this.state.nakdanPrefs, nakdanBook, this.props.vocalization);
     const mainLacksNikud = !!nakdanBook && vowelToggleAvailable === VOCALIZATION.NONE &&
       sectionLacksNikud(this.state.data[this.state.sectionIndexRef]);
+    // Two switches in the Aa menu (owner, 2026-11-22: "i want to have 2 nikkud options, for main text
+    // and for commentary"): the text's own (where it has no nikud of its own - else the Vowels row
+    // shows and hides that), and the commentary's under each passage, each kept apart for the sefer
     const nakdanSwitchAvailable = !!nakdanBook && this.props.vocalization !== VOCALIZATION.NONE &&
-      (vowelToggleAvailable === VOCALIZATION.NONE || !!inlineCommentary);
+      vowelToggleAvailable === VOCALIZATION.NONE;
+    const commentaryNakdanAvailable = !!nakdanBook && this.props.vocalization !== VOCALIZATION.NONE;
+    const commentaryNakdanOn = nakdanWanted(this.state.nakdanPrefs, commentaryNakdanKey(nakdanBook), this.props.vocalization);
     const showNakdanAsk = false;  // popup hidden; toggle lives in Aa menu & Settings
-    const showNakdanCredit = !loading && nakdanOn && (mainLacksNikud || !!inlineCommentary);
+    const showNakdanCredit = !loading && ((nakdanOn && mainLacksNikud) || (commentaryNakdanOn && !!inlineCommentary));
     return (
         <Animated.View
           style={[styles.container, this.props.theme.container]}
@@ -3464,6 +3480,7 @@ ${strings.formatString(strings.extras.download_size, size)}` : '';
                   setHighlightedWord={this.setHighlightedWord}
                   inlineCommentary={inlineCommentary}
                   nakdan={nakdanOn}
+                  commentaryNakdan={commentaryNakdanOn}
                   readingEditions={this.state.readingEditions}
                 />
                 {showNakdanCredit ? <NakdanCredit theme={this.props.theme} /> : null}
@@ -3587,9 +3604,11 @@ ${strings.formatString(strings.extras.download_size, size)}` : '';
                 inlineCommentary={inlineCommentary}
                 setInlineCommentary={this.setInlineCommentaryForBook}
                 nakdanAvailable={nakdanSwitchAvailable}
-                nakdanForCommentary={vowelToggleAvailable !== VOCALIZATION.NONE}
                 nakdan={nakdanOn}
                 setNakdan={this.setNakdanForThisBook}
+                commentaryNakdanAvailable={commentaryNakdanAvailable}
+                commentaryNakdan={commentaryNakdanOn}
+                setCommentaryNakdan={this.setCommentaryNakdanForThisBook}
                 splitViewAvailable={splitViewAvailable}
                 splitView={this.state.splitView}
                 setSplitView={this.setSplitView}

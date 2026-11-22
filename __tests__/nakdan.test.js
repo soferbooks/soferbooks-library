@@ -270,11 +270,13 @@ describe("the reader shows the sefer's switch and the card that asks", () => {
         inlineSources={[{ key: 'Rashi', en: 'Rashi', he: 'רש"י' }]}
         inlineConnections={[{ key: '@Tanakh', en: 'Tanakh: the pesukim quoted', he: 'תנ״ך' }]}
         setInlineCommentary={jest.fn()}
-        nakdanAvailable nakdanForCommentary nakdan={false} setNakdan={jest.fn()}
+        commentaryNakdanAvailable commentaryNakdan={false} setCommentaryNakdan={jest.fn()}
       />);
     });
     const shown = texts(inst);
+    // (a text with its own nikud: its Vowels row, and the commentary's own switch - owner, 2026-11-22)
     expect(shown).toContain(strings.reader.nakdan_commentary_vowels);
+    expect(shown).not.toContain(strings.reader.nakdan_vowels);
     expect(shown).toContain(strings.reader.inline_connections);
     expect(shown).toContain('Tanakh: the pesukim quoted');
     act(() => inst.unmount());

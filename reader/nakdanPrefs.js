@@ -26,7 +26,10 @@ export const DEFAULT_NAKDAN_SETTINGS = { always: false, neverAsk: false };
 
 const vowelsShown = vocalization => vocalization !== VOCALIZATION.NONE;
 
-/** Is nikud by computer added to `book`'s texts without nikud? */
+/** The key the sefer's commentary switch is kept under (apart from its own text's: owner, 2026-11-22) */
+export const commentaryNakdanKey = book => (book ? `${book}#commentary` : null);
+
+/** Is nikud by computer added to `book`'s texts without nikud? (`commentaryNakdanKey(book)`: its commentary) */
 export const nakdanWanted = (prefs, book, vocalization) => {
   if (!book || !vowelsShown(vocalization)) { return false; }
   const books = (prefs && prefs.books) || {};
