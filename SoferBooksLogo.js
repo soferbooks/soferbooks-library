@@ -20,7 +20,7 @@ export const GOLD = '#C49A3C';
 
 export const BookQuillMark = ({ size = 44, dark = false }) => {
   const ink = dark ? '#FFFFFF' : NAVY;
-  const ground = dark ? '#2d2d2b' : '#FFFFFF';
+  const ground = dark ? '#333331' : '#FFFFFF';   // (the dark theme's background: ThemeBlack.js)
   return (
     <Svg width={size * 230 / 190} height={size} viewBox="0 0 230 190" testID="soferbooks-mark">
       <Defs>

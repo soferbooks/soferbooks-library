@@ -139,6 +139,7 @@ import {
 } from "./reader/nakdanPrefs";
 import { NakdanAskCard, NakdanCredit } from "./reader/NakdanNotices";
 import { startKeepScreenOn, noteTouch } from "./reader/keepScreenOn";
+import { matchNavigationBar } from "./reader/navigationBar";
 import { readingEditions } from "./reader/editionNotes";
 import { VOCALIZATION } from "./VocalizationEnum";
 import {
@@ -353,6 +354,7 @@ class ReaderApp extends React.PureComponent {
 
   componentDidMount() {
     startKeepScreenOn();   // (the screen kept on while reading, as chosen in Settings)
+    matchNavigationBar(this.props.themeStr);   // (Android's button bar in the theme's background)
     // add handleOpenURL listener before running initFiles so that _initDeepLinkURL will be set in time
     // the link that started the app (a sefaria.org link tapped elsewhere) counts as from outside
     Linking.getInitialURL().then(url => { this.handleOpenURLNamedParam({ url, fromOutside: true }); }).catch(err => {
@@ -418,6 +420,7 @@ class ReaderApp extends React.PureComponent {
   }
 
   componentDidUpdate(prevProps, prevState) {
+    if (prevProps.themeStr !== this.props.themeStr) { matchNavigationBar(this.props.themeStr); }
     // The menus and the home page in the reader's own language (its setting), a tab in its own:
     // however the app moves between them (a menu, Back, a tab) - an English search result's tab
     // had left the whole app English (2026-11-22)

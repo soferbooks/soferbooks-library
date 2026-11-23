@@ -30,6 +30,7 @@
     "expo": "~54.0.0",
     "expo-file-system": "~19.0.0",
     "expo-keep-awake": "~15.0.8",
+    "expo-navigation-bar": "~5.0.10",
     "htmlparser2": "^9.1.0",
     "inquirer": "^3.2.0",
     "link": "^0.1.5",

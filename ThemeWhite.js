@@ -4,7 +4,7 @@ import { StyleSheet } from 'react-native';
 let Colors = {
   border: "#d5d5d4",
   secondaryBorder: "#eee",
-  mainBackground: "#F9F9F7",
+  mainBackground: "white",   // (the text's: one background beside it - owner, 2026-11-23)
   mainText: "#000",
   secondaryText: "#999",
   tertiaryText: "#666",
