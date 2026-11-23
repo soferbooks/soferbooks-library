@@ -170,7 +170,7 @@ class ReaderDisplayOptionsMenu extends React.Component {
         label: strings.reader.color,
         onPress: this.props.setTheme,
         buttons:["white", "cream", "black"],
-        colors:["#ffffff", "#F3E9D2", "#444444"],
+        colors:["#ffffff", "#FAF7F0", "#444444"],   // (the cream: the website's - ThemeCream.js)
         names: [strings.a11y.theme_light, strings.a11y.theme_cream, strings.a11y.theme_dark],
         currVal: this.props.themeStr,
         parametrized: true
