@@ -10,6 +10,7 @@ Everything Play Console asks for, in one place (prepared 2026-11-23):
 | Phone screenshots | `graphics/phone-screenshots/` |
 | Answers for every form | `play-console-answers.md` |
 | The upload key's backup | `C:\Users\morde\Documents\SoferBooks Library signing key\` (never in git) |
+| Upload key fingerprint (SHA-256) | `61:3B:82:33:FA:DF:1C:1B:8C:FF:A6:9A:C9:1F:AF:80:D5:76:45:87:87:5A:80:A8:2B:B9:5F:09:86:2F:B1:38` |
 
 ## Steps
 
