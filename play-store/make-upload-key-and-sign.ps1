@@ -20,8 +20,19 @@ if (Test-Path $ks) {
 
 Copy-Item $src $out -Force
 Write-Host ''
-Write-Host 'Signing the bundle. Type the same password.' -ForegroundColor Cyan
-& (Join-Path $jbr 'jarsigner.exe') -keystore $ks -sigalg SHA256withRSA -digestalg SHA-256 $out upload
+# (the password kept by save-key-password.ps1, encrypted for this Windows account: no typing)
+$kept = Join-Path $dir 'upload-password.dpapi'
+if (Test-Path $kept) {
+  Write-Host 'Signing the bundle with the kept password.' -ForegroundColor Cyan
+  $secure = Get-Content $kept | ConvertTo-SecureString
+  $env:SOFERBOOKS_UPLOAD_PASS = [Runtime.InteropServices.Marshal]::PtrToStringBSTR([Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure))
+  try {
+    & (Join-Path $jbr 'jarsigner.exe') -keystore $ks -storepass:env SOFERBOOKS_UPLOAD_PASS -sigalg SHA256withRSA -digestalg SHA-256 $out upload
+  } finally { Remove-Item Env:\SOFERBOOKS_UPLOAD_PASS -ErrorAction SilentlyContinue }
+} else {
+  Write-Host 'Signing the bundle. Type the same password.' -ForegroundColor Cyan
+  & (Join-Path $jbr 'jarsigner.exe') -keystore $ks -sigalg SHA256withRSA -digestalg SHA-256 $out upload
+}
 if ($LASTEXITCODE) { throw 'jarsigner failed: the bundle is not signed' }
 
 & (Join-Path $jbr 'jarsigner.exe') -verify $out | Select-Object -Last 1
