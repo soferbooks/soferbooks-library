@@ -1,14 +1,9 @@
 name: Build iOS & Mac Apps
 
+# Manual only (owner, 2026-11-24: "dont do ios builds until i tell u to" - GitHub's macOS minutes are limited):
+# no build on push.
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-    paths:
-      - 'ios/**'
-      - 'fastlane/**'
-      - '.github/workflows/build-ios-mac.yml'
 
 permissions:
   contents: read
