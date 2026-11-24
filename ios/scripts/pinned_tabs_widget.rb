@@ -13,7 +13,9 @@ module PinnedTabsWidgetProject
   def self.add!(project_path)
     project = Xcodeproj::Project.open(project_path)
     app = project.targets.find { |t| t.name == APP_TARGET } or raise "no #{APP_TARGET} target"
-    ios_dir = File.dirname(project_path)
+    # (absolute: xcodeproj makes each reference relative to its group - a relative one was doubled,
+    #  ios/ios/PinnedTabsWidget/ios/PinnedTabsWidget/..., CI 2026-11-24)
+    ios_dir = File.dirname(File.expand_path(project_path))
 
     # the app's own native modules (PinnedTabsWidgetModule.swift, NativeModules.m)
     app_group = project.main_group.find_subpath('ReaderApp', false) || project.main_group
