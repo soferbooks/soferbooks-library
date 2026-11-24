@@ -1,0 +1,26 @@
+SoferBooks Library is a free app for reading the classic Jewish texts: Tanakh, Mishnah, Talmud Bavli and Yerushalmi, Halacha, Midrash, Kabbalah, Chassidus, Mussar, the siddur and thousands of commentaries, in Hebrew and, where there is one, in English.
+
+READ ANYWHERE, EVEN WITHOUT INTERNET
+Download the books you want once, and read them on a plane, on Shabbos, or wherever there is no connection. Choose a whole library or only some books, and remove them again in Settings whenever you like.
+
+EVERY PASSAGE WITH ITS CONNECTIONS
+Tap any line to see its commentaries, translations and the other texts that quote it. Show a commentary such as Rashi or Onkelos right under each line, the way a printed sefer has it.
+
+YOUR LIBRARY, YOUR CHOICE
+A content filter lets you choose which books are shown, so the library holds what is right for you and your family.
+
+MADE FOR LEARNING
+- Today's learning on the home page: the parsha, Daf Yomi, Rambam, Mishnah Berurah, Tehillim and Chok LeYisrael
+- Tabs: keep several sefarim open and move between them; pin the ones you learn every day
+- Search the whole library, in Hebrew or English
+- Three looks (white, cream and dark), adjustable text size, and fonts made for nikud and ta'amim, with the shva na and kamatz katan marked where the text has them
+- Nikud by computer (from Dicta) for texts that have none, only when you turn it on
+- A Sephardi siddur (Edot HaMizrach) laid out as in print, and Chok LeYisrael day by day
+
+WHERE THE BOOKS COME FROM
+The texts come from Sefaria, Dicta, Otzaria, Hebrew Wikisource, Pninim and SoferBooks' own library, each under its own free licence, shown on the book's information page.
+
+PRIVATE BY DESIGN
+No account, no ads, no tracking. What you read, your tabs and your saved texts stay on your device.
+
+SoferBooks Library is made by Sofer Books LLC with the Great Neck Kollel (Ohr HaEmet), and is based on Sefaria's open-source app.

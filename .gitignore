@@ -121,3 +121,7 @@ sofer-library*/
 release-apk/
 # the owner's App Review recordings as cut (fastlane/review/ has the one sent)
 app-review-videos/
+# the Play upload bundle (play-store/README.md): built and signed on the PC, never in git
+*.aab
+*.keystore
+!android/app/debug.keystore
