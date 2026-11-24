@@ -1,4 +1,9 @@
 <resources>
     <!-- app_name is injected per-build via resValue in android/app/build.gradle
          ("SoferBooks Library" by default; Fastlane QA builds may pass their own label) -->
+    <!-- The pinned tabs widget (widgets/pinnedTabsWidget.js) -->
+    <string name="widget_pinnedtabs_label">Pinned tabs</string>
+    <string name="widget_pinnedtabs_description">Your pinned tabs: tap one to open it where you left off</string>
+    <string name="widget_onetab_label">Tab</string>
+    <string name="widget_onetab_description">One tab of your choice: tap it to open it where you left off</string>
 </resources>

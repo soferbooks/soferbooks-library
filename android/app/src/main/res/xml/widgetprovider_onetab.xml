@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The one-tab widget (widgets/pinnedTabsWidget.js ONE_TAB_WIDGET_NAME): its tab is chosen when it is added -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="110dp"
+    android:minHeight="40dp"
+    android:targetCellWidth="2"
+    android:targetCellHeight="1"
+    android:minResizeWidth="40dp"
+    android:minResizeHeight="40dp"
+    android:resizeMode="horizontal|vertical"
+    android:description="@string/widget_onetab_description"
+    android:initialLayout="@layout/rn_widget"
+    android:previewImage="@drawable/onetab_preview"
+    android:configure="org.sefaria.sefaria.widget.WidgetConfigurationActivity"
+    android:widgetFeatures="reconfigurable"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen">
+</appwidget-provider>

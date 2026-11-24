@@ -49,6 +49,10 @@ jobs:
           rm -rf Pods Podfile.lock
           LANG=en_US.UTF-8 bundle exec pod install --repo-update
 
+      # the pinned tabs widget's target (ios/PinnedTabsWidget), added to the project at build time
+      - name: Add the pinned tabs widget to the Xcode project
+        run: bundle exec ruby ios/scripts/pinned_tabs_widget.rb ios/ReaderApp.xcodeproj
+
       - name: Build iOS Device app (iphoneos Release)
         run: |
           set -euo pipefail

@@ -3,6 +3,7 @@
 import {
   AppRegistry,
   LogBox,
+  Platform,
 } from 'react-native';
 import React, { useReducer } from 'react';
 import { gestureHandlerRootHOC } from 'react-native-gesture-handler';
@@ -70,3 +71,11 @@ const Root = (initialProps) => {
 }
 Root.whyDidYouRender = true;
 AppRegistry.registerComponent('ReaderApp', () => Root);
+
+// Android's home-screen widget of the pinned tabs, drawn also with the app closed (widgets/)
+if (Platform.OS === 'android') {
+  const { registerWidgetTaskHandler, registerWidgetConfigurationScreen } = require('react-native-android-widget');
+  registerWidgetTaskHandler(require('./widgets/AndroidTabsWidget').pinnedTabsWidgetTaskHandler);
+  // (the one-tab widget's choice of tab, when it is added)
+  registerWidgetConfigurationScreen(require('./widgets/OneTabChooser').default);
+}

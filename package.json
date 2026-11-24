@@ -46,6 +46,7 @@
     "react-error-boundary": "^4.0.10",
     "react-native": "^0.81.6",
     "react-native-action-sheet": "^2.2.0",
+    "react-native-android-widget": "0.26.0",
     "react-native-bootsplash": "^6.3.7",
     "react-native-config": "^1.5.5",
     "react-native-gesture-handler": "^2.28.0",

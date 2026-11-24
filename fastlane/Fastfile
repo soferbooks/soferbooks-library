@@ -17,13 +17,46 @@ default_platform(:ios)
 
 BUNDLE_ID = "com.soferbooks.library"
 
+require_relative "../ios/scripts/pinned_tabs_widget"
+XCODEPROJ = File.expand_path("../ios/ReaderApp.xcodeproj", __dir__)
+WIDGET_BUNDLE_ID = PinnedTabsWidgetProject::BUNDLE_ID
+
 platform :ios do
+  # The pinned tabs widget (ios/PinnedTabsWidget) put in the project, and, for a signed build, each target given its
+  # own App Store profile: the app's (installed by the workflow) and the widget's (made here with the API key the
+  # first time - its App ID too - and installed). Returns the export's { bundle id => profile name }.
+  private_lane :prepare_ios_targets do |options|
+    PinnedTabsWidgetProject.add!(XCODEPROJ)
+    next {} unless options[:signed]
+    team = ENV["FASTLANE_TEAM_ID"] || ""
+    app_profile = ENV["IOS_PROVISIONING_PROFILE_NAME"] || "#{BUNDLE_ID} AppStore"
+    unless Spaceship::ConnectAPI::BundleId.find(WIDGET_BUNDLE_ID)
+      Spaceship::ConnectAPI::BundleId.create(name: "SoferBooks Library Pinned Tabs Widget",
+                                            platform: Spaceship::ConnectAPI::Platform::IOS,
+                                            identifier: WIDGET_BUNDLE_ID)
+      UI.success("App ID made: #{WIDGET_BUNDLE_ID}")
+    end
+    get_provisioning_profile(api_key: options[:api_key], app_identifier: WIDGET_BUNDLE_ID,
+                             readonly: false, skip_certificate_verification: true, output_path: "/tmp")
+    widget_profile = lane_context[SharedValues::SIGH_NAME]
+    [["ReaderApp", app_profile], [PinnedTabsWidgetProject::TARGET, widget_profile]].each do |target, profile|
+      update_code_signing_settings(path: XCODEPROJ, targets: [target], use_automatic_signing: false,
+                                   code_sign_identity: "Apple Distribution", profile_name: profile,
+                                   team_id: team.empty? ? nil : team)
+    end
+    { BUNDLE_ID => app_profile, WIDGET_BUNDLE_ID => widget_profile }
+  end
+
   desc "Build unsigned iOS device .app/.ipa and Simulator .app into build/apple/"
   lane :build_ios_archive do
     sh("cd .. && npm install") unless ENV["CI"]
-    profile = ENV["IOS_PROVISIONING_PROFILE_NAME"] || "#{BUNDLE_ID} AppStore"
-
     if ENV["IOS_SIGNED"] == "1"
+      api_key = app_store_connect_api_key(
+        key_id:       ENV["APP_STORE_CONNECT_API_KEY_ID"],
+        issuer_id:    ENV["APP_STORE_CONNECT_API_ISSUER_ID"],
+        key_filepath: "/tmp/AuthKey.p8",
+      )
+      profiles = prepare_ios_targets(signed: true, api_key: api_key)
       build_app(
         scheme:           "ReaderApp",
         workspace:        "./ios/ReaderApp.xcworkspace",
@@ -31,16 +64,15 @@ platform :ios do
         output_name:      "SoferBooks-Library-iOS",
         export_method:    "app-store",
         disable_xcpretty: true,
-        xcargs:           "CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY='Apple Distribution' PROVISIONING_PROFILE_SPECIFIER='#{profile}'",
+        xcargs:           "CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY='Apple Distribution'",
         export_options:   {
           method:               "app-store",
           signingStyle:         "manual",
-          provisioningProfiles: {
-            BUNDLE_ID => profile
-          }
+          provisioningProfiles: profiles
         }
       )
     else
+      prepare_ios_targets(signed: false)
       sh(
         "cd .. && xcodebuild " \
         "-workspace ios/ReaderApp.xcworkspace " \
@@ -103,22 +135,22 @@ platform :ios do
 
     sh("cd .. && npm install") unless ENV["CI"]
 
-    profile = ENV["IOS_PROVISIONING_PROFILE_NAME"] || "#{BUNDLE_ID} AppStore"
     team = ENV["FASTLANE_TEAM_ID"] || ""
     team_arg = team.empty? ? "" : " DEVELOPMENT_TEAM='#{team}'"
+    # (each target's profile is set in the project: one PROVISIONING_PROFILE_SPECIFIER for all would give the
+    #  widget the app's)
+    profiles = prepare_ios_targets(signed: true, api_key: api_key)
 
     build_app(
       scheme:           "ReaderApp",
       workspace:        "./ios/ReaderApp.xcworkspace",
       export_method:    "app-store",
       disable_xcpretty: true,
-      xcargs:           "CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY='Apple Distribution' PROVISIONING_PROFILE_SPECIFIER='#{profile}'#{team_arg}",
+      xcargs:           "CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY='Apple Distribution'#{team_arg}",
       export_options:   {
         method:               "app-store",
         signingStyle:         "manual",
-        provisioningProfiles: {
-          BUNDLE_ID => profile
-        }
+        provisioningProfiles: profiles
       }
     )
 

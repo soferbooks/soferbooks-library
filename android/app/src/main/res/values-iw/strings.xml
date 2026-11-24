@@ -4,4 +4,8 @@
          The English names are injected per build in android/app/build.gradle (resValue). -->
     <string name="app_name">ספריית SoferBooks</string>
     <string name="launcher_label">ספריית SoferBooks</string>
+    <string name="widget_pinnedtabs_label">כרטיסיות מוצמדות</string>
+    <string name="widget_pinnedtabs_description">הכרטיסיות המוצמדות: הקשה פותחת כל אחת במקום שבו הפסקתם</string>
+    <string name="widget_onetab_label">כרטיסייה</string>
+    <string name="widget_onetab_description">כרטיסייה אחת לבחירתכם: הקשה פותחת אותה במקום שבו הפסקתם</string>
 </resources>

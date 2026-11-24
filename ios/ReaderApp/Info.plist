@@ -33,6 +33,13 @@
 				<string>com.googleusercontent.apps.203667201820-isj9lodav2j16r3ip2l4gbtilk2hek7s</string>
 			</array>
 		</dict>
+		<!-- the app's own links: a pinned tab from the home-screen widget, soferbooks://tab/<id> -->
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>soferbooks</string>
+			</array>
+		</dict>
 	</array>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>

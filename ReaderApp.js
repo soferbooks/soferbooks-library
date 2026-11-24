@@ -107,6 +107,7 @@ import {
   selectAppIconShortcuts,
   syncAppIconShortcuts,
 } from "./tabs/tabShortcuts";
+import { updatePinnedTabsWidget } from "./widgets/pinnedTabsWidget";
 import SplitTabPane from "./reader/SplitTabPane";
 import { makeScheduleSequence, sequenceAt, currentReading, hasSequence, isBounded, boundedNeighbours, readingIndexOf, isLastReading } from "./learningSchedules/scheduleSequence";
 import { HE_TITLE as CHOK_HE_TITLE } from "./extras/chok";
@@ -420,7 +421,12 @@ class ReaderApp extends React.PureComponent {
   }
 
   componentDidUpdate(prevProps, prevState) {
-    if (prevProps.themeStr !== this.props.themeStr) { matchNavigationBar(this.props.themeStr); }
+    if (prevProps.themeStr !== this.props.themeStr) {
+      matchNavigationBar(this.props.themeStr);
+      this._updateWidget();
+    } else if (prevProps.savedTextLanguage !== this.props.savedTextLanguage) {
+      this._updateWidget();
+    }
     // The menus and the home page in the reader's own language (its setting), a tab in its own:
     // however the app moves between them (a menu, Back, a tab) - an English search result's tab
     // had left the whole app English (2026-11-22)
@@ -476,6 +482,13 @@ class ReaderApp extends React.PureComponent {
       this.props.interfaceLanguage
     );
     syncAppIconShortcuts(items);
+    this._updateWidget();
+  };
+
+  /** The home-screen widget of the pinned tabs, in the language of the home page's Open Tabs (widgets/) */
+  _updateWidget = () => {
+    const lang = Sefaria.util.get_menu_language(this.props.interfaceLanguage, this.props.savedTextLanguage || this.props.textLanguage);
+    updatePinnedTabsWidget(this.state.readerTabs.tabs, lang, this.props.themeStr);
   };
 
   promptLibraryDownload() {
@@ -3382,7 +3395,7 @@ ${strings.formatString(strings.extras.download_size, size)}` : '';
     const commentaryNakdanAvailable = !!nakdanBook && this.props.vocalization !== VOCALIZATION.NONE;
     const commentaryNakdanOn = nakdanWanted(this.state.nakdanPrefs, commentaryNakdanKey(nakdanBook), this.props.vocalization);
     const showNakdanAsk = false;  // popup hidden; toggle lives in Aa menu & Settings
-    const showNakdanCredit = !loading && ((nakdanOn && mainLacksNikud) || (commentaryNakdanOn && !!inlineCommentary));
+    const showNakdanCredit = !loading && ((nakdanOn && mainLacksNikud) || (commentaryNakdanOn && (!!inlineCommentary || !!this.state.connectionsMode)));
     return (
         <Animated.View
           style={[styles.container, this.props.theme.container]}
@@ -3516,6 +3529,7 @@ ${strings.formatString(strings.extras.download_size, size)}` : '';
                 showInline={this.showInlineFromPanel}
                 canShowInline={!isSheet && this.state.textFlow !== 'continuous'}
                 inlineKeyFor={this.inlineKeyForRef}
+                commentaryNakdan={commentaryNakdanOn}
                 inlineCommentary={inlineCommentary}
                 setConnectionsMode={this.setConnectionsMode}
                 openFilter={this.openFilter}

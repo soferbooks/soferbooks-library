@@ -25,6 +25,7 @@ import styles, { SCROLL_PADDING_BOTTOM_FRACTION, makeScrollViewLayoutHandler } f
 import { useHTMLViewStyles } from './useHTMLViewStyles';
 import isMac from './isMac';
 import MacTextList from './reader/MacTextList';
+import { useNakdan } from './reader/nakdan';
 
 
 /*
@@ -183,6 +184,7 @@ class TextList extends React.Component {
         loading={loading}
         displayRef={item.displayRef}
         noAutoDibbur={item.noAutoDibbur}
+        nakdan={!!this.props.nakdan}
       />
     );
   };
@@ -273,7 +275,7 @@ class TextList extends React.Component {
         key={this.state.updateScrollPosKey}
         style={styles.scrollViewPaddingInOrderToScroll}
         data={this.state.dataSource}
-        extraData={`${this.props.fontSize}|${this.props.themeStr}|${this.context && this.context.commentaryFontScale}|${this.context && this.context.hebrewFont}|${this.context && this.context.commentaryFont}|${this.props.inlineCommentary}`}
+        extraData={`${this.props.fontSize}|${this.props.themeStr}|${this.context && this.context.commentaryFontScale}|${this.context && this.context.hebrewFont}|${this.context && this.context.commentaryFont}|${this.props.inlineCommentary}|${!!this.props.nakdan}`}
         renderItem={this.renderItem}
         contentContainerStyle={[{justifyContent: "center"}, { paddingBottom: this.state.scrollViewHeight * SCROLL_PADDING_BOTTOM_FRACTION }]}
         onLayout={this._onScrollViewLayout}
@@ -321,6 +323,7 @@ const ListItem = ({
   loading,
   displayRef,
   noAutoDibbur,
+  nakdan,
 }) => {
   const { themeStr, fontSize: readerFontSize, commentaryFontScale, interfaceLanguage, textLanguage, hebrewFont, commentaryFont } = useContext(GlobalStateContext);
   // (the commentary's own text size: the Aa menu's "Commentary Size")
@@ -363,7 +366,9 @@ const ListItem = ({
     const cleaned = stripLeadingVerseMarker(lco.he);
     heHtml = noAutoDibbur ? cleaned : boldDibbur(cleaned);
   }
-  const he = Sefaria.util.getDisplayableHTML(heHtml, "hebrew");
+  // (the Aa menu's "Commentary Vowels (Dicta)": nikud by computer for a source without its own)
+  const vowelledHe = useNakdan(typeof heHtml === 'string' ? heHtml : '', !!nakdan && !loading);
+  const he = Sefaria.util.getDisplayableHTML(vowelledHe || heHtml, "hebrew");
   const en = Sefaria.util.getDisplayableHTML(lco.en, "english");
   const lineHeightMultiplierHe = Platform.OS === 'android' ? 1.3 : 1.2;
   const smallEnSheet = {

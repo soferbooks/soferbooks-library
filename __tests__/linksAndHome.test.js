@@ -140,7 +140,8 @@ describe('first launch', () => {
 describe('sefaria.org links', () => {
   test('the manifest offers the app for http/https links on Sefaria-Mobile\'s hosts, unverified', () => {
     const manifest = read('android/app/src/main/AndroidManifest.xml');
-    const filter = manifest.match(/<intent-filter>(?:(?!<\/intent-filter>)[\s\S])*android\.intent\.action\.VIEW[\s\S]*?<\/intent-filter>/);
+    // (the sefaria.org one: the widget's soferbooks://tab filter is another VIEW filter)
+    const filter = manifest.match(/<intent-filter>(?:(?!<\/intent-filter>)[\s\S])*android\.intent\.action\.VIEW(?:(?!<\/intent-filter>)[\s\S])*sefaria\.org[\s\S]*?<\/intent-filter>/);
     expect(filter).not.toBeNull();
     const f = filter[0];
     expect(f).toContain('android.intent.category.BROWSABLE');

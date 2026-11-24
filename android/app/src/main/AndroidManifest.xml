@@ -41,6 +41,12 @@
      <action android:name="android.intent.action.DOWNLOAD_COMPLETE"/>
               <category android:name="android.intent.category.MULTIWINDOW_LAUNCHER" />
           </intent-filter>
+          <!-- A pinned tab's row in the home-screen widget: soferbooks://tab/<id> (tabs/tabShortcuts.js) -->
+          <intent-filter>
+              <action android:name="android.intent.action.VIEW" />
+              <category android:name="android.intent.category.DEFAULT" />
+              <data android:scheme="soferbooks" android:host="tab" />
+          </intent-filter>
           <!-- Sefaria links open in the app (DeepLinkRouter.js routes them): the hosts
                Sefaria-Mobile listed. No android:autoVerify - we don't own sefaria.org, so
                Android can't verify the links for us; on Android 12+ the reader turns on
@@ -67,5 +73,43 @@
         android:windowSoftInputMode="adjustResize"
         android:exported="true"
       />
+
+      <!-- The pinned tabs widget (widgets/pinnedTabsWidget.js), drawn by react-native-android-widget -->
+      <receiver
+        android:name=".widget.PinnedTabs"
+        android:exported="false"
+        android:label="@string/widget_pinnedtabs_label">
+        <intent-filter>
+          <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+          <action android:name="${applicationId}.WIDGET_CLICK" />
+        </intent-filter>
+        <meta-data
+          android:name="android.appwidget.provider"
+          android:resource="@xml/widgetprovider_pinnedtabs" />
+      </receiver>
+      <!-- The one-tab widget, its tab chosen when it is added (widgets/OneTabChooser.js) -->
+      <receiver
+        android:name=".widget.OneTab"
+        android:exported="false"
+        android:label="@string/widget_onetab_label">
+        <intent-filter>
+          <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+          <action android:name="${applicationId}.WIDGET_CLICK" />
+        </intent-filter>
+        <meta-data
+          android:name="android.appwidget.provider"
+          android:resource="@xml/widgetprovider_onetab" />
+      </receiver>
+      <activity
+        android:name=".widget.WidgetConfigurationActivity"
+        android:exported="true"
+        android:theme="@style/AppTheme">
+        <intent-filter>
+          <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+        </intent-filter>
+      </activity>
+      <service
+        android:name="com.reactnativeandroidwidget.RNWidgetCollectionService"
+        android:permission="android.permission.BIND_REMOTEVIEWS" />
     </application>
 </manifest>
