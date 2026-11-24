@@ -10,6 +10,10 @@
  * - Only the letters' marks are added: an answer whose letters differ from what was sent is not used.
  * - Dicta's terms: one request at a time, 12 seconds apart, under 25,000 letters each; the texts
  *   waiting are sent together (newest, i.e. what is on screen now, first).
+ * - The first request after a quiet spell (opening a page) is small: the passages asked for first - the
+ *   page's top, on screen - up to 2,000 letters, which Dicta answers in a moment; the rest of the page
+ *   follows in the next request (owner, 2026-11-24: "make it quicker" - the first request had carried
+ *   the whole page, 25,000 letters, and nothing showed until Dicta had done all of it).
  * - Every answer is kept on the phone (a file, the last 3,000 texts), so a text is asked for once
  *   and shows with its nikud offline afterwards.
  * - A request that fails or takes over 20 seconds leaves the plain text, and Dicta is not asked
@@ -31,6 +35,7 @@ export const DICTA_SITE = 'https://dicta.org.il';
 
 export const WAIT_MS = 12000;          // between requests
 export const MAX_LETTERS = 25000;      // in one request
+export const FIRST_LETTERS = 2000;     // in the first request after a quiet spell: what is on screen
 export const KEEP = 3000;              // answers kept on the phone
 export const TIMEOUT_MS = 20000;       // then the plain text stays
 export const PAUSE_MS = 60000;         // after a failed request
@@ -158,6 +163,7 @@ export const createNakdan = ({
   timeout = TIMEOUT_MS,
   pause = PAUSE_MS,
   maxLetters = MAX_LETTERS,
+  firstLetters = FIRST_LETTERS,
   keep = KEEP,
   saveDelay = SAVE_DELAY_MS,
 } = {}) => {
@@ -253,11 +259,16 @@ export const createNakdan = ({
     const t = now();
     if (t < pausedUntil) { later(pausedUntil - t); return; }
     if (lastSent && t < lastSent + wait) { later(lastSent + wait - t); return; }
-    // newest first: what the reader has just scrolled to
+    // after a quiet spell (a page just opened): a small first request, the passages asked for first - the
+    // page's top, on screen - so they show at once; otherwise newest first, what the reader has just
+    // scrolled to, as much as one request takes
+    const fresh = !lastSent || t >= lastSent + 2 * wait;
+    const order = fresh ? [...waiting.keys()] : [...waiting.keys()].reverse();
+    const limit = fresh ? firstLetters : maxLetters;
     const texts = [];
     let size = 0;
-    for (const text of [...waiting.keys()].reverse()) {
-      if (texts.length && size + text.length + 8 > maxLetters) { break; }
+    for (const text of order) {
+      if (texts.length && size + text.length + 8 > limit) { break; }
       size += text.length + 8;
       texts.push(text);
     }

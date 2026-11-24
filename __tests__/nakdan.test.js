@@ -282,3 +282,20 @@ describe("the reader shows the sefer's switch and the card that asks", () => {
     act(() => inst.unmount());
   });
 });
+
+describe('nikud shows quickly on a page just opened', () => {
+  test('the first request carries only the top of the page (on screen); the rest follows after the wait', async () => {
+    const fetchImpl = fakeFetch();
+    let t = 100000;
+    const q = track(createNakdan({ fetchImpl, storage: memoryStorage(), now: () => t, wait: 12000, firstLetters: 40 }));
+    // (the page's passages, asked for top to bottom as its rows are drawn)
+    q.want('בראשית ברא', () => {});
+    q.want('אלהים את השמים', () => {});
+    q.want('ואת הארץ', () => {});
+    await new Promise(r => setTimeout(r, 5));
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(fetchImpl.mock.calls[0][1].body).data.split(BETWEEN).map(x => x.trim()))
+      .toEqual(['בראשית ברא', 'אלהים את השמים']);
+    expect(q._waiting()).toEqual(['ואת הארץ']);
+  });
+});
