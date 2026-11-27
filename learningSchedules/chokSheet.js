@@ -220,7 +220,7 @@ export const segmentRefOf = (sectionRef, segmentNumber, title) => (sectionRef ==
  * `cite`: the passage's Hebrew name, on its first row. loadSection as for segmentsOf; titleOf(ref)
  * the book's title. A passage that cannot be read is shown by its name, so the day still reads.
  */
-export async function chokRows(keys, { loadSection, titleOf, readAtOnce = CHOK_READ_AT_ONCE, onFirstPart = null } = {}) {
+export async function chokRows(keys, { loadSection, titleOf, readAtOnce = CHOK_READ_AT_ONCE, onFirstPart = null, aliyahAt = null } = {}) {
   const all = [].concat(keys);
   // (the day's passages - each from another book - read side by side, a few at a time, not one
   //  after another: the day took long to open on the 32-bit tablet - owner, 2026-11-22. Read in
@@ -246,7 +246,7 @@ export async function chokRows(keys, { loadSection, titleOf, readAtOnce = CHOK_R
       ? partRows => { try { onFirstPart(rows.concat(partRows)); } catch (e) { /* the page waits for all */ } }
       : null;
     first = false;
-    rows.push(...(await dayRows(key, day, { titleOf, multiple: all.length > 1, segmentsOfItem, partDone })));
+    rows.push(...(await dayRows(key, day, { titleOf, multiple: all.length > 1, segmentsOfItem, partDone, aliyahAt })));
   }
   return rows.length ? rows : null;
 }
@@ -259,7 +259,7 @@ export const chokItemRefs = keys => [].concat(keys).flatMap(key => {
   return ((day && day.parts) || []).flatMap(part => part.items.filter(item => item.r && !item.t).map(item => item.r));
 });
 
-async function dayRows(key, day, { titleOf, multiple, segmentsOfItem, partDone = null }) {
+async function dayRows(key, day, { titleOf, multiple, segmentsOfItem, partDone = null, aliyahAt = null }) {
   const parsed = parseKey(key);
   const rows = [];
   if (multiple && parsed) { rows.push({ type: 'outsideText', he: `<big><b>פרשת ${parsed.parshaHe}</b></big>`, text: '' }); }
@@ -288,16 +288,22 @@ async function dayRows(key, day, { titleOf, multiple, segmentsOfItem, partDone =
         continue;
       }
       const title = titleOf(item.r);
-      segs.forEach((s, j) => rows.push({
+      segs.forEach((s, j) => {
+        const sourceRef = segmentRefOf(s.sectionRef, s.segmentNumber, title);
+        // (an aliyah starting at this verse, marked as in the Chumash: {type: 'aliya', he, en})
+        const aliyah = aliyahAt ? aliyahAt(sourceRef) : null;
+        if (aliyah) { rows.push({ type: 'aliya', he: aliyah.he, en: aliyah.en }); }
+        rows.push({
         type: 'ref',
-        sourceRef: segmentRefOf(s.sectionRef, s.segmentNumber, title),
+        sourceRef,
         sourceHeRef: j === 0 ? (item.hr || item.r) : '',
         he: s.he,
         text: s.text,
         sectionRef: s.sectionRef,
         segmentIndex: s.index,
         segmentNumber: s.segmentNumber,
-      }));
+        });
+      });
     }
   }
   return rows;

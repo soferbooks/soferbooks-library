@@ -325,6 +325,13 @@ class TextColumn extends React.PureComponent {
           else if (source.type === 'outsideText')   { type = ROW_TYPES.SHEET_OUTSIDE_TEXT; }
           else if (source.type === 'outsideBiText') { type = ROW_TYPES.SHEET_OUTSIDE_BI_TEXT; }
           else if (source.type === 'media')         { type = ROW_TYPES.SHEET_MEDIA; }
+          // (the Chok LeYisrael page's aliyah markers, as the Chumash draws them: learningSchedules/chokSheet.js)
+          //  (kept as a row when the Aa menu's Aliyot is off, drawn as nothing: the rows' places stay the links')
+          else if (source.type === 'aliya')         {
+            type = ROW_TYPES.ALIYA;
+            row.data = { he: source.he, en: source.en };
+            row.changeString += `|aliya|${props.showAliyot ? 1 : 0}`;
+          }
           row.type = type;
           return row;
         }),
@@ -875,7 +882,7 @@ class TextColumn extends React.PureComponent {
   };
 
   renderAliyaMarker = ({ item }) => {
-    if (this.props.isSheet) { return null; }
+    if (this.props.isSheet && (item.type !== ROW_TYPES.ALIYA || !this.props.showAliyot)) { return null; }
     const isHeb = Sefaria.util.get_menu_language(this.props.interfaceLanguage, this.props.textLanguage) == "hebrew";
     return (
       <TextHeader

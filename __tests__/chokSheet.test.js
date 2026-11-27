@@ -132,6 +132,22 @@ describe('the outline', () => {
     expect(torah[0].sourceHeRef).toMatch(/בראשית/);
     expect(torah[1].sourceHeRef).toBe('');
   });
+  test('aliyot: a marker row before each verse an aliyah starts at, as in the Chumash (reader/aliyot.js)', async () => {
+    const { aliyahStarts } = require('../reader/aliyot');
+    // (Vayishlach's Parasha node: the parasha, then sheni at 32:14, shlishi at 32:30 ...)
+    const starts = aliyahStarts([{ title: 'Vayishlach', refs: ['Genesis 32:4-13', 'Genesis 32:14-29', 'Genesis 32:30-33:5'] }]);
+    expect([...starts.keys()]).toEqual(['Genesis 32:14', 'Genesis 32:30']);
+    const rows = await chokRows(['וישלח|thu_night'], {
+      loadSection: async ref => ({ sectionRef: ref.replace(/:\d+$/, ''), isSectionLevel: !/:\d+$/.test(ref), requestedRef: ref,
+        content: Array.from({ length: 40 }, (_, i) => ({ segmentNumber: i + 1, he: `x${i + 1}`, text: '' })), next: null }),
+      titleOf: ref => ref.replace(/ [\d:ab-]+$/, ''),
+      aliyahAt: ref => starts.get(ref) || null,
+    });
+    const i = rows.findIndex(r => r.type === 'aliya');
+    expect(rows[i]).toMatchObject({ type: 'aliya', en: expect.any(String), he: expect.any(String) });
+    expect(rows[i + 1]).toMatchObject({ type: 'ref', sourceRef: 'Genesis 32:30' });
+    expect(rows.filter(r => r.type === 'aliya')).toHaveLength(1);
+  });
   test('the Torah is given first, while the rest of the day is read (the passages read in the page order)', async () => {
     const asked = [];
     let first = null;

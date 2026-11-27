@@ -108,6 +108,7 @@ import {
   syncAppIconShortcuts,
 } from "./tabs/tabShortcuts";
 import { updatePinnedTabsWidget } from "./widgets/pinnedTabsWidget";
+import { aliyahStarts } from "./reader/aliyot";
 import SplitTabPane from "./reader/SplitTabPane";
 import { makeScheduleSequence, sequenceAt, currentReading, hasSequence, isBounded, boundedNeighbours, readingIndexOf, isLastReading } from "./learningSchedules/scheduleSequence";
 import { HE_TITLE as CHOK_HE_TITLE } from "./extras/chok";
@@ -2897,9 +2898,11 @@ ${strings.formatString(strings.extras.download_size, size)}` : '';
       this._showChokRows(ref, keys, titles, partRows, loadToken, null);
       prefetchChokTargums(keys, false);
     };
+    // (the aliyot of the day's Chumash, marked as in the Chumash: its books' Parasha tables - reader/aliyot.js)
+    const aliyahAt = await this._chokAliyahAt(keys);
     let rows = null;
     try {
-      rows = await chokRows(keys, { loadSection, titleOf: r => Sefaria.textTitleForRef(r),
+      rows = await chokRows(keys, { loadSection, titleOf: r => Sefaria.textTitleForRef(r), aliyahAt,
         // (more at once where the phone has the memory for it: 3 on a 32-bit Android)
         readAtOnce: isLowMemoryAndroid ? 3 : 6, onFirstPart });
     } catch (e) {
@@ -2920,6 +2923,16 @@ ${strings.formatString(strings.extras.download_size, size)}` : '';
     }
     prefetchChokTargums(keys, false);
     this._showChokRows(ref, keys, titles, rows, loadToken, null);
+  };
+
+  /** ref => the aliyah starting at that verse ({he, en}) in the days' Chumash books, or null. Never rejects. */
+  _chokAliyahAt = async keys => {
+    const titles = [...new Set(chokItemRefs(keys).map(r => Sefaria.textTitleForRef(r)).filter(t => t && Sefaria.canHaveAliyot(t)))];
+    const starts = new Map();
+    await Promise.all(titles.map(t => Sefaria.offlineOnline.textToc(t)
+      .then(toc => { aliyahStarts(toc && toc.alts && toc.alts.Parasha && toc.alts.Parasha.nodes).forEach((v, k) => starts.set(k, v)); })
+      .catch(() => {})));
+    return starts.size ? ref => starts.get(ref) || null : null;
   };
 
   /** The day's page shown with `rows` (all the day's, or its first part while the rest is read) */
@@ -3613,7 +3626,7 @@ ${strings.formatString(strings.extras.download_size, size)}` : '';
                 setCommentaryFont={this.setCommentaryFont}
                 setTheme={this.setTheme}
                 canBeContinuous={Sefaria.canBeContinuous(this.state.textTitle)}
-                canHaveAliyot={Sefaria.canHaveAliyot(this.state.textTitle)}
+                canHaveAliyot={Sefaria.canHaveAliyot(this.state.textTitle) || !!(this.state.sheet && this.state.sheet.chok)}
                 vowelToggleAvailable={vowelToggleAvailable}
                 themeStr={this.props.themeStr}
                 inlineSources={isSheet ? [] : availableInlineSources(this.state.relatedBySectionRef, t => Sefaria.index(t)?.heTitle)}
