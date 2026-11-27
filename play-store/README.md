@@ -4,7 +4,7 @@ Everything Play Console asks for, in one place (prepared 2026-11-23):
 
 | What | Where |
 |---|---|
-| The app bundle to upload | `SoferBooks-Library-1.0.0-1.aab` (here; not in git) |
+| The app bundle to upload | `SoferBooks-Library-<version>-<versionCode>.aab`, e.g. `SoferBooks-Library-1.0.1-2.aab` (here; not in git) |
 | Title, short and full description | `listing/` |
 | 512x512 icon, 1024x500 feature graphic | `graphics/` |
 | Phone screenshots | `graphics/phone-screenshots/` |
@@ -26,7 +26,7 @@ Everything Play Console asks for, in one place (prepared 2026-11-23):
 4. **Internal testing first** (Test and release -> Testing -> Internal testing -> Create new release):
    - Play App Signing: accept "Use Google-generated key" (the default). Google then keeps the key that signs
      the app on phones; ours is only the upload key.
-   - Upload `SoferBooks-Library-1.0.0-1.aab`, release notes "First release of SoferBooks Library on Google
+   - Upload the newest `SoferBooks-Library-*.aab`, release notes "First release of SoferBooks Library on Google
      Play.", Save -> Review release -> Start rollout.
    - Add yourself as a tester (an email list), open the opt-in link on your phone, install from Play and check
      it.

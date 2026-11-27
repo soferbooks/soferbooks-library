@@ -14,6 +14,7 @@ import iPad from "./isIPad";
 import isMac from './isMac';
 import { useNakdan } from './reader/nakdan';
 import { boldDibbur as withBoldDibbur } from './reader/dibbur';
+import InlineCommentary from './reader/InlineCommentary';
 
 
 const TextRange = React.memo(({
@@ -34,6 +35,8 @@ const TextRange = React.memo(({
   setHighlightedWord,
   nakdan,
   boldDibbur,
+  inlineCommentary,
+  commentaryNakdan,
 }) => {
   const { themeStr, textLanguage, biLayout, fontSize, vocalization } = useContext(GlobalStateContext);
 
@@ -86,10 +89,8 @@ const TextRange = React.memo(({
                       {"●"}
                     </Text>);
 
-  let textStyle = [styles.textSegment];
-  if (rowData.highlight) {
-      textStyle.push(theme.segmentHighlight);
-  }
+  // (inside the highlight box, which takes styles.textSegment's flex: 1)
+  let textStyle = [{ flexDirection: 'column', flexWrap: 'nowrap' }];
   if (biLayout === 'sidebyside') {
     textStyle.push({flexDirection: "row"})
   } else if (biLayout === 'sidebysiderev') {
@@ -113,6 +114,9 @@ const TextRange = React.memo(({
         key={`${segmentRef}|${biLayout}|inner-box`}
       >
         { numberMargin }
+        {/* (the selected passage's highlight covers its commentary under it too: owner, 2026-11-27 "the segment
+             selector should cover both, not just the main text") */}
+        <View style={[styles.textSegment, rowData.highlight ? theme.segmentHighlight : null]} key={segmentRef+"|highlight-box"}>
         <View style={textStyle} key={segmentRef+"|text-box"}>
           {
             showHe ? (
@@ -162,6 +166,9 @@ const TextRange = React.memo(({
             ) : null
           }
         </View>
+        {inlineCommentary ?
+          <InlineCommentary links={rowData.related?.links} sourceKey={inlineCommentary} nakdan={!!commentaryNakdan} inside /> : null}
+        </View>
         { bulletMargin }
       </View>
     </View>
@@ -181,6 +188,8 @@ TextRange.propTypes = {
   getDisplayedText:   PropTypes.func.isRequired,
   nakdan:             PropTypes.bool,   // add Dicta's nikud to a text without nikud
   boldDibbur:         PropTypes.bool,   // a commentary: its dibbur hamaschil in bold (reader/dibbur.js)
+  inlineCommentary:   PropTypes.string, // the source shown under the passage (reader/InlineCommentary.js)
+  commentaryNakdan:   PropTypes.bool,   // ... with Dicta's nikud where it has none
 };
 
 export default TextRange;

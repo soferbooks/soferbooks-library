@@ -807,9 +807,9 @@ class TextColumn extends React.PureComponent {
           setHighlightedWord={this.props.setHighlightedWord}
           nakdan={!!this.props.nakdan}
           boldDibbur={this.isCommentary() && !item.data?.noAutoDibbur}
+          inlineCommentary={this.props.inlineCommentary && item.type === ROW_TYPES.SEGMENT && !this.props.isSheet ? this.props.inlineCommentary : null}
+          commentaryNakdan={!!this.props.commentaryNakdan}
         />
-        {this.props.inlineCommentary && item.type === ROW_TYPES.SEGMENT && !this.props.isSheet ?
-          <InlineCommentary links={item.data.related?.links} sourceKey={this.props.inlineCommentary} nakdan={!!this.props.commentaryNakdan} /> : null}
         {this.props.isSheet && this.props.sheetInlineFor && item.type === ROW_TYPES.SEGMENT && item.data.related?.links ?
           this.renderSheetInline(item) : null}
       </View>

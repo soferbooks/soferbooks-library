@@ -6,7 +6,10 @@ $dir = Join-Path $env:USERPROFILE 'Documents\SoferBooks Library signing key'
 $ks = Join-Path $dir 'soferbooks-library-upload.keystore'
 $jbr = 'C:\Program Files\Android\Android Studio\jbr\bin'
 $src = Join-Path $PSScriptRoot '..\android\app\build\outputs\bundle\release\app-release.aab'
-$out = Join-Path $PSScriptRoot 'SoferBooks-Library-1.0.0-1.aab'
+# (named for the version and versionCode in android/app/build.gradle, e.g. SoferBooks-Library-1.0.1-2.aab)
+$gradle = Get-Content (Join-Path $PSScriptRoot '..\android\app\build.gradle') -Raw
+$v = 'MAJOR','MINOR','PATCH','BUILD' | ForEach-Object { if ($gradle -match "(?m)^def VERSION_$_=\s*(\d+)") { $Matches[1] } }
+$out = Join-Path $PSScriptRoot ("SoferBooks-Library-{0}.{1}.{2}-{3}.aab" -f $v[0], $v[1], $v[2], $v[3])
 
 New-Item -ItemType Directory -Force $dir | Out-Null
 if (Test-Path $ks) {

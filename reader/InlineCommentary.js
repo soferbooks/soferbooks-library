@@ -110,7 +110,7 @@ const NakdanBoldText = ({ t, he, dibbur, nakdan, style }) => {
   return <BoldRunsText runs={commentRuns(t, vowelled || he, dibbur)} style={style} />;
 };
 
-const InlineCommentary = ({ links, sourceKey, nakdan = false, asText = false }) => {
+const InlineCommentary = ({ links, sourceKey, nakdan = false, asText = false, inside = false }) => {
   const { theme, textLanguage, fontSize: readerFontSize, commentaryFontScale, commentaryFont } = useGlobalState();
   // (the commentary's own text size: the Aa menu's "Commentary Size")
   const scale = commentaryFontSize(1, commentaryFontScale);
@@ -167,7 +167,9 @@ const InlineCommentary = ({ links, sourceKey, nakdan = false, asText = false }) 
   return (
     // (asText: within the verse's own margins - the number column either side - so it starts where
     //  the verse's line does: owner, 2026-11-22)
-    <View style={asText ? [readerStyles.readerSideMargin, localStyles.textBox] : [localStyles.box, theme.lighterGreyBorder]}>
+    // (inside: in the passage's own box, between its number and bullet, so the passage's highlight covers it - TextRange)
+    <View style={asText ? [readerStyles.readerSideMargin, localStyles.textBox]
+      : [inside ? localStyles.insideBox : localStyles.box, theme.lighterGreyBorder]}>
       {parts}
     </View>
   );
@@ -177,6 +179,7 @@ InlineCommentary.propTypes = {
   sourceKey: PropTypes.string,
   nakdan:    PropTypes.bool,
   asText:    PropTypes.bool,
+  inside:    PropTypes.bool,
 };
 
 /** Is an item under the passage a commentary's comment? (its link's category, else its book) */
@@ -188,6 +191,7 @@ const isCommentaryItem = (ref, links) => {
 const localStyles = StyleSheet.create({
   bold: { fontWeight: 'bold' },
   box: { marginHorizontal: 32, marginBottom: 10, paddingTop: 4, borderTopWidth: 1 },
+  insideBox: { marginTop: 6, marginBottom: 6, paddingTop: 4, borderTopWidth: 1 },
   textBox: { marginBottom: 10 },
   he: { writingDirection: 'rtl', textAlign: 'right', fontFamily: CSS_CLASS_STYLES.hebrew.fontFamily },
   // the reader's own English text font (serif, as in the main text), not the system sans
