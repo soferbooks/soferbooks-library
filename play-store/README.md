@@ -41,6 +41,8 @@ Everything Play Console asks for, in one place (prepared 2026-11-23):
   such a phone to Play, the app must be uninstalled first, which deletes its downloaded books, tabs and history.
   Your tablet can simply stay on the cable builds.
 - **Later releases:** raise `VERSION_BUILD` (the versionCode) and the version in `android/app/build.gradle`,
-  build and sign a new bundle the same way, and upload it to a new release. Every upload must be signed with
+  build the bundle with all three phone types (`cd android; .\gradlew.bat bundleRelease
+  -PreactNativeArchitectures=armeabi-v7a,arm64-v8a,x86_64` - without it the 32-bit phones get nothing), sign it
+  with `make-upload-key-and-sign.ps1`, and upload it to a new release. Every upload must be signed with
   the same upload key: keep its backup and password safe. If it is ever lost, Google can reset the upload key
   on request (Play App Signing).
