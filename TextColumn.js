@@ -816,6 +816,7 @@ class TextColumn extends React.PureComponent {
           boldDibbur={this.isCommentary() && !item.data?.noAutoDibbur}
           inlineCommentary={this.props.inlineCommentary && item.type === ROW_TYPES.SEGMENT && !this.props.isSheet ? this.props.inlineCommentary : null}
           commentaryNakdan={!!this.props.commentaryNakdan}
+          reportCommentaryError={this.props.reportCommentaryError}
         />
         {this.props.isSheet && this.props.sheetInlineFor && item.type === ROW_TYPES.SEGMENT && item.data.related?.links ?
           this.renderSheetInline(item) : null}

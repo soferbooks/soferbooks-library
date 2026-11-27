@@ -37,6 +37,7 @@ const TextRange = React.memo(({
   boldDibbur,
   inlineCommentary,
   commentaryNakdan,
+  reportCommentaryError,
 }) => {
   const { themeStr, textLanguage, biLayout, fontSize, vocalization } = useContext(GlobalStateContext);
 
@@ -167,7 +168,7 @@ const TextRange = React.memo(({
           }
         </View>
         {inlineCommentary ?
-          <InlineCommentary links={rowData.related?.links} sourceKey={inlineCommentary} nakdan={!!commentaryNakdan} inside /> : null}
+          <InlineCommentary links={rowData.related?.links} sourceKey={inlineCommentary} nakdan={!!commentaryNakdan} inside onReport={reportCommentaryError} /> : null}
         </View>
         { bulletMargin }
       </View>
@@ -190,6 +191,7 @@ TextRange.propTypes = {
   boldDibbur:         PropTypes.bool,   // a commentary: its dibbur hamaschil in bold (reader/dibbur.js)
   inlineCommentary:   PropTypes.string, // the source shown under the passage (reader/InlineCommentary.js)
   commentaryNakdan:   PropTypes.bool,   // ... with Dicta's nikud where it has none
+  reportCommentaryError: PropTypes.func, // (ref, text): "Report Error" on a comment under the passage
 };
 
 export default TextRange;

@@ -2,12 +2,13 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import pLimit from 'p-limit';
 import { useGlobalState } from '../Hooks';
 import { loadText } from '../offlineOnline';
 import Sefaria from '../sefaria';
-import { CSS_CLASS_STYLES } from '../Misc';
+import { CSS_CLASS_STYLES, openLinkActionSheet } from '../Misc';
+import Clipboard from '@react-native-clipboard/clipboard';
 import readerStyles from '../Styles';
 import { itemsForSource } from './inlineCommentaryPrefs';
 import { NakdanText } from './NakdanNotices';
@@ -110,8 +111,8 @@ const NakdanBoldText = ({ t, he, dibbur, nakdan, style }) => {
   return <BoldRunsText runs={commentRuns(t, vowelled || he, dibbur)} style={style} />;
 };
 
-const InlineCommentary = ({ links, sourceKey, nakdan = false, asText = false, inside = false }) => {
-  const { theme, textLanguage, fontSize: readerFontSize, commentaryFontScale, commentaryFont } = useGlobalState();
+const InlineCommentary = ({ links, sourceKey, nakdan = false, asText = false, inside = false, onReport = null }) => {
+  const { theme, textLanguage, interfaceLanguage, fontSize: readerFontSize, commentaryFontScale, commentaryFont } = useGlobalState();
   // (the commentary's own text size: the Aa menu's "Commentary Size")
   const scale = commentaryFontSize(1, commentaryFontScale);
   const hebFont = commentaryFont || CSS_CLASS_STYLES.hebrew.fontFamily;
@@ -140,6 +141,7 @@ const InlineCommentary = ({ links, sourceKey, nakdan = false, asText = false, in
   const sourceUsesExplicitBold = texts.filter(t => t && t.hasExplicitBold).length >= 2;
   texts.forEach((t, i) => {
     if (!t) { return; }
+    const start = parts.length;
     // fall back to whichever language exists, so a Hebrew-only commentary still shows in English mode
     // (the Hebrew as its words were counted for their bold: heText)
     const dibbur = !(items[i] && items[i].he) && !!items[i] && isCommentaryItem(items[i].ref, links);
@@ -162,6 +164,21 @@ const InlineCommentary = ({ links, sourceKey, nakdan = false, asText = false, in
     // (LRM first: English Rashi opens with the Hebrew words it explains, and Android then laid the
     // whole paragraph out right to left - its closing period at the start of the line, ".daytime")
     if (en) { parts.push(<Text selectable={Platform.OS !== 'android'} key={`en${i}`} style={[localStyles.en, color, { fontSize: size, lineHeight: size * 1.45 }]}>{LRM + en}</Text>); }
+    // (a comment tapped: Copy and Report Error on that comment - owner, 2026-11-27: "have a report
+    //  error on commentary button when someone has commentary showing inline")
+    const ref = items[i] && items[i].ref;
+    if (onReport && ref && parts.length > start) {
+      const shown = [he && (Sefaria.util.htmlToTextCanonical(he) || ''), en && (Sefaria.util.htmlToTextCanonical(en) || '')]
+        .filter(Boolean).join('\n');
+      const own = parts.splice(start);
+      parts.push(
+        <TouchableOpacity key={`item${i}`} activeOpacity={0.6} accessibilityRole="button"
+          onPress={() => openLinkActionSheet({ refStr: ref, interfaceLanguage,
+            copyText: () => Clipboard.setString(shown), reportError: () => onReport(ref, shown) })}>
+          {own}
+        </TouchableOpacity>
+      );
+    }
   });
   if (!parts.length) { return null; }
   return (
@@ -180,6 +197,7 @@ InlineCommentary.propTypes = {
   nakdan:    PropTypes.bool,
   asText:    PropTypes.bool,
   inside:    PropTypes.bool,
+  onReport:  PropTypes.func,   // (ref, text): Report Error on a comment, offered when it is tapped
 };
 
 /** Is an item under the passage a commentary's comment? (its link's category, else its book) */

@@ -1241,6 +1241,24 @@ describe('single-word Hebrew alignment, copy support, and Great Neck Kollel cred
     }
   });
 
+  test('a commentary tapped offers Report Error on itself (owner, 2026-11-27)', () => {
+    strings.setLanguage('en');
+    const spy = jest.spyOn(ActionSheet, 'showActionSheetWithOptions').mockImplementation(() => {});
+    try {
+      const reportError = jest.fn();
+      openLinkActionSheet({ refStr: 'Rashi on Yoma 37b:1', interfaceLanguage: 'english', openHere: jest.fn(), copyText: jest.fn(), reportError });
+      const [opts, cb] = spy.mock.calls[0];
+      expect(opts.options).toEqual(['Open here', 'Copy', 'Report Error', 'Cancel']);
+      cb(2);
+      expect(reportError).toHaveBeenCalledTimes(1);
+      // (shown under the passage: only Copy and Report Error)
+      openLinkActionSheet({ refStr: 'Rashi on Yoma 37b:1', interfaceLanguage: 'english', copyText: jest.fn(), reportError });
+      expect(spy.mock.calls[1][0].options).toEqual(['Copy', 'Report Error', 'Cancel']);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   test('ConnectionsPanel Copy button copies current segment directly without opening any word picker', () => {
     strings.setLanguage('en');
     const ConnectionsPanel = require('../ConnectionsPanel').default;

@@ -2489,12 +2489,35 @@ ${strings.formatString(strings.extras.download_size, size)}` : '';
   }
 
   reportError = () => {
-    // Sent to the corrections address of the library the text came from (reportError.js)
-    const { to, subject, body } = correctionEmail({
+    this.reportErrorFor({
       ref: this.state.segmentRef,
       text: this.getDisplayedText(false),
-      url: Sefaria.refToFullUrl(this.state.segmentRef),
       version: versionOnScreen(this.state.currVersionObjects, this.props.textLanguage),
+    });
+  };
+
+  /**
+   * "Report an error" on a commentary - tapped in the connections panel, or shown under the passage
+   * (owner, 2026-11-27: "a button when clicking on the commentary to report error on commentary ...
+   * also when someone has commentary showing inline"): its own ref and text, to its own library.
+   */
+  reportCommentaryError = (ref, text) => {
+    const title = Sefaria.textTitleForRef(ref);
+    const section = ref && ref.includes(':') ? ref.slice(0, ref.lastIndexOf(':')) : ref;
+    const book = title ? extras.extraBook(title) : null;
+    const version = Sefaria.getCurrVersionObjectBySection(section, 'he')
+      || Sefaria.getCurrVersionObjectBySection(section, 'en')
+      || (book && book.source ? { librarySource: book.source } : null);
+    this.reportErrorFor({ ref, text, version });
+  };
+
+  reportErrorFor = ({ ref, text, version }) => {
+    // Sent to the corrections address of the library the text came from (reportError.js)
+    const { to, subject, body } = correctionEmail({
+      ref,
+      text,
+      url: Sefaria.refToFullUrl(ref),
+      version,
       platform: Platform.OS,
     });
     // (owner, 2026-11-22: "Report error button not working" - a phone that said it had nothing to
@@ -3510,6 +3533,7 @@ ${strings.formatString(strings.extras.download_size, size)}` : '';
                   inlineCommentary={inlineCommentary}
                   nakdan={nakdanOn}
                   commentaryNakdan={commentaryNakdanOn}
+                  reportCommentaryError={this.reportCommentaryError}
                   readingEditions={this.state.readingEditions}
                 />
                 {showNakdanCredit ? <NakdanCredit theme={this.props.theme} /> : null}
@@ -3543,6 +3567,7 @@ ${strings.formatString(strings.extras.download_size, size)}` : '';
                 canShowInline={!isSheet && this.state.textFlow !== 'continuous'}
                 inlineKeyFor={this.inlineKeyForRef}
                 commentaryNakdan={commentaryNakdanOn}
+                reportCommentaryError={this.reportCommentaryError}
                 inlineCommentary={inlineCommentary}
                 setConnectionsMode={this.setConnectionsMode}
                 openFilter={this.openFilter}

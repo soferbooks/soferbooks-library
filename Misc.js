@@ -1645,7 +1645,9 @@ const openActionSheet = (refStr, versions, openRef, interfaceLanguage, heRefStr,
  * missing its handler is not offered.
  */
 const openLinkActionSheet = ({refStr, heRefStr, interfaceLanguage, openHere, openInNewTab,
-                              showUnderneath, shownUnderneath, copyText}) => {
+                              showUnderneath, shownUnderneath, copyText, reportError}) => {
+  // (reportError: "Report Error" on the source itself - owner, 2026-11-27; a commentary shown under
+  //  the passage gets only Copy and Report Error: reader/InlineCommentary.js)
   const choices = [];
   if (openHere) { choices.push([strings.connections.open_here, openHere]); }
   if (openInNewTab) { choices.push([strings.connections.open_in_new_tab, openInNewTab]); }
@@ -1653,6 +1655,7 @@ const openLinkActionSheet = ({refStr, heRefStr, interfaceLanguage, openHere, ope
     choices.push([shownUnderneath ? strings.connections.stop_showing_underneath : strings.connections.show_underneath, showUnderneath]);
   }
   if (copyText) { choices.push([strings.common.copy, copyText]); }
+  if (reportError) { choices.push([strings.connections.report_error, reportError]); }
   const title = interfaceLanguage === "hebrew" ? (heRefStr || refStr) : refStr;   // (which source: its ref)
   ActionSheet.showActionSheetWithOptions({
     title,

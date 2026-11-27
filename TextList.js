@@ -185,6 +185,7 @@ class TextList extends React.Component {
         displayRef={item.displayRef}
         noAutoDibbur={item.noAutoDibbur}
         nakdan={!!this.props.nakdan}
+        reportError={this.props.reportError}
       />
     );
   };
@@ -324,6 +325,7 @@ const ListItem = ({
   displayRef,
   noAutoDibbur,
   nakdan,
+  reportError,
 }) => {
   const { themeStr, fontSize: readerFontSize, commentaryFontScale, interfaceLanguage, textLanguage, hebrewFont, commentaryFont } = useContext(GlobalStateContext);
   // (the commentary's own text size: the Aa menu's "Commentary Size")
@@ -341,14 +343,16 @@ const ListItem = ({
   const versions = (versionLanguage) ? {[versionLanguage]: versionTitle} : null;
   // a translation (the versions list) is opened as before; a connection offers three ways to read it + copy
   const asLink = !versions && !!openRefHere;
-  const copyItemText = !loading ? () => {
+  // (the source's text as shown: copied, or sent with a report of an error in it)
+  const itemPlainText = () => {
     const hePlain = Sefaria.util.htmlToTextCanonical(typeof lco.he === 'string' ? lco.he : '') || '';
     const enPlain = Sefaria.util.htmlToTextCanonical(typeof lco.en === 'string' ? lco.en : '') || '';
     const parts = [];
     if ((lang === 'hebrew' || lang === 'bilingual') && hePlain) { parts.push(hePlain); }
     if ((lang === 'english' || lang === 'bilingual') && enPlain) { parts.push(enPlain); }
-    Clipboard.setString(parts.join('\n'));
-  } : null;
+    return parts.join('\n');
+  };
+  const copyItemText = !loading ? () => Clipboard.setString(itemPlainText()) : null;
   const onPress = asLink ? () => openLinkActionSheet({
     refStr, heRefStr, interfaceLanguage,
     openHere: () => openRefHere(refStr),
@@ -356,6 +360,7 @@ const ListItem = ({
     showUnderneath: showInline ? () => showInline(refStr) : null,
     shownUnderneath: !!showInline && !!inlineCommentary && !!inlineKeyFor && inlineKeyFor(refStr) === inlineCommentary,
     copyText: copyItemText,
+    reportError: reportError && !loading ? () => reportError(refStr, itemPlainText()) : null,
   }) : () => openActionSheet(refStr, versions, openRef, interfaceLanguage, heRefStr, category);
   // (a long press: straight to a new tab, what a tap did before)
   const onLongPress = asLink && openRefInNewTab ? () => openRefInNewTab(refStr) : undefined;
